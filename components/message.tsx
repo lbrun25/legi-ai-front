@@ -13,7 +13,7 @@ import {ArticleDialogContent} from "@/components/article-dialog-content";
 
 export interface BotMessageProps {
   content: string;
-  isGenerating: boolean;
+  isGenerating?: boolean;
 }
 
 export function BotMessage({content, isGenerating}: BotMessageProps) {
