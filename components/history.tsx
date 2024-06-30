@@ -10,12 +10,11 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Menu } from 'lucide-react'
+import { ChevronRight, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
 import { HistorySkeleton } from './history-skelton'
-import { useAppState } from '@/lib/utils/app-state'
 
 type HistoryProps = {
   location: 'sidebar' | 'header'
@@ -25,7 +24,6 @@ type HistoryProps = {
 export function History({ location, children }: HistoryProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const { isGenerating, setIsGenerating } = useAppState()
 
   const onOpenChange = (open: boolean) => {
     if (open) {
@@ -44,12 +42,11 @@ export function History({ location, children }: HistoryProps) {
           className={cn({
             'rounded-full text-foreground/30': location === 'sidebar'
           })}
-          disabled={isGenerating}
         >
-          {location === 'header' ? <Menu /> : <ChevronLeft size={16} />}
+          {location === 'header' ? <Menu /> : <ChevronRight size={16} />}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-64 rounded-tl-xl rounded-bl-xl">
+      <SheetContent className="w-64 rounded-tl-xl rounded-bl-xl" side="left">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-1 text-sm font-normal mb-2">
             <HistoryIcon size={14} />

@@ -6,8 +6,6 @@ export const useArticle = (articleNumber: string) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  console.log('articleNumber:', articleNumber)
-
   useEffect(() => {
     const fetchArticle = async () => {
       setLoading(true);

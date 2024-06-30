@@ -1,27 +1,13 @@
-import { AssistantResponse } from 'ai';
+import {AssistantResponse} from 'ai';
 import OpenAI from 'openai';
 import {ChatCompletionMessageToolCall} from "ai/prompts";
-import {MatchedArticle, searchMatchedArticles} from "@/lib/supabase/searchArticles";
+import {getMatchedArticlesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedArticlesToolOutput";
+import {getMatchedDecisionsToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDecisionsToolOutput";
+import {getMatchedDoctrinesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDoctrinesToolOutput";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
-
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
-
-function decodeQueryInGetMatchedArticles(jsonString: string): string {
-  try {
-    const data = JSON.parse(jsonString);
-    if ("query" in data) {
-      return data.query;
-    }
-  } catch (error) {
-    console.error(`Could not decode getMatchedArticles query: ${error}`)
-  }
-  console.error(`Could not find getMatchedArticles query in parameters`);
-  return "";
-}
 
 export async function POST(req: Request) {
   // Parse the request body
@@ -40,8 +26,8 @@ export async function POST(req: Request) {
   });
 
   return AssistantResponse(
-    { threadId, messageId: createdMessage.id },
-    async ({ forwardStream, sendDataMessage }) => {
+    {threadId, messageId: createdMessage.id},
+    async ({forwardStream, sendDataMessage}) => {
       // Run the assistant on the thread
       const runStream = openai.beta.threads.runs.stream(threadId, {
         assistant_id:
@@ -63,25 +49,12 @@ export async function POST(req: Request) {
           runResult.required_action.submit_tool_outputs.tool_calls
             .map(async (toolCall: ChatCompletionMessageToolCall) => {
               const params = toolCall.function.arguments;
-              if (toolCall.function.name === "getMatchedArticles") {
-                const input = decodeQueryInGetMatchedArticles(params);
-                if (input.length === 0) {
-                  console.error("cannot getMatchedArticles: input is empty");
-                  return {
-                    tool_call_id: toolCall.id,
-                    output: ""
-                  };
-                }
-                const matchedArticlesResponse: any = await searchMatchedArticles(input);
-                console.log('matchedArticlesResponse:', matchedArticlesResponse);
-                const articles = "#" + matchedArticlesResponse.map((article: MatchedArticle) => `Article ${article.number}: ${article.content}`).join("#");
-                console.log('articles:', articles);
-                console.log('tool call id:', toolCall.id);
-                return {
-                  tool_call_id: toolCall.id,
-                  output: articles,
-                };
-              }
+              if (toolCall.function.name === "getMatchedArticles")
+                return getMatchedArticlesToolOutput(params, toolCall);
+              if (toolCall.function.name === "getMatchedDecisions")
+                return getMatchedDecisionsToolOutput(params, toolCall);
+              if (toolCall.function.name === "getMatchedDoctrines")
+                return getMatchedDoctrinesToolOutput(params, toolCall);
             })
         );
         const filteredToolOutputs = toolOutputs.filter(item => !!item);
@@ -90,7 +63,7 @@ export async function POST(req: Request) {
           openai.beta.threads.runs.submitToolOutputsStream(
             threadId,
             runResult.id,
-            { tool_outputs: filteredToolOutputs },
+            {tool_outputs: filteredToolOutputs},
           ),
         );
       }

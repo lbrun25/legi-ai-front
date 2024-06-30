@@ -19,7 +19,6 @@ export function ChatInput({input, onChange, isGenerating, onSubmit, onStopClicke
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   return (
-
     <form onSubmit={onSubmit} className="max-w-2xl w-full px-6">
       <div className="relative flex items-center w-full">
         <Textarea

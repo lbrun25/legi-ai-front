@@ -55,13 +55,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AppStateProvider>
-            <Header />
-            {children}
-            <Sidebar />
-            {/*<Footer />*/}
-            <Toaster />
-          </AppStateProvider>
+          <Header />
+          {children}
+          <Sidebar />
+          {/*<Footer />*/}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

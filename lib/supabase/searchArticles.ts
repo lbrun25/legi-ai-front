@@ -26,8 +26,10 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const [{embedding}] = result.data;
   const {data: matchedArticles} = await supabaseClient.rpc('match_articles_light', {
     query_embedding: embedding,
-    match_threshold: 0.6, // Choose an appropriate threshold for your data
-    match_count: 10, // Choose the number of matches
+    match_threshold: 0.6,
+    match_count: 10,
   });
-  return matchedArticles;
+  return {
+    articles: matchedArticles
+  };
 }
