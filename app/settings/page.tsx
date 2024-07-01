@@ -59,7 +59,7 @@ export default function Page() {
 
   const onSubmitClicked = async () => {
     const params: OpenAI.Beta.Assistants.AssistantUpdateParams = {}
-    if (instructions) params.instructions;
+    if (instructions) params.instructions = instructions;
     if (name) params.name = name;
     if (model) params.model = model;
     if (description) params.description = description;
@@ -111,6 +111,8 @@ export default function Page() {
         }
       }];
     }
+    if (temperature) params.temperature = Number(temperature);
+    if (topP) params.top_p = Number(topP);
     await updateAssistant(params);
   }
 
