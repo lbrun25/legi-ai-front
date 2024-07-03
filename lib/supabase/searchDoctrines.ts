@@ -13,7 +13,7 @@ export interface SearchMatchedDoctrinesResponse {
 }
 
 export const searchMatchedDoctrines = async (input: string): Promise<SearchMatchedDoctrinesResponse> => {
-  console.log('searchMatchedDoctrines:', input)
+  console.log('searchMatchedDoctrines:', input);
   const response = await embeddingWithVoyageLaw(input)
   if (!response) {
     return {
@@ -21,11 +21,14 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
     }
   }
   const embedding = response.data[0].embedding;
-  const {data: matchedDoctrines} = await supabaseClient.rpc('match_doctrines', {
+  const {data: matchedDoctrines, error} = await supabaseClient.rpc('match_doctrines', {
     query_embedding: embedding,
     match_threshold: 0.001,
     match_count: 10,
   });
+  if (error)
+    console.error('cannot search matched doctrines', error);
+  console.log("got matched doctrines:", matchedDoctrines);
   return {
     doctrines: matchedDoctrines
   };

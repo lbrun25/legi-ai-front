@@ -25,8 +25,8 @@ export default function Page({ params }: ThreadPageProps) {
         }
         const data = await response.json();
         setOpenaiMessages(data.reverse());
-      } catch (err: any) {
-        console.log('fetchMessages err:', err)
+      } catch (error) {
+        console.error('fetchMessages err:', error)
       } finally {
         setLoading(false);
       }

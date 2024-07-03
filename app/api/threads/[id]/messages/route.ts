@@ -32,11 +32,9 @@ export async function GET(
       return new Response(null, { status: 404 })
     }
     const thread = data as Thread;
-    console.log('messages routes thread:', thread)
     const threadMessages = await openai.beta.threads.messages.list(
       thread.thread_id
     );
-    console.log('messages routes threadMessages:', threadMessages)
     return new Response(JSON.stringify(threadMessages.data), { status: 200 })
   } catch (error) {
     if (error instanceof z.ZodError) {

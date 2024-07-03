@@ -13,6 +13,7 @@ export interface SearchMatchedArticlesResponse {
 }
 
 export const searchMatchedArticles = async (input: string): Promise<SearchMatchedArticlesResponse> => {
+  console.log('searchMatchedArticles:', input);
   const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
@@ -24,11 +25,14 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
     model: "text-embedding-3-small",
   });
   const [{embedding}] = result.data;
-  const {data: matchedArticles} = await supabaseClient.rpc('match_articles_light', {
+  const {data: matchedArticles, error} = await supabaseClient.rpc('match_articles_light', {
     query_embedding: embedding,
     match_threshold: 0.6,
     match_count: 10,
   });
+  if (error) {
+    console.error("cannot search matched articles:", error);
+  }
   return {
     articles: matchedArticles
   };

@@ -22,7 +22,6 @@ export const getMatchedArticlesTool = ({uiStream, fullResponse}: ToolProps) => t
       return;
     }
     const matchedArticlesResponse: any = await searchMatchedArticles(query);
-    console.log('matchedArticlesResponse:', matchedArticlesResponse);
     uiStream.update(null)
     return "#" + matchedArticlesResponse.map((article: MatchedArticle) => `Article ${article.number}: ${article.content}`).join("#");
   }

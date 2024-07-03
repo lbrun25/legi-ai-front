@@ -13,7 +13,7 @@ export interface SearchMatchedDecisionsResponse {
 }
 
 export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
-  console.log('searchMatchedDecisions:', input)
+  console.log('searchMatchedDecisions:', input);
   const response = await embeddingWithVoyageLaw(input)
   if (!response) {
     return {
@@ -21,13 +21,15 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
     }
   }
   const embedding = response.data[0].embedding;
-  console.log('searchMatchedDecisions embedding:', embedding);
-  const {data: matchedDecisions} = await supabaseClient.rpc('match_decisions', {
+  const {data: matchedDecisions, error} = await supabaseClient.rpc('match_decisions', {
     query_embedding: embedding,
     match_threshold: 0.001,
     match_count: 10,
-  });
-  console.log('searchMatchedDecisions matchedDecisions:', matchedDecisions);
+  })
+  if (error) {
+    console.error('cannot search matched decisions:', error);
+  }
+  console.log("got matched decisions:", matchedDecisions);
   return {
     decisions: matchedDecisions
   };
