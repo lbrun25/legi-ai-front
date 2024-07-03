@@ -3,11 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Chat } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import {Thread} from "@/lib/types/thread";
 
 type HistoryItemProps = {
-  chat: Chat
+  thread: Thread
 }
 
 const formatDateWithTime = (date: Date | string) => {
@@ -48,23 +48,23 @@ const formatDateWithTime = (date: Date | string) => {
   }
 }
 
-const HistoryItem: React.FC<HistoryItemProps> = ({ chat }) => {
+const HistoryItem: React.FC<HistoryItemProps> = ({ thread }) => {
   const pathname = usePathname()
-  const isActive = pathname === chat.path
+  const isActive = pathname === `/${thread.thread_id}`
 
   return (
     <Link
-      href={chat.path}
+      href={`/c/${thread.thread_id}`}
       className={cn(
         'flex flex-col hover:bg-muted cursor-pointer p-2 rounded border',
         isActive ? 'bg-muted/70 border-border' : 'border-transparent'
       )}
     >
       <div className="text-xs font-medium truncate select-none">
-        {chat.title}
+        {thread.title}
       </div>
       <div className="text-xs text-muted-foreground">
-        {formatDateWithTime(chat.createdAt)}
+        {thread.created_at && formatDateWithTime(thread.created_at)}
       </div>
     </Link>
   )

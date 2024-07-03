@@ -26,8 +26,9 @@ export const embeddingWithVoyageLaw = async (input: string): Promise<VoyageEmbed
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
+  console.log('embeddingWithVoyageLaw input:', input)
   const body = {
-    input: [input],
+    input: input,
     model: 'voyage-law-2'
   };
   const options = {
@@ -38,12 +39,13 @@ export const embeddingWithVoyageLaw = async (input: string): Promise<VoyageEmbed
 
   try {
     const response = await fetch(url, options);
+    const responseBody = await response.json();
     if (!response.ok) {
-      const errorResponse: VoyageEmbeddingErrorResponse = await response.json();
-      console.error("Cannot embed text with Voyage AI:", errorResponse);
+      console.error("Cannot embed text with Voyage AI:", (responseBody as VoyageEmbeddingErrorResponse).detail);
       return null;
     }
-    return await response.json();
+    console.log('embeddingWithVoyageLaw res:', responseBody)
+    return responseBody;
   } catch (error) {
     console.error("Cannot embed text with Voyage AI: there was a problem with the fetch operation:", error);
     return null;

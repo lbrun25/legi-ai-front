@@ -3,7 +3,7 @@ import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
 export interface MatchedDecision {
   id: bigint;
-  ficheArret: string;
+  fichearret: string;
   number: string;
   similarity: number;
 }
@@ -13,6 +13,7 @@ export interface SearchMatchedDecisionsResponse {
 }
 
 export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
+  console.log('searchMatchedDecisions:', input)
   const response = await embeddingWithVoyageLaw(input)
   if (!response) {
     return {
@@ -20,11 +21,13 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
     }
   }
   const embedding = response.data[0].embedding;
+  console.log('searchMatchedDecisions embedding:', embedding);
   const {data: matchedDecisions} = await supabaseClient.rpc('match_decisions', {
     query_embedding: embedding,
-    match_threshold: 0.6,
+    match_threshold: 0.001,
     match_count: 10,
   });
+  console.log('searchMatchedDecisions matchedDecisions:', matchedDecisions);
   return {
     decisions: matchedDecisions
   };

@@ -1,11 +1,17 @@
+"use server"
 import React from 'react'
 import { ModeToggle } from './mode-toggle'
 import { IconLogo } from './ui/icons'
 import { cn } from '@/lib/utils'
 import HistoryContainer from './history-container'
 import {SettingsButton} from "@/components/settings-button";
+import {createClient} from "@/lib/supabase/client/server";
 
 export const Header: React.FC = async () => {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.auth.getUser()
+
   return (
     <header className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent">
       <div>
@@ -16,7 +22,9 @@ export const Header: React.FC = async () => {
       </div>
       <div className="flex gap-0.5">
         <div className="flex flex-row gap-2">
-          <SettingsButton />
+          {!error && data?.user && (
+            <SettingsButton />
+          )}
           <ModeToggle />
         </div>
         <HistoryContainer location="header" />

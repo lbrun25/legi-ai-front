@@ -120,7 +120,7 @@ export default function Page() {
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto space-y-6">
-      <h1>{"Admin Settings"}</h1>
+      <h1 className="text-2xl font-bold">{"Admin Settings"}</h1>
       {loading && (
         <Skeleton className="h-6 w-48"/>
       )}

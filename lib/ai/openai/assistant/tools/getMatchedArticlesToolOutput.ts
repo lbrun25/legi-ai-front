@@ -15,6 +15,7 @@ function decodeQueryInGetMatchedArticles(jsonString: string): string {
 }
 
 export const getMatchedArticlesToolOutput = async (params: string, toolCall: ChatCompletionMessageToolCall) => {
+  console.log('params:', params)
   const input = decodeQueryInGetMatchedArticles(params);
   if (input.length === 0) {
     console.error("cannot getMatchedArticles: input is empty");

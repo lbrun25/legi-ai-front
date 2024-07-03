@@ -4,6 +4,9 @@ import {ChatCompletionMessageToolCall} from "ai/prompts";
 import {getMatchedArticlesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedArticlesToolOutput";
 import {getMatchedDecisionsToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDecisionsToolOutput";
 import {getMatchedDoctrinesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDoctrinesToolOutput";
+import {createClient} from "@/lib/supabase/client/server";
+import {getThread, insertThread} from "@/lib/supabase/threads";
+import {TextContentBlock} from "openai/resources/beta/threads/messages";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -17,6 +20,11 @@ export async function POST(req: Request) {
   } = await req.json();
 
   // Create a thread if needed
+  const supabase = createClient();
+  const {data: authData, error: authError} = await supabase.auth.getUser()
+  if (authError || !authData?.user) {
+    return new Response(null, {status: 403});
+  }
   const threadId = input.threadId ?? (await openai.beta.threads.create({})).id;
 
   // Add a message to the thread
@@ -24,6 +32,16 @@ export async function POST(req: Request) {
     role: 'user',
     content: input.message,
   });
+
+  const existingThread = await getThread(threadId);
+  if (!existingThread) {
+    await insertThread({
+        thread_id: threadId,
+        user_id: authData.user.id,
+        title: (createdMessage.content[0] as TextContentBlock).text.value
+      }
+    );
+  }
 
   return AssistantResponse(
     {threadId, messageId: createdMessage.id},
