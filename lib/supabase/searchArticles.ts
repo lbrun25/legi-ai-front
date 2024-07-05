@@ -25,15 +25,38 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
     model: "text-embedding-3-small",
   });
   const [{embedding}] = result.data;
-  const {data: matchedArticles, error} = await supabaseClient.rpc('match_articles_light', {
-    query_embedding: embedding,
-    match_threshold: 0.6,
-    match_count: 10,
-  });
-  if (error) {
-    console.error("cannot search matched articles:", error);
+
+  const maxIndex = 4;
+  const matchThreshold = 0.6;
+  const matchCount = 10;
+
+  const allArticles: any[] = [];
+
+  for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
+    try {
+      const { data: matchedArticles, error } = await supabaseClient.rpc('match_articles_light', {
+        query_embedding: embedding,
+        match_threshold: matchThreshold,
+        match_count: matchCount,
+        partition_index: partitionIndex,
+      });
+      if (error) {
+        console.error(`Error fetching from partition ${partitionIndex}:`, error);
+        continue;
+      }
+      console.log(`Fetched articles from partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({number: m.number, similarity: m.similarity})));
+      if (matchedArticles) {
+        allArticles.push(...matchedArticles);
+      }
+    } catch (err) {
+      console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+    }
   }
+  allArticles.sort((a, b) => b.similarity - a.similarity);
+  const topArticles = allArticles.slice(0, matchCount);
+
+  console.log("got matched articles:", topArticles);
   return {
-    articles: matchedArticles
+    articles: topArticles
   };
 }
