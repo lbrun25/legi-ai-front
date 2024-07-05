@@ -21,16 +21,43 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
     }
   }
   const embedding = response.data[0].embedding;
-  const {data: matchedDecisions, error} = await supabaseClient.rpc('match_decisions', {
-    query_embedding: embedding,
-    match_threshold: 0.001,
-    match_count: 10,
-  })
-  if (error) {
-    console.error('cannot search matched decisions:', error);
+
+  const maxIndex = 9;
+  const matchThreshold = 0.30;
+  const matchCount = 5;
+
+  // Array to store all matched decisions
+  const allDecisions: any[] = [];
+
+  for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
+    try {
+      const { data: matchedDecisions, error } = await supabaseClient.rpc('match_decisions', {
+        query_embedding: embedding,
+        match_threshold: matchThreshold,
+        match_count: matchCount,
+        partition_index: partitionIndex,
+      });
+      if (error) {
+        console.error(`Error fetching from partition ${partitionIndex}:`, error);
+        continue;
+      }
+      console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({number: m.number, similarity: m.similarity})));
+      if (matchedDecisions) {
+        allDecisions.push(...matchedDecisions);
+      }
+    } catch (err) {
+      console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+    }
   }
-  console.log("got matched decisions:", matchedDecisions);
+
+  // Sort all decisions by similarity in descending order
+  allDecisions.sort((a, b) => b.similarity - a.similarity);
+
+  // Take the top 5 decisions
+  const topDecisions = allDecisions.slice(0, matchCount);
+
+  console.log("got matched decisions:", topDecisions);
   return {
-    decisions: matchedDecisions
+    decisions: topDecisions
   };
 }
