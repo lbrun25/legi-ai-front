@@ -27,7 +27,7 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const [{embedding}] = result.data;
 
   const maxIndex = 4;
-  const matchThreshold = 0.6;
+  const matchThreshold = 0.5;
   const matchCount = 10;
 
   const allArticles: any[] = [];

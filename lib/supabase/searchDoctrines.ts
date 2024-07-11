@@ -22,7 +22,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   }
   const embedding = response.data[0].embedding;
 
-  const maxIndex = 19;
+  const maxIndex = 3;
   const matchThreshold = 0.30;
   const matchCount = 5;
 
@@ -37,7 +37,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
         partition_index: partitionIndex,
       });
       if (error) {
-        console.error(`Error fetching from partition ${partitionIndex}:`, error);
+        console.error(`Error fetching doctrines from partition ${partitionIndex}:`, error);
         continue;
       }
       console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({number: m.paragraphenumber, similarity: m.similarity})));
@@ -45,7 +45,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
         allDoctrines.push(...matchedDoctrines);
       }
     } catch (err) {
-      console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+      console.error(`Exception occurred for doctrines partition ${partitionIndex}:`, err);
     }
   }
   allDoctrines.sort((a, b) => b.similarity - a.similarity);
