@@ -30,6 +30,9 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
 
   const isGenerating = status === "in_progress";
 
+  console.log("status:", status)
+  console.log("isGenerating:", isGenerating)
+
   // Merge openaiMessages and messages into a single array with unique ids
   // @ts-ignore
   const combinedMessages = [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
