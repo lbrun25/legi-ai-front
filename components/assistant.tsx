@@ -2,13 +2,19 @@ import {Message, useAssistant} from "ai/react";
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import {OpenAI} from "openai";
-import {TextContentBlock} from "openai/resources/beta/threads/messages";
 import {useEffect} from "react";
 import {toast} from "sonner";
 
 interface AssistantProps {
   threadId?: string;
   openaiMessages?: OpenAI.Beta.Threads.Message[];
+}
+
+type CombinedMessage = OpenAI.Beta.Threads.Message | Message;
+
+// Type guard to check if a message is of type Message
+function isMessage(message: CombinedMessage): message is Message {
+  return (message as Message).id !== undefined;
 }
 
 export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
@@ -19,18 +25,24 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
     });
 
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) toast.error(error.toString());
   }, [error]);
 
   const isGenerating = status === "in_progress";
 
   // Merge openaiMessages and messages into a single array with unique ids
-  const combinedMessages = [...(openaiMessages ?? []), ...(messages ?? [])].reduce((acc, curr) => {
-    if (!acc.find((message) => message.id === curr.id)) {
-      acc.push(curr);
-    }
-    return acc;
-  }, []);
+  // @ts-ignore
+  const combinedMessages = [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
+    (acc: Message[], curr: CombinedMessage) => {
+      if (!acc.find((message) => message.id === curr.id)) {
+        if (isMessage(curr)) {
+          acc.push(curr);
+        }
+      }
+      return acc;
+    },
+    [] as Message[]
+  );
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
