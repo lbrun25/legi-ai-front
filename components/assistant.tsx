@@ -60,6 +60,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
       {combinedMessages.map((m) => {
         // if it is an array means it is a message fetched from openai API used for the history
         const content = Array.isArray(m.content) ? m.content[0].text.value : m.content;
+        console.log("content:", content)
         return (
           <div key={m.id}>
             <strong>{`${m.role}: `}</strong>
