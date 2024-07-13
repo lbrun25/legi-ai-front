@@ -10,7 +10,6 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import {ArticleDialogContent} from "@/components/article-dialog-content";
-import ReactMarkdown from 'react-markdown'
 
 export interface BotMessageProps {
   content: string;
@@ -38,16 +37,16 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
   }
 
   return (
-    <ReactMarkdown
+    <MemoizedReactMarkdown
       rehypePlugins={[[rehypeExternalLinks, {target: '_blank'}], rehypeRaw]}
       remarkPlugins={[remarkGfm]}
       className="prose-sm xl:prose-base prose-neutral prose-a:text-accent-foreground/50"
       components={{
         mark: ({node, ...props}) => renderMark(node, props),
       }}
-      //isGenerating={isGenerating}
+      isGenerating={isGenerating}
     >
       {content}
-    </ReactMarkdown>
+    </MemoizedReactMarkdown>
   );
 }

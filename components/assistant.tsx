@@ -2,7 +2,7 @@ import {Message, useAssistant} from "ai/react";
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import {OpenAI} from "openai";
-import {useEffect} from "react";
+import {useEffect, useState} from "react";
 import {toast} from "sonner";
 
 interface AssistantProps {
@@ -18,34 +18,81 @@ function isMessage(message: CombinedMessage): message is Message {
 }
 
 export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
-  const {status, messages, input, submitMessage, handleInputChange, error} =
+  const {status, messages, input, submitMessage, handleInputChange, error, threadId: currentThreadId} =
     useAssistant({
       api: "/api/assistant",
-      threadId: threadId
+      threadId: threadId,
     });
+  const [isGenerating, setIsGenerating] = useState(status === "in_progress");
+  const [hasBeenGenerated, setHasBeenGenerated] = useState(false);
+  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
 
   useEffect(() => {
     if (error) toast.error(error.toString());
   }, [error]);
 
-  const isGenerating = status === "in_progress";
+  useEffect(() => {
+    const fetchLastMessage = async () => {
+      setIsGenerating(true);
+      try {
+        const fromThreadId = threadId ? threadId : currentThreadId;
+        console.log("fromThreadId:", fromThreadId)
+        const response = await fetch(`/api/threads/${fromThreadId}/messages`);
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (combinedMessages[combinedMessages.length - 1] === data[0])
+          return;
+        // Create a new array with updated last item
+        const updatedMessages = [...combinedMessages];
+        updatedMessages[combinedMessages.length - 1] = data[0]
+        setCombinedMessages(updatedMessages);
+      } catch (error) {
+        console.error('fetchMessages err:', error)
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+
+    if (status === "awaiting_message") {
+      if (hasBeenGenerated) {
+        fetchLastMessage()
+      }
+    } else if (status === "in_progress") {
+      if (!hasBeenGenerated) setHasBeenGenerated(true);
+      if (!isGenerating) setIsGenerating(true);
+    } else {
+      setIsGenerating(false);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    // Merge openaiMessages and messages into a single array with unique ids
+    // @ts-ignore
+    setCombinedMessages(
+      [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
+        (acc: Message[], curr: CombinedMessage) => {
+          if (!acc.find((message) => message.id === curr.id)) {
+            if (isMessage(curr)) {
+              acc.push(curr);
+            }
+          }
+          return acc;
+        },
+        [] as Message[]
+      )
+    )
+  }, [openaiMessages, messages]);
 
   console.log("status:", status)
   console.log("isGenerating:", isGenerating)
 
-  // Merge openaiMessages and messages into a single array with unique ids
-  // @ts-ignore
-  const combinedMessages = [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
-    (acc: Message[], curr: CombinedMessage) => {
-      if (!acc.find((message) => message.id === curr.id)) {
-        if (isMessage(curr)) {
-          acc.push(curr);
-        }
-      }
-      return acc;
-    },
-    [] as Message[]
-  );
+  const handleOnSubmit = (event) => {
+    event.preventDefault();
+    setHasBeenGenerated(false);
+    submitMessage();
+  }
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
@@ -60,7 +107,6 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
       {combinedMessages.map((m) => {
         // if it is an array means it is a message fetched from openai API used for the history
         const content = Array.isArray(m.content) ? m.content[0].text.value : m.content;
-        console.log("content:", content)
         return (
           <div key={m.id}>
             <strong>{`${m.role}: `}</strong>
@@ -96,7 +142,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
           onChange={handleInputChange}
           isGenerating={isGenerating}
           input={input}
-          onSubmit={submitMessage}
+          onSubmit={handleOnSubmit}
           onStopClicked={() => {
           }}
         />
