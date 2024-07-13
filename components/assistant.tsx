@@ -2,7 +2,7 @@ import {Message, useAssistant} from "ai/react";
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import {OpenAI} from "openai";
-import {useEffect, useState} from "react";
+import {FormEvent, useEffect, useState} from "react";
 import {toast} from "sonner";
 
 interface AssistantProps {
@@ -88,7 +88,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
   console.log("status:", status)
   console.log("isGenerating:", isGenerating)
 
-  const handleOnSubmit = (event) => {
+  const handleOnSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setHasBeenGenerated(false);
     submitMessage();
