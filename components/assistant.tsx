@@ -104,9 +104,20 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
         </div>
       )}
 
-      {combinedMessages.map((m) => {
+      {combinedMessages.map((m, index) => {
         // if it is an array means it is a message fetched from openai API used for the history
-        const content = Array.isArray(m.content) ? m.content[0].text.value : m.content;
+        const content = Array.isArray(m.content) ? m.content[0]?.text?.value : m.content;
+        if (!content) {
+          console.error("content undefined: m.content:", m.content);
+          return null;
+        }
+        const prevMessage = combinedMessages[index - 1];
+        const prevMessageIsAssistant = prevMessage?.role === "assistant";
+        if (prevMessageIsAssistant) {
+          console.warn("the previous message is already from the assistant");
+          return null;
+        }
+
         return (
           <div key={m.id}>
             <strong>{`${m.role}: `}</strong>
