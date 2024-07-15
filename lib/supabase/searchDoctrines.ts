@@ -12,9 +12,9 @@ export interface SearchMatchedDoctrinesResponse {
   doctrines: MatchedDoctrine[];
 }
 
-const fetchDoctrinesFromPartitions = async (maxIndex, embedding, matchCount, supabaseClient) => {
-  const allDoctrines = [];
-  const promises = [];
+const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
+  const allDoctrines: MatchedDoctrine[] = [];
+  const promises: any[] = [];
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -74,7 +74,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   const matchCount = 5;
 
   try {
-    const allDoctrines = await fetchDoctrinesFromPartitions(maxIndex, embedding, matchCount, supabaseClient);
+    const allDoctrines = await fetchDoctrinesFromPartitions(maxIndex, embedding, matchCount);
     allDoctrines.sort((a, b) => b.similarity - a.similarity);
     const topDoctrines = allDoctrines.slice(0, matchCount);
     return {

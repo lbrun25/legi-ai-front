@@ -12,9 +12,9 @@ export interface SearchMatchedDecisionsResponse {
   decisions: MatchedDecision[];
 }
 
-const fetchDecisionsFromPartitions = async (maxIndex, embedding, matchCount, supabaseClient) => {
-  const allDecisions = [];
-  const promises = [];
+const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
+  const allDecisions: MatchedDecision[] = [];
+  const promises: any[] = [];
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -74,7 +74,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   const matchCount = 5;
 
   try {
-    const allDecisions = await fetchDecisionsFromPartitions(maxIndex, embedding, matchCount, supabaseClient);
+    const allDecisions = await fetchDecisionsFromPartitions(maxIndex, embedding, matchCount);
     allDecisions.sort((a, b) => b.similarity - a.similarity);
     const topDecisions = allDecisions.slice(0, matchCount);
     return {

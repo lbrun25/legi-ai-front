@@ -12,9 +12,9 @@ export interface SearchMatchedArticlesResponse {
   articles: MatchedArticle[];
 }
 
-const fetchArticlesFromPartitions = async (maxIndex, embedding, matchCount, supabaseClient) => {
-  const allArticles = [];
-  const promises = [];
+const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
+  const allArticles: MatchedArticle[] = [];
+  const promises: any[] = [];
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -31,7 +31,7 @@ const fetchArticlesFromPartitions = async (maxIndex, embedding, matchCount, supa
           return [];
         }
 
-        console.log(`Fetched articles from partition ${partitionIndex}:`, matchedArticles.map((m) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+        console.log(`Fetched articles from partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
         return matchedArticles;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
@@ -78,7 +78,7 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const matchCount = 5;
 
   try {
-    const allArticles = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount, supabaseClient);
+    const allArticles = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount);
     allArticles.sort((a, b) => b.similarity - a.similarity);
     const topArticles = allArticles.slice(0, matchCount);
     console.log("got matched articles:", topArticles);
