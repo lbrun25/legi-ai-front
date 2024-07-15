@@ -26,7 +26,7 @@ export const getMatchedDecisionsToolOutput = async (params: string, toolCall: Ch
   console.log('params:', params)
   const matchedDecisionsResponse = await searchMatchedDecisions(input);
   console.log('matchedDecisionsResponse:', matchedDecisionsResponse);
-  const decisions = "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Fiche d'arrêt ${decision.number}: ${decision.ficheArret}`).join("#");
+  const decisions = "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Fiche d'arrêt ${decision.number}: ${decision.fichearret}`).join("#");
   console.log('formatted decisions for the assistant:', decisions);
   return {
     tool_call_id: toolCall.id,

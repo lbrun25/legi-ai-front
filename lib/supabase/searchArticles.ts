@@ -19,9 +19,11 @@ const fetchArticlesFromPartitions = async (maxIndex, embedding, matchCount, supa
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_light_part_${partitionIndex}_adaptive`, {
+        const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_light`, {
           query_embedding: embedding,
+          match_threshold: 0.5,
           match_count: matchCount,
+          partition_index: partitionIndex
         });
 
         if (error) {
@@ -73,7 +75,6 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const [{embedding}] = result.data;
 
   const maxIndex = 4;
-  //const matchThreshold = 0.5;
   const matchCount = 5;
 
   try {

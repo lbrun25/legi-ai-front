@@ -3,8 +3,8 @@ import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
 export interface MatchedDoctrine {
   id: bigint;
-  paragrapheContent: string;
-  paragrapheNumber: string;
+  paragraphecontent: string;
+  paragraphenumber: string;
   similarity: number;
 }
 
@@ -19,9 +19,11 @@ const fetchDoctrinesFromPartitions = async (maxIndex, embedding, matchCount, sup
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_part_${partitionIndex}_adaptive`, {
+        const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines`, {
           query_embedding: embedding,
+          match_threshold: 0.30,
           match_count: matchCount,
+          partition_index: partitionIndex
         });
 
         if (error) {
@@ -29,7 +31,7 @@ const fetchDoctrinesFromPartitions = async (maxIndex, embedding, matchCount, sup
           return [];
         }
 
-        console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
+        console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragraphenumber, similarity: m.similarity })));
         return matchedDoctrines;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
@@ -69,7 +71,6 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   const embedding = response.data[0].embedding;
 
   const maxIndex = 3;
-  //const matchThreshold = 0.30;
   const matchCount = 5;
 
   try {
