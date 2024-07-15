@@ -19,6 +19,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
+        console.time("db decisions" + partitionIndex);
         const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions`, {
           query_embedding: embedding,
           match_threshold: 0.30,
@@ -32,6 +33,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
         }
 
         console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+        console.timeEnd("db decisions" + partitionIndex);
         return matchedDecisions;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
@@ -70,7 +72,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   }
   const embedding = response.data[0].embedding;
 
-  const maxIndex = 3;
+  const maxIndex = 2;
   const matchCount = 5;
 
   try {

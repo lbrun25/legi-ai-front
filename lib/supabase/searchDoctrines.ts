@@ -70,7 +70,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   }
   const embedding = response.data[0].embedding;
 
-  const maxIndex = 3;
+  const maxIndex = 2;
   const matchCount = 5;
 
   try {
