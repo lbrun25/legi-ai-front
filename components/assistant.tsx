@@ -42,6 +42,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
           return;
         }
         const data = await response.json();
+        console.log("fetch last message:", data)
         if (combinedMessages[combinedMessages.length - 1] === data[0])
           return;
         // Create a new array with updated last item
@@ -70,6 +71,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
   useEffect(() => {
     // Merge openaiMessages and messages into a single array with unique ids
     // @ts-ignore
+    console.log("messages:", messages)
     setCombinedMessages(
       [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
         (acc: Message[], curr: CombinedMessage) => {
