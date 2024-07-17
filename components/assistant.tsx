@@ -32,25 +32,27 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
   }, [error]);
 
   useEffect(() => {
-    const fetchLastMessage = async () => {
+    const fetchLastMessage = async (): Promise<OpenAI.Beta.Threads.Message | null> => {
       setIsGenerating(true);
       try {
         const fromThreadId = threadId ? threadId : currentThreadId;
-        console.log("fromThreadId:", fromThreadId)
+        console.log("fetchLastMessage fromThreadId:", fromThreadId)
         const response = await fetch(`/api/threads/${fromThreadId}/messages`);
         if (!response.ok) {
-          return;
+          return null;
         }
         const data = await response.json();
         console.log("fetch last message:", data)
         if (combinedMessages[combinedMessages.length - 1] === data[0])
-          return;
+          return null;
         // Create a new array with updated last item
         const updatedMessages = [...combinedMessages];
         updatedMessages[combinedMessages.length - 1] = data[0]
         setCombinedMessages(updatedMessages);
+        return data[0]
       } catch (error) {
-        console.error('fetchMessages err:', error)
+        console.error('fetchLastMessage err:', error)
+        return null;
       } finally {
         setIsGenerating(false);
       }
@@ -58,7 +60,13 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
 
     if (status === "awaiting_message") {
       if (hasBeenGenerated) {
-        fetchLastMessage()
+        const intervalId = setInterval(async () => {
+          const lastMessage = await fetchLastMessage();
+          if (lastMessage) {
+            clearInterval(intervalId);
+            console.log('Content fetched:', lastMessage);
+          }
+        }, 200);
       }
     } else if (status === "in_progress") {
       if (!hasBeenGenerated) setHasBeenGenerated(true);
@@ -115,7 +123,7 @@ export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
         }
         const prevMessage = combinedMessages[index - 1];
         const prevMessageIsAssistant = prevMessage?.role === "assistant";
-        if (prevMessageIsAssistant) {
+        if (prevMessageIsAssistant && m.role === "assistant") {
           console.warn("the previous message is already from the assistant");
           return null;
         }
