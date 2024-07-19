@@ -1,3 +1,4 @@
+"use server"
 import {supabaseClient} from "./supabaseClient";
 import {OpenAI} from "openai";
 

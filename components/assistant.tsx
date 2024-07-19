@@ -1,168 +1,310 @@
-import {Message, useAssistant} from "ai/react";
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import {OpenAI} from "openai";
-import {FormEvent, useEffect, useState} from "react";
-import {toast} from "sonner";
+import React, {FormEvent, useEffect, useRef, useState} from "react";
+import {AssistantStream} from "openai/lib/AssistantStream";
+import {ChatCompletionMessageToolCall} from "ai/prompts";
+import {getMatchedArticlesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedArticlesToolOutput";
+import {getMatchedDecisionsToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDecisionsToolOutput";
+import {getMatchedDoctrinesToolOutput} from "@/lib/ai/openai/assistant/tools/getMatchedDoctrinesToolOutput";
+import {RunSubmitToolOutputsParams} from "openai/resources/beta/threads/runs/runs";
+import {AnnotationDelta} from "openai/resources/beta/threads/messages";
+import {AssistantStreamEvent} from "openai/resources/beta/assistants";
+import {Message} from "@/lib/types/message";
+import {updateTitleForThread} from "@/lib/supabase/threads";
+import {Spinner} from "@/components/ui/spinner";
 
 interface AssistantProps {
   threadId?: string;
-  openaiMessages?: OpenAI.Beta.Threads.Message[];
+  messages?: Message[];
 }
 
-type CombinedMessage = OpenAI.Beta.Threads.Message | Message;
+export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [userInput, setUserInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-// Type guard to check if a message is of type Message
-function isMessage(message: CombinedMessage): message is Message {
-  return (message as Message).id !== undefined;
-}
-
-export const Assistant = ({threadId, openaiMessages}: AssistantProps) => {
-  const {status, messages, input, submitMessage, handleInputChange, error, threadId: currentThreadId} =
-    useAssistant({
-      api: "/api/assistant",
-      threadId: threadId,
-    });
-  const [isGenerating, setIsGenerating] = useState(status === "in_progress");
-  const [hasBeenGenerated, setHasBeenGenerated] = useState(false);
-  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
+  // automatically scroll to bottom of chat
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
+  };
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
-    if (error) toast.error(error.toString());
-  }, [error]);
-
-  useEffect(() => {
-    const fetchLastMessage = async (): Promise<OpenAI.Beta.Threads.Message | null> => {
-      setIsGenerating(true);
+    if (!threadIdParams) return;
+    const fetchMessages = async () => {
+      setLoadingMessages(true);
       try {
-        const fromThreadId = threadId ? threadId : currentThreadId;
-        console.log("fetchLastMessage fromThreadId:", fromThreadId)
-        const response = await fetch(`/api/threads/${fromThreadId}/messages`);
+        const response = await fetch(`/api/threads/${threadIdParams}/messages`);
         if (!response.ok) {
-          return null;
+          return;
         }
-        const data = await response.json();
-        console.log("fetch last message:", data)
-        if (combinedMessages[combinedMessages.length - 1] === data[0])
-          return null;
-        // Create a new array with updated last item
-        const updatedMessages = [...combinedMessages];
-        updatedMessages[combinedMessages.length - 1] = data[0]
-        setCombinedMessages(updatedMessages);
-        return data[0]
+        const data: OpenAI.Beta.Threads.Message[] = await response.json();
+        data.reverse();
+        const messages: Message[] = data.map(openaiMessage => {
+          const text = openaiMessage.content
+            .filter(content => content.type === "text")
+            .map(content => content.text.value)
+            .join(" ");
+          return {
+            role: openaiMessage.role,
+            text: text
+          };
+        });
+        setMessages(messages);
       } catch (error) {
-        console.error('fetchLastMessage err:', error)
-        return null;
+        console.error('cannot fetch messages:', error);
       } finally {
-        setIsGenerating(false);
+        setLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [threadIdParams]);
+
+  const createThread = async (): Promise<string> => {
+    const res = await fetch(`/api/threads`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: userInput
+      })
+    });
+    const data = await res.json();
+    return data.threadId as string;
+  };
+
+  const sendMessage = async (text: string, threadId: string) => {
+    if (messages.length === 0 && threadId) {
+      try {
+        updateTitleForThread(threadId, userInput);
+      } catch (error) {
+        console.error("cannot update title for thread:", error);
       }
     }
-
-    if (status === "awaiting_message") {
-      if (hasBeenGenerated) {
-        const intervalId = setInterval(async () => {
-          const lastMessage = await fetchLastMessage();
-          if (lastMessage) {
-            clearInterval(intervalId);
-            console.log('Content fetched:', lastMessage);
-          }
-        }, 200);
+    const response = await fetch(
+      `/api/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content: text,
+        }),
       }
-    } else if (status === "in_progress") {
-      if (!hasBeenGenerated) setHasBeenGenerated(true);
-      if (!isGenerating) setIsGenerating(true);
-    } else {
-      setIsGenerating(false);
+    );
+    if (!response.body || !response.ok) {
+      console.error("Cannot send message:", response.status, response.statusText);
+      return;
     }
-  }, [status]);
+    const stream = AssistantStream.fromReadableStream(response.body);
+    handleReadableStream(stream, threadId);
+  };
 
-  useEffect(() => {
-    // Merge openaiMessages and messages into a single array with unique ids
-    // @ts-ignore
-    console.log("messages:", messages)
-    setCombinedMessages(
-      [...(openaiMessages ?? []), ...(messages ?? [])].reduce(
-        (acc: Message[], curr: CombinedMessage) => {
-          if (!acc.find((message) => message.id === curr.id)) {
-            if (isMessage(curr)) {
-              acc.push(curr);
-            }
-          }
-          return acc;
-        },
-        [] as Message[]
-      )
-    )
-  }, [openaiMessages, messages]);
-
-  console.log("status:", status)
-  console.log("isGenerating:", isGenerating)
-
-  const handleOnSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleOnSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setHasBeenGenerated(false);
-    submitMessage();
+    if (!userInput.trim()) return;
+    setIsGenerating(true);
+    let threadId = threadIdParams;
+    if (!threadId) {
+      threadId = await createThread();
+    }
+    sendMessage(userInput, threadId);
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {role: "user", text: userInput},
+    ]);
+    setUserInput("");
+    scrollToBottom();
+  }
+
+  const submitActionResult = async (
+    runId: string,
+    toolCallOutputs: Array<RunSubmitToolOutputsParams.ToolOutput>,
+    threadId: string
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/threads/${threadId}/tools`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            runId: runId,
+            toolCallOutputs: toolCallOutputs,
+          }),
+        }
+      );
+      if (!response.ok || !response.body) {
+        console.error("Cannot submit tools:", response.status, response.statusText);
+        return;
+      }
+      const stream = AssistantStream.fromReadableStream(response.body);
+      handleReadableStream(stream, threadId);
+    } catch (error) {
+      console.error("Cannot submit tools:", error);
+    }
+  };
+
+  /* Stream Event Handlers */
+
+  // textCreated - create new assistant message
+  const handleTextCreated = () => {
+    appendMessage("assistant", "");
+  };
+
+  // textDelta - append text to last assistant message
+  const handleTextDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
+    if (delta.value != null) {
+      appendToLastMessage(delta.value);
+    }
+    if (delta.annotations != null) {
+      annotateLastMessage(delta.annotations);
+    }
+  };
+
+  // imageFileDone - show image in chat
+  const handleImageFileDone = (image: OpenAI.Beta.Threads.Messages.ImageFile) => {
+    appendToLastMessage(`\n![${image.file_id}](/api/files/${image.file_id})\n`);
+  }
+
+  // toolCallCreated - log new tool call
+  const toolCallCreated = (toolCall: OpenAI.Beta.Threads.Runs.Steps.ToolCall) => {
+    if (toolCall.type != "code_interpreter") return;
+    appendMessage("code", "");
+  };
+
+  // toolCallDelta - log delta and snapshot for the tool call
+  const toolCallDelta = (delta: OpenAI.Beta.Threads.Runs.Steps.ToolCallDelta) => {
+    if (delta.type != "code_interpreter") return;
+    if (!delta.code_interpreter?.input) return;
+    appendToLastMessage(delta.code_interpreter.input);
+  };
+
+  // handleRequiresAction - handle function call
+  const handleRequiresAction = async (
+    event: AssistantStreamEvent.ThreadRunRequiresAction,
+    threadId: string
+  ) => {
+    const runId = event.data.id;
+    const toolCalls = event.data.required_action?.submit_tool_outputs.tool_calls;
+    if (!toolCalls) {
+      console.error("Cannot handle requires action: tool calls are undefined");
+      return;
+    }
+    // loop over tool calls and call function handler
+    const toolCallOutputs = await Promise.all(
+      toolCalls.map(async (toolCall: ChatCompletionMessageToolCall) => {
+        const params = toolCall.function.arguments;
+        if (toolCall.function.name === "getMatchedArticles")
+          return getMatchedArticlesToolOutput(params, toolCall);
+        if (toolCall.function.name === "getMatchedDecisions")
+          return getMatchedDecisionsToolOutput(params, toolCall);
+        if (toolCall.function.name === "getMatchedDoctrines")
+          return getMatchedDoctrinesToolOutput(params, toolCall);
+      })
+    );
+    const filteredToolOutputs = toolCallOutputs.filter(item => !!item);
+    submitActionResult(runId, filteredToolOutputs, threadId);
+  };
+
+  // handleRunCompleted - re-enable the input form
+  const handleRunCompleted = () => {
+    setIsGenerating(false);
+  };
+
+  const handleReadableStream = (stream: AssistantStream, threadId: string) => {
+    // messages
+    stream.on("textCreated", handleTextCreated);
+    stream.on("textDelta", handleTextDelta);
+
+    // image
+    stream.on("imageFileDone", handleImageFileDone);
+
+    // code interpreter
+    stream.on("toolCallCreated", toolCallCreated);
+    stream.on("toolCallDelta", toolCallDelta);
+
+    // events without helpers yet (e.g. requires_action and run.done)
+    stream.on("event", (event) => {
+      if (event.event === "thread.run.requires_action")
+        handleRequiresAction(event, threadId);
+      if (event.event === "thread.run.completed") handleRunCompleted();
+    });
+  };
+
+  /*
+    =======================
+    === Utility Helpers ===
+    =======================
+  */
+
+  const appendToLastMessage = (text: string) => {
+    setMessages((prevMessages) => {
+      const lastMessage = prevMessages[prevMessages.length - 1];
+      const updatedLastMessage = {
+        ...lastMessage,
+        text: lastMessage.text + text,
+      };
+      return [...prevMessages.slice(0, -1), updatedLastMessage];
+    });
+  };
+
+  const appendMessage = (role: string, text: string) => {
+    setMessages((prevMessages) => [...prevMessages, {role, text}]);
+  };
+
+  const annotateLastMessage = (annotations: Array<AnnotationDelta>) => {
+    setMessages((prevMessages) => {
+      const lastMessage = prevMessages[prevMessages.length - 1];
+      const updatedLastMessage = {
+        ...lastMessage,
+      };
+      annotations.forEach((annotation: AnnotationDelta) => {
+        if (annotation.type === 'file_path' && annotation?.text && annotation?.file_path?.file_id) {
+          updatedLastMessage.text = updatedLastMessage.text.replaceAll(
+            annotation.text,
+            `/api/files/${annotation.file_path.file_id}`
+          );
+        }
+      })
+      return [...prevMessages.slice(0, -1), updatedLastMessage];
+    });
   }
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
-      {error != null && (
-        <div className="relative bg-red-500 text-white px-6 py-4 rounded-md">
-          <span className="block sm:inline">
-            Error: {(error as any).toString()}
-          </span>
-        </div>
-      )}
-
-      {combinedMessages.map((m, index) => {
-        // if it is an array means it is a message fetched from openai API used for the history
-        const content = Array.isArray(m.content) ? m.content[0]?.text?.value : m.content;
-        if (!content) {
-          console.error("content undefined: m.content:", m.content);
-          return null;
-        }
-        const prevMessage = combinedMessages[index - 1];
-        const prevMessageIsAssistant = prevMessage?.role === "assistant";
-        if (prevMessageIsAssistant && m.role === "assistant") {
-          console.warn("the previous message is already from the assistant");
-          return null;
-        }
-
+      {messages.map((message, index) => {
         return (
-          <div key={m.id}>
-            <strong>{`${m.role}: `}</strong>
-            {m.role !== "data" && (
-              <BotMessage
-                content={content}
-                isGenerating={isGenerating}
-              />
-            )}
-            {m.role === "data" && (
-              <>
-                {(m.data as any).description}
-                <br />
-                <pre className={"bg-gray-200"}>
-                  {JSON.stringify(m.data, null, 2)}
-                </pre>
-              </>
-            )}
-            <br />
-            <br />
+          <div key={index}>
+            <strong>{`${message.role}: `}</strong>
+            <BotMessage
+              content={message.text}
+              isGenerating={isGenerating}
+            />
+            <br/>
+            <br/>
           </div>
         );
       })}
-
-      {status === "in_progress" && (
+      {isGenerating && (
         <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
       )}
-
+      {loadingMessages && (
+        <div className="flex justify-center items-center">
+          <Spinner/>
+        </div>
+      )}
+      <div ref={messagesEndRef}/>
       <div
         className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
         <ChatInput
-          messages={messages}
-          onChange={handleInputChange}
+          onChange={(e) => setUserInput(e.target.value)}
           isGenerating={isGenerating}
-          input={input}
+          input={userInput}
           onSubmit={handleOnSubmit}
           onStopClicked={() => {
           }}

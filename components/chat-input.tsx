@@ -1,5 +1,4 @@
 "use client";
-import {Message} from "ai/react";
 import Textarea from 'react-textarea-autosize'
 import {ChangeEvent, FormEvent, useRef} from "react";
 import {Button} from "@/components/ui/button";
@@ -7,7 +6,6 @@ import {ArrowRight} from "lucide-react";
 import {StopButton} from "@/components/ui/stop-button";
 
 interface ChatInputProps {
-  messages: Message[]
   input: string
   onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   isGenerating: boolean;

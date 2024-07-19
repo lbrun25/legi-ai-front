@@ -1,3 +1,4 @@
+"use server"
 import {ChatCompletionMessageToolCall} from "ai/prompts";
 import {MatchedDoctrine, searchMatchedDoctrines} from "@/lib/supabase/searchDoctrines";
 

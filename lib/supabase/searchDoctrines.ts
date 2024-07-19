@@ -1,3 +1,4 @@
+"use server"
 import {embeddingWithVoyageLaw} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
