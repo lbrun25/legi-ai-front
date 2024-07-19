@@ -3,7 +3,7 @@ import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
 export interface MatchedDecision {
   id: bigint;
-  fichearret: string;
+  ficheArret: string;
   number: string;
   similarity: number;
 }
@@ -20,11 +20,9 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     const promise = (async () => {
       try {
         console.time("db decisions" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions`, {
+        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_part_${partitionIndex}_adaptive`, {
           query_embedding: embedding,
-          match_threshold: 0.30,
           match_count: matchCount,
-          partition_index: partitionIndex
         });
 
         if (error) {
