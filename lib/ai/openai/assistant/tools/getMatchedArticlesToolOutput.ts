@@ -1,3 +1,4 @@
+"use server"
 import {MatchedArticle, searchMatchedArticles} from "@/lib/supabase/searchArticles";
 import {ChatCompletionMessageToolCall} from "ai/prompts";
 

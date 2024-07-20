@@ -1,3 +1,4 @@
+"use server"
 import {ChatCompletionMessageToolCall} from "ai/prompts";
 import {MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
 
