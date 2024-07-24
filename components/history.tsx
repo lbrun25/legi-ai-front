@@ -1,6 +1,5 @@
-'use client'
-
-import { useTransition } from 'react'
+"use client"
+import React, {useEffect, useTransition} from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Sheet,
@@ -19,13 +18,22 @@ import { HistorySkeleton } from './history-skelton'
 type HistoryProps = {
   location: 'sidebar' | 'header'
   children?: React.ReactNode
+  open: boolean | null;
 }
 
-export function History({ location, children }: HistoryProps) {
+export function History({ location, children, open: openParams }: HistoryProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [open, setOpen] = React.useState(false);
+
+  useEffect(() => {
+    if (openParams !== null) {
+      setOpen(openParams);
+    }
+  }, [openParams]);
 
   const onOpenChange = (open: boolean) => {
+    setOpen(open);
     if (open) {
       startTransition(() => {
         router.refresh()
@@ -34,7 +42,7 @@ export function History({ location, children }: HistoryProps) {
   }
 
   return (
-    <Sheet onOpenChange={onOpenChange}>
+    <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"

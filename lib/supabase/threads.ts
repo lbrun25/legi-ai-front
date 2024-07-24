@@ -26,7 +26,7 @@ export async function getThreads(): Promise<Thread[]> {
     .eq('user_id', authData.user.id)
     .order('created_at', { ascending: false });
   if (error) {
-    console.log("Error retrieving threads:", error);
+    console.error("Error retrieving threads:", error);
     throw error;
   }
   return data;
@@ -79,4 +79,20 @@ export async function updateTitleForThread(threadId: string, title: string) {
   if (error) {
     throw error;
   }
+}
+
+export async function deleteThreads() {
+  const supabase = createClient();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData?.user) throw new Error("Unauthorized");
+  const { data, error } = await supabase
+    .from('threads')
+    .delete()
+    .eq('user_id', authData.user.id)
+  if (error) {
+    console.error("Error retrieving threads:", error);
+    throw error;
+  }
+  return data;
 }
