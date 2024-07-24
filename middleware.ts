@@ -1,7 +1,16 @@
-import {type NextRequest} from 'next/server'
+import {type NextRequest, NextResponse} from 'next/server'
 import {updateSession} from "@/lib/supabase/middleware";
+import {createClient} from "@/lib/supabase/client/server";
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/settings')) {
+    const supabase = createClient()
+    const {data: authData, error: authError} = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (authData?.user?.app_metadata?.role !== "super-admin")
+      return NextResponse.rewrite(new URL('/unauthorized', request.url))
+  }
+
   return await updateSession(request)
 }
 

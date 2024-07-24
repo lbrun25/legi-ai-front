@@ -22,7 +22,7 @@ export const Header: React.FC = async () => {
       </div>
       <div className="flex gap-0.5">
         <div className="flex flex-row gap-2">
-          {!error && data?.user && (
+          {(!error && data?.user?.app_metadata?.role === "super-admin") && (
             <SettingsButton />
           )}
           <ModeToggle />
