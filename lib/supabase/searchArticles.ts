@@ -1,4 +1,3 @@
-"use server"
 import {supabaseClient} from "./supabaseClient";
 import {OpenAI} from "openai";
 
@@ -13,65 +12,64 @@ export interface SearchMatchedArticlesResponse {
   articles: MatchedArticle[];
 }
 
-const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
-  const allArticles: MatchedArticle[] = [];
-  const promises: any[] = [];
-
-  for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
-    const promise = (async () => {
-      try {
-        const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_light`, {
-          query_embedding: embedding,
-          match_threshold: 0.5,
-          match_count: matchCount,
-          partition_index: partitionIndex
-        });
-
-        if (error) {
-          console.error(`Error fetching articles from partition ${partitionIndex}:`, error);
-          return [];
-        }
-
-        console.log(`Fetched articles from partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-        return matchedArticles;
-      } catch (err) {
-        console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number, codeTitle: string) => {
+    try {
+      //console.log("Code appelé :",codeTitle)
+      console.time('call articles');
+      const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}`, {
+        query_embedding: embedding,
+        match_count: matchCount,
+      });
+      console.timeEnd('call articles');
+      if (error) {
+        console.error(`Error in table ${codeTitle}`, error);
         return [];
       }
-    })();
-
-    promises.push(promise);
-  }
-
-  try {
-    const results = await Promise.allSettled(promises);
-    results.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        allArticles.push(...result.value);
-      } else {
-        if ("reason" in result) {
-          console.error('A promise was rejected:', result.reason);
-        }
-      }
-    });
-  } catch (err) {
-    console.error('Unexpected error occurred while fetching articles from partitions:', err);
-  }
-
-  return allArticles;
+      return matchedArticles;
+    } catch (err) {
+      console.error(`Exception occurred in table ${codeTitle}`, err);
+      return [];
+    }
 };
 
+async function getCodeTitle(input: string): Promise<string> {
+  const regex = /\[(.*?)\]/;
+  const match = regex.exec(input);
+
+  if (match && match[1]) {
+    const formattedString = match[1]
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/'/g, '');
+
+    return formattedString;
+  } else {
+    console.log('Error no title of Code found in the query !');
+    return '';
+  }
+}
+
+async function cleanInput(input: string) {
+  return input.replace(/\[.*?\]/g, '').replace(/\s\s+/g, ' ').trim();
+}
+
 export const searchMatchedArticles = async (input: string): Promise<SearchMatchedArticlesResponse> => {
-  console.log('searchMatchedArticles:', input);
+  //console.log('searchMatchedArticles:', input);
   const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
   // OpenAI recommends replacing newlines with spaces for best results
-  input = input.replace(/\n/g, ' ')
-  // Generate a one-time embedding for the query itself
+  input = input.replace(/\n/g, ' ');
+  const codeTitle = await getCodeTitle(input);
+  console.log('Code :', codeTitle);
+  input = await cleanInput(input);
+  console.log('searchMatchedArticles:', input);
+
   const result = await openai.embeddings.create({
     input,
-    model: "text-embedding-3-small",
+    model: "text-embedding-3-large",
   });
   const [{embedding}] = result.data;
 
@@ -79,10 +77,9 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const matchCount = 5;
 
   try {
-    const allArticles = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount);
-    allArticles.sort((a, b) => b.similarity - a.similarity);
+    const allArticles = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount, codeTitle);
     const topArticles = allArticles.slice(0, matchCount);
-    console.log("got matched articles:", topArticles);
+    //console.log("got matched articles:", topArticles);
     return {
       articles: topArticles
     };
