@@ -16,7 +16,7 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
     try {
       //console.log("Code appelé :",codeTitle)
       console.time('call articles');
-      const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}`, {
+      const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}_adaptive`, {
         query_embedding: embedding,
         match_count: matchCount,
       });
