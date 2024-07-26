@@ -93,6 +93,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         method: "POST",
         body: JSON.stringify({
           content: text,
+          isFormattingAssistant: false
         }),
       }
     );
@@ -159,6 +160,19 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     appendMessage("assistant", "");
   };
 
+  const handleTextFormattingCreated = () => {
+    appendMessage("formatting", "");
+  };
+
+  const handleTextFormattingDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
+    if (delta.value != null) {
+      appendToLastMessage(delta.value);
+    }
+    if (delta.annotations != null) {
+      annotateLastMessage(delta.annotations);
+    }
+  };
+
   // textDelta - append text to last assistant message
   const handleTextDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
     if (delta.value != null) {
@@ -217,14 +231,45 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   // handleRunCompleted - re-enable the input form
-  const handleRunCompleted = () => {
-    setIsGenerating(false);
+  const handleRunCompleted = async (threadId: string) => {
+    // TODO: Call the second assistant
+    console.log('messages:', messages)
   };
+
+  const handleFormattingReadableStream = (stream: AssistantStream, threadId: string) => {
+    console.log('stream:', stream)
+    stream.on("textCreated", handleTextFormattingCreated);
+    stream.on("textDelta", handleTextFormattingDelta);
+    stream.on("event", (event) => {
+      if (event.event === "thread.run.completed") setIsGenerating(false);
+    });
+  }
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
     // messages
     stream.on("textCreated", handleTextCreated);
     stream.on("textDelta", handleTextDelta);
+    stream.on("messageDone", (async message => {
+      const lastMessage = (message.content.map((m => m.type === "text" ? m.text : "")).join(""))
+
+      console.log('lastMessage:', lastMessage)
+      const response = await fetch(
+        `/api/threads/${threadId}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            content: lastMessage,
+            isFormattingAssistant: true
+          }),
+        }
+      );
+      if (!response.body || !response.ok) {
+        console.error("Cannot send formatting message:", response.status, response.statusText);
+        return;
+      }
+      const stream = AssistantStream.fromReadableStream(response.body);
+      handleFormattingReadableStream(stream, threadId);
+    }))
 
     // image
     stream.on("imageFileDone", handleImageFileDone);
@@ -233,15 +278,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("toolCallCreated", toolCallCreated);
     stream.on("toolCallDelta", toolCallDelta);
 
-    stream.on("messageDone", (message) => {
-      console.log('message done:', message);
-    })
-
     // events without helpers yet (e.g. requires_action and run.done)
     stream.on("event", (event) => {
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
-      if (event.event === "thread.run.completed") handleRunCompleted();
+      if (event.event === "thread.run.completed") {
+        console.log('stream first:', stream)
+        handleRunCompleted(threadId)
+      }
       if (event.event === "thread.message.incomplete")
         console.log("incomplete message:", event.data);
     });
