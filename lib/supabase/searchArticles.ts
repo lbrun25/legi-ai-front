@@ -1,3 +1,4 @@
+"use server"
 import {supabaseClient} from "./supabaseClient";
 import {OpenAI} from "openai";
 
@@ -56,7 +57,7 @@ async function cleanInput(input: string) {
 }
 
 export const searchMatchedArticles = async (input: string): Promise<SearchMatchedArticlesResponse> => {
-  //console.log('searchMatchedArticles:', input);
+  console.log('searchMatchedArticles:', input);
   const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
@@ -65,7 +66,7 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   const codeTitle = await getCodeTitle(input);
   console.log('Code :', codeTitle);
   input = await cleanInput(input);
-  console.log('searchMatchedArticles:', input);
+  //console.log('searchMatchedArticles:', input);
 
   const result = await openai.embeddings.create({
     input,
