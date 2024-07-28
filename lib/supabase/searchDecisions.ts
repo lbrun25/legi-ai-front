@@ -1,12 +1,20 @@
 "use server"
 import {embeddingWithVoyageLaw} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
+import { Allerta_Stencil } from "next/font/google";
+import {OpenAI} from "openai";
+
 
 export interface MatchedDecision {
   id: bigint;
-  fichearret: string;
+  ficheArret: string;
   number: string;
   similarity: number;
+}
+
+interface Decision {
+  id: number;
+  decision: string;
 }
 
 export interface SearchMatchedDecisionsResponse {
@@ -14,74 +22,78 @@ export interface SearchMatchedDecisionsResponse {
 }
 
 const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
-  const allDecisions: MatchedDecision[] = [];
-  const promises: any[] = [];
-
-  for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
-    const promise = (async () => {
-      try {
-        console.time("db decisions" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions`, {
-          query_embedding: embedding,
-          match_threshold: 0.30,
-          match_count: matchCount,
-          partition_index: partitionIndex
-        });
-
-        if (error) {
-          console.error(`Error fetching decisions from partition ${partitionIndex}:`, error);
-          return [];
-        }
-
-        console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-        console.timeEnd("db decisions" + partitionIndex);
-        return matchedDecisions;
-      } catch (err) {
-        console.error(`Exception occurred for partition ${partitionIndex}:`, err);
-        return [];
-      }
-    })();
-
-    promises.push(promise);
-  }
-
   try {
-    const results = await Promise.allSettled(promises);
-    results.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        allDecisions.push(...result.value);
-      } else {
-        if ("reason" in result) {
-          console.error('A promise was rejected:', result.reason);
-        }
-      }
+    console.time('call Decisions')
+    const { data: matchedDecisions, error } = await supabaseClient.rpc(`test_match_decisions`, {
+      query_embedding: embedding,
+      match_count: matchCount,
     });
-  } catch (err) {
-    console.error('Unexpected error occurred while fetching decisions from partitions:', err);
-  }
+    console.timeEnd('call Decisions');
 
-  return allDecisions;
+    if (error) {
+      console.error(`Error fetching decisions from`, error);
+      return [];
+    }
+
+    //console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+    return matchedDecisions;
+  } catch (err) {
+    console.error(`Exception occurred for partition`, err);
+    return [];
+  }
+};
+
+const fetchDecisionsFromID = async (maxIndex: number, embedding: number[], idList: number[]) => {
+  try {
+    console.time('call Decisions')
+    const { data: matchedDecisions, error } = await supabaseClient.rpc(`find_top_matches`, {
+      query_embedding: embedding,
+      id_list: idList,
+    });
+    console.timeEnd('call Decisions');
+
+    if (error) {
+      console.error(`Error fetching decisions from`, error);
+      return [];
+    }
+
+    //console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+    return matchedDecisions;
+  } catch (err) {
+    console.error(`Exception occurred for partition`, err);
+    return [];
+  }
 };
 
 export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
   console.log('searchMatchedDecisions:', input);
-  const response = await embeddingWithVoyageLaw(input)
+  const response = await embeddingWithVoyageLaw(input);
   if (!response) {
     return {
       decisions: []
     }
   }
-  const embedding = response.data[0].embedding;
+  const embedding_Voyage = response.data[0].embedding;
+  const openai = new OpenAI({
+    apiKey: process.env['OPENAI_API_KEY'],
+  });
+  const result = await openai.embeddings.create({
+    input,
+    model: "text-embedding-3-large",
+  });
+  const [{embedding}] = result.data;
 
-  const maxIndex = 2;
+  const maxIndex = 3;
   const matchCount = 5;
 
   try {
-    const allDecisions = await fetchDecisionsFromPartitions(maxIndex, embedding, matchCount);
-    allDecisions.sort((a, b) => b.similarity - a.similarity);
-    const topDecisions = allDecisions.slice(0, matchCount);
+    const allDecisions = await fetchDecisionsFromPartitions(maxIndex, embedding, 100);
+    const decisionIds: number[] = allDecisions.map((decision: Decision) => decision.id);
+    console.log('decisionIds:',decisionIds.length)
+    const finalDecisions = await fetchDecisionsFromID(maxIndex, embedding_Voyage, decisionIds);
+    console.log(finalDecisions)
     return {
-      decisions: topDecisions
+      decisions: finalDecisions
     };
   } catch (err) {
     console.error('Error occurred while fetching decisions:', err);
