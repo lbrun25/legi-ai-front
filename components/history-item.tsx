@@ -1,10 +1,12 @@
 'use client'
 
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import {usePathname} from 'next/navigation'
+import {cn} from '@/lib/utils'
 import {Thread} from "@/lib/types/thread";
+import {HistorySettingsMenu} from "@/components/history-settings-menu";
+import {Flag} from "lucide-react";
 
 type HistoryItemProps = {
   thread: Thread
@@ -48,9 +50,18 @@ const formatDateWithTime = (date: Date | string) => {
   }
 }
 
-const HistoryItem: React.FC<HistoryItemProps> = ({ thread }) => {
-  const pathname = usePathname()
-  const isActive = pathname === `/${thread.thread_id}`
+const HistoryItem: React.FC<HistoryItemProps> = ({thread}) => {
+  const pathname = usePathname();
+  const isActive = pathname === `/${thread.thread_id}`;
+  const [isHovered, setIsHovered] = useState(false);
+  const [isReported, setIsReported] = useState(() => {
+    const isReportedLocalStorage = localStorage.getItem(`isReported_${thread.thread_id}`);
+    return isReportedLocalStorage ? JSON.parse(isReportedLocalStorage) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`isReported_${thread.thread_id}`, JSON.stringify(isReported));
+  }, [isReported, thread.thread_id]);
 
   return (
     <Link
@@ -59,12 +70,39 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ thread }) => {
         'flex flex-col hover:bg-muted cursor-pointer p-2 rounded border',
         isActive ? 'bg-muted/70 border-border' : 'border-transparent'
       )}
+      onMouseEnter={() => setIsHovered(true)}
     >
-      <div className="text-xs font-medium truncate select-none">
-        {thread.title}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {thread.created_at && formatDateWithTime(thread.created_at)}
+      <div className="flex flex-row justify-between">
+        <div className="flex flex-col justify-center">
+          <div className="flex flex-row">
+            {isReported && (
+              <div className="flex items-center">
+                <Flag className="text-red-500 h-4 w-4 mr-3"/>
+              </div>
+            )}
+            <div className="flex flex-col">
+              <div className="text-xs font-medium truncate select-none">
+                {thread.title}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {thread.created_at && formatDateWithTime(thread.created_at)}
+              </div>
+            </div>
+          </div>
+        </div>
+        {isHovered && (
+          <div className="justify-between">
+            <HistorySettingsMenu
+              onReportClicked={() => setIsReported(!isReported)}
+              isReported={isReported}
+              onOpenChanged={(isOpen) => {
+                if (isHovered && !isOpen) {
+                  setIsHovered(false);
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
     </Link>
   )
