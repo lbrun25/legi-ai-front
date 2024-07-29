@@ -24,6 +24,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [threadIdState, setThreadIdState] = useState("");
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -107,10 +108,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     if (!userInput.trim()) return;
     setIsGenerating(true);
     let threadId = threadIdParams;
-    if (!threadId) {
+    if (!threadId && !threadIdState) {
       threadId = await createThread();
+      setThreadIdState(threadId);
     }
-    sendMessage(userInput, threadId);
+    sendMessage(userInput, threadId ?? threadIdState);
     setMessages((prevMessages) => [
       ...prevMessages,
       {role: "user", text: userInput},
