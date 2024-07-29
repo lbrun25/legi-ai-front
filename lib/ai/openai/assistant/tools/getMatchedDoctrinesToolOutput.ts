@@ -27,7 +27,7 @@ export const getMatchedDoctrinesToolOutput = async (params: string, toolCall: Ch
   console.log('params:', params)
   const matchedDoctrinesResponse = await searchMatchedDoctrines(input);
   console.log('matchedDoctrinesResponse:', matchedDoctrinesResponse);
-  const doctrines = "#" + matchedDoctrinesResponse.doctrines?.map((doctrine: MatchedDoctrine) => `Doctrine paragraphe ${doctrine.paragraphenumber}: ${doctrine.paragraphecontent}`).join("#");
+  const doctrines = "#" + matchedDoctrinesResponse.doctrines?.map((doctrine: MatchedDoctrine) => `Doctrine paragraphe ${doctrine.paragrapheNumber}: ${doctrine.paragrapheContent}`).join("#");
   console.log('formatted doctrines for the assistant:', doctrines);
   return {
     tool_call_id: toolCall.id,
