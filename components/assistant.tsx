@@ -251,9 +251,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("textCreated", handleTextCreated);
     stream.on("textDelta", handleTextDelta);
     stream.on("messageDone", (async message => {
-      const lastMessage = (message.content.map((m => m.type === "text" ? m.text : "")).join(""))
-
-      console.log('lastMessage:', lastMessage)
+      const lastMessage = message.content.map((m => m.type === "text" ? m.text : "")).join("");
       const response = await fetch(
         `/api/threads/${threadId}/messages`,
         {
