@@ -47,8 +47,12 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           return;
         }
         const data: OpenAI.Beta.Threads.Message[] = await response.json();
-        data.reverse();
-        const messages: Message[] = data.map(openaiMessage => {
+        const userMessages = data
+          .filter(openaiMessage => openaiMessage.assistant_id === null)
+          .filter((_, index) => index % 2 !== 0);
+        const assistantMessages = data.filter(openaiMessage => openaiMessage.assistant_id === process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID);
+        const filteredMessages = userMessages.concat(assistantMessages).sort((a, b) => a.created_at - b.created_at);
+        const messages: Message[] = filteredMessages.map(openaiMessage => {
           const text = openaiMessage.content
             .filter(content => content.type === "text")
             .map(content => content.text.value)
@@ -157,14 +161,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   /* Stream Event Handlers */
 
   // textCreated - create new assistant message
-  const handleTextCreated = () => {
-    appendMessage("assistant", "");
-  };
-
   const handleTextFormattingCreated = () => {
     appendMessage("formatting", "");
   };
 
+  // textDelta - append text to last assistant message
   const handleTextFormattingDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
     if (delta.value != null) {
       appendToLastMessage(delta.value);
@@ -173,21 +174,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       annotateLastMessage(delta.annotations);
     }
   };
-
-  // textDelta - append text to last assistant message
-  const handleTextDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
-    if (delta.value != null) {
-      appendToLastMessage(delta.value);
-    }
-    if (delta.annotations != null) {
-      annotateLastMessage(delta.annotations);
-    }
-  };
-
-  // imageFileDone - show image in chat
-  const handleImageFileDone = (image: OpenAI.Beta.Threads.Messages.ImageFile) => {
-    appendToLastMessage(`\n![${image.file_id}](/api/files/${image.file_id})\n`);
-  }
 
   // toolCallCreated - log new tool call
   const toolCallCreated = (toolCall: OpenAI.Beta.Threads.Runs.Steps.ToolCall) => {
@@ -231,14 +217,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     submitActionResult(runId, filteredToolOutputs, threadId);
   };
 
-  // handleRunCompleted - re-enable the input form
-  const handleRunCompleted = async (threadId: string) => {
-    // TODO: Call the second assistant
-    console.log('messages:', messages)
-  };
-
   const handleFormattingReadableStream = (stream: AssistantStream, threadId: string) => {
-    console.log('stream:', stream)
     stream.on("textCreated", handleTextFormattingCreated);
     stream.on("textDelta", handleTextFormattingDelta);
     stream.on("event", (event) => {
@@ -248,12 +227,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
     // messages
-    stream.on("textCreated", handleTextCreated);
-    stream.on("textDelta", handleTextDelta);
     stream.on("messageDone", (async message => {
-      console.log('messageDone message', JSON.stringify(message));
       const lastMessage = message.content.map((m => m.type === "text" ? m.text.value : "")).join("");
-      console.log('lastMessage', JSON.stringify(lastMessage));
       const response = await fetch(
         `/api/threads/${threadId}/messages`,
         {
@@ -272,9 +247,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       handleFormattingReadableStream(stream, threadId);
     }))
 
-    // image
-    stream.on("imageFileDone", handleImageFileDone);
-
     // code interpreter
     stream.on("toolCallCreated", toolCallCreated);
     stream.on("toolCallDelta", toolCallDelta);
@@ -283,10 +255,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("event", (event) => {
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
-      if (event.event === "thread.run.completed") {
-        console.log('stream first:', stream)
-        handleRunCompleted(threadId)
-      }
       if (event.event === "thread.message.incomplete")
         console.log("incomplete message:", event.data);
     });
