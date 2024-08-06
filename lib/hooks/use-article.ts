@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import {Article} from "@/lib/types/article";
 
-export const useArticle = (articleNumber: string) => {
+export const useArticle = (articleNumber: string, articleSource: string) => {
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export const useArticle = (articleNumber: string) => {
       setError(null);
 
       try {
-        const response = await fetch(`/api/articles/${articleNumber}`);
+        const response = await fetch(`/api/articles/${articleNumber}?articleSource=${encodeURIComponent(articleSource)}`);
         if (!response.ok) {
           setError(`Error fetching article: ${response.statusText}`);
           return;
