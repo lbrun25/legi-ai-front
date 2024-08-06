@@ -3,7 +3,6 @@ import {Skeleton} from "@/components/ui/skeleton";
 import {DialogContent, DialogDescription, DialogFooter} from "@/components/ui/dialog";
 import {MemoizedReactMarkdown} from "@/components/ui/markdown";
 import {Button} from "@/components/ui/button";
-import {formatDate} from "@/lib/utils/date";
 
 interface DecisionDialogContentProps {
   decisionNumber: string;
@@ -26,12 +25,13 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-muted-foreground">{decision.juridiction}</h2>
               </div>
-              <MemoizedReactMarkdown className="prose-sm xl:prose-base prose-a:text-accent-foreground/50">
+              <MemoizedReactMarkdown
+                className="prose-sm xl:prose-base prose-a:text-accent-foreground/50 max-h-96 overflow-y-auto pr-2">
                 {decision.ficheArret}
               </MemoizedReactMarkdown>
               <DialogFooter className="items-center justify-between">
                 <div className="w-full text-xs text-muted-foreground italic">
-                  {formatDate(decision.date)}
+                  {decision.date}
                 </div>
                 <Button
                   size="sm"
