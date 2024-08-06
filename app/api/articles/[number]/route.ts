@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {z} from "zod";
 
@@ -8,11 +9,17 @@ const routeContextSchema = z.object({
 })
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   context: z.infer<typeof routeContextSchema>
 ) {
   try {
     const { params } = routeContextSchema.parse(context)
+
+    const articleSource = req.nextUrl.searchParams.get("source");
+    if (!articleSource) {
+      return new Response(JSON.stringify({ error: "Missing article source" }), { status: 400 });
+    }
+
     if (!process.env.ARTICLES_DB_NAME) {
       return new Response(null, { status: 500 })
     }
@@ -20,6 +27,7 @@ export async function GET(
       .from(process.env.ARTICLES_DB_NAME)
       .select('content, url, source, number, context, startDate, endDate, isRepealed')
       .eq('number', params.number)
+      .eq('source', articleSource)
       .single();
 
     if (error) {
