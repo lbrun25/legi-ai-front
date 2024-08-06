@@ -8,10 +8,11 @@ import {MemoizedReactMarkdown} from "@/components/ui/markdown";
 
 interface ArticleDialogContentProps {
   articleNumber: string;
+  articleSource: string;
 }
 
-export function ArticleDialogContent({articleNumber}: ArticleDialogContentProps) {
-  const {article, loading, error} = useArticle(articleNumber);
+export function ArticleDialogContent({articleNumber, articleSource}: ArticleDialogContentProps) {
+  const {article, loading, error} = useArticle(articleNumber, articleSource);
 
   const renderArticleDate = (article: Article) => {
     return (

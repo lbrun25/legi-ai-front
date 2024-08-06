@@ -22,7 +22,9 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
     if (!node) return null;
     if (node.children.length === 0 || node.children[0].type !== "text") return null;
     const content = node.children[0].value;
-    const articleNumber = content.split(" ")[1]
+    const parts = content.split(" ");
+    const articleNumber = parts[1];
+    const source = parts.splice(2).join(" ");
     if (!articleNumber) return null;
     return (
       <Dialog>
@@ -32,7 +34,7 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
           </button>
         </DialogTrigger>
         {!isGenerating && (
-          <ArticleDialogContent articleNumber={articleNumber}/>
+          <ArticleDialogContent articleNumber={articleNumber} articleSource={source}/>
         )}
       </Dialog>
     )
