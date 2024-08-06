@@ -3,6 +3,7 @@ import {createClient} from "@/lib/supabase/client/server";
 import {Thread} from "@/lib/types/thread";
 import OpenAI from "openai";
 
+export const maxDuration = 5;
 export const dynamic = 'force-dynamic';
 
 const routeContextSchema = z.object({
