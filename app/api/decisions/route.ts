@@ -1,22 +1,16 @@
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
-import {z} from "zod";
+import {NextRequest} from "next/server";
 
-const routeContextSchema = z.object({
-  params: z.object({
-    number: z.string().min(1),
-  }),
-})
-
-export async function GET(
-  req: Request,
-  context: z.infer<typeof routeContextSchema>
-) {
+export async function GET(req: NextRequest) {
   try {
-    const { params } = routeContextSchema.parse(context)
+    const decisionNumber = req.nextUrl.searchParams.get("number");
+    if (!decisionNumber) {
+      return new Response(JSON.stringify({error: "Missing decision number"}), {status: 400});
+    }
     const { data, error } = await supabaseClient
       .from("LegalDecisions")
       .select('number, date, juridiction, ficheArret, decisionContent, decisionLink')
-      .eq('number', params.number)
+      .eq('number', decisionNumber)
       .single();
 
     if (error) {
@@ -27,9 +21,6 @@ export async function GET(
     }
     return new Response(JSON.stringify(data), { status: 200 })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return new Response(JSON.stringify(error.issues), { status: 422 })
-    }
     return new Response(null, { status: 500 })
   }
 }

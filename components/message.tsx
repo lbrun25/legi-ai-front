@@ -25,16 +25,17 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
     const parts = content.split(" ");
     const articleNumber = parts[1];
     const source = parts.splice(2).join(" ");
-    if (!articleNumber) return null;
+    if (!articleNumber || !source) return null;
+    const formattedSource = source[0] + source.slice(1).toLowerCase();
     return (
       <Dialog>
         <DialogTrigger asChild>
           <button>
-            <mark className="bg-blue-700 p-0.5 text-white" {...props} />
+            <mark className="bg-blue-700 p-0.5 text-white rounded" {...props} />
           </button>
         </DialogTrigger>
         {!isGenerating && (
-          <ArticleDialogContent articleNumber={articleNumber} articleSource={source}/>
+          <ArticleDialogContent articleNumber={articleNumber} articleSource={formattedSource}/>
         )}
       </Dialog>
     )
@@ -43,13 +44,17 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
   const renderDecision = (node: Element | undefined, props: any) => {
     if (!node) return null;
     if (node.children.length === 0 || node.children[0].type !== "text") return null;
-    const decisionNumber = node.children[0].value;
+    const decisionMarked = node.children[0].value;
+    if (!decisionMarked) return null;
+    const regex = /n[^,\s]*/;
+    const decisionNumber = decisionMarked.match(regex)?.[0].trim();
     if (!decisionNumber) return null;
+    console.log('decisionNumber:', decisionNumber)
     return (
       <Dialog>
         <DialogTrigger asChild>
           <button>
-            <mark className="bg-blue-700 p-0.5 text-white" {...props} />
+            <mark className="bg-blue-700 p-0.5 text-white rounded" {...props} />
           </button>
         </DialogTrigger>
         {!isGenerating && (

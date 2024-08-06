@@ -66,7 +66,7 @@ export async function POST(
     });
 
     const stream = openai.beta.threads.runs.stream(threadId, {
-      assistant_id: input.isFormattingAssistant ? process.env.FORMATTING_ASSISTANT_ID! : process.env.ASSISTANT_ID!,
+      assistant_id: input.isFormattingAssistant ? process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID! : process.env.ASSISTANT_ID!,
     });
 
     return new Response(stream.toReadableStream());
