@@ -12,7 +12,7 @@ export const useArticle = (articleNumber: string, articleSource: string) => {
       setError(null);
 
       try {
-        const response = await fetch(`/api/articles/${articleNumber}?articleSource=${encodeURIComponent(articleSource)}`);
+        const response = await fetch(`/api/articles?source=${encodeURIComponent(articleSource)}&number=${encodeURIComponent(articleNumber)}`);
         if (!response.ok) {
           setError(`Error fetching article: ${response.statusText}`);
           return;
@@ -29,5 +29,5 @@ export const useArticle = (articleNumber: string, articleSource: string) => {
     fetchArticle();
   }, [articleNumber]);
 
-  return { article, loading, error };
+  return {article, loading, error};
 };

@@ -12,7 +12,7 @@ export const useDecision = (decisionNumber: string) => {
       setError(null);
 
       try {
-        const response = await fetch(`/api/decisions/${decisionNumber}`);
+        const response = await fetch(`/api/decisions?number=${encodeURIComponent(decisionNumber)}`);
         if (!response.ok) {
           setError(`Error fetching decision: ${response.statusText}`);
           return;
@@ -29,5 +29,5 @@ export const useDecision = (decisionNumber: string) => {
     fetchDecision();
   }, [decisionNumber]);
 
-  return { decision, loading, error };
+  return {decision, loading, error};
 };
