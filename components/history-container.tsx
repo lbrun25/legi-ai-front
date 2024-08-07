@@ -12,9 +12,7 @@ const HistoryContainer: React.FC<HistoryContainerProps> = ({
 }) => {
   const [open, setOpen] = React.useState<boolean | null>(null);
   return (
-    <div
-      className={location === 'header' ? 'block sm:hidden' : 'hidden sm:block'}
-    >
+    <div>
       <History location={location} open={open}>
         <HistoryList onHistoryCleaned={() => setOpen(false)} />
       </History>
