@@ -230,11 +230,17 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("toolCallCreated", toolCallCreated);
     stream.on("toolCallDelta", toolCallDelta);
 
+    stream.on("messageDone", (message) => {
+      console.log('message done:', message);
+    })
+
     // events without helpers yet (e.g. requires_action and run.done)
     stream.on("event", (event) => {
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
       if (event.event === "thread.run.completed") handleRunCompleted();
+      if (event.event === "thread.message.incomplete")
+        console.log("incomplete message:", event.data);
     });
   };
 
