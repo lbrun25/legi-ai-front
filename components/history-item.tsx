@@ -58,6 +58,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({thread}) => {
     const isReportedLocalStorage = localStorage.getItem(`isReported_${thread.thread_id}`);
     return isReportedLocalStorage ? JSON.parse(isReportedLocalStorage) : false;
   });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(`isReported_${thread.thread_id}`, JSON.stringify(isReported));
@@ -71,6 +72,9 @@ const HistoryItem: React.FC<HistoryItemProps> = ({thread}) => {
         isActive ? 'bg-muted/70 border-border' : 'border-transparent'
       )}
       onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        if (!isSettingsOpen) setIsHovered(false);
+      }}
     >
       <div className="flex flex-row justify-between">
         <div className="flex flex-col justify-center">
@@ -81,7 +85,12 @@ const HistoryItem: React.FC<HistoryItemProps> = ({thread}) => {
               </div>
             )}
             <div className="flex flex-col">
-              <div className="text-xs font-medium truncate select-none">
+              <div className={cn(
+                "text-xs font-medium text-ellipsis truncate select-none max-w-52",
+                (!isReported && isHovered) && "max-w-40",
+                (isReported && !isHovered) && "max-w-44",
+                (isReported && isHovered) && "max-w-32"
+              )}>
                 {thread.title}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -96,6 +105,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({thread}) => {
               onReportClicked={() => setIsReported(!isReported)}
               isReported={isReported}
               onOpenChanged={(isOpen) => {
+                setIsSettingsOpen(isOpen);
                 if (isHovered && !isOpen) {
                   setIsHovered(false);
                 }
