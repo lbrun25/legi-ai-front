@@ -9,7 +9,7 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, Menu } from 'lucide-react'
+import {ChevronRight} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
@@ -51,7 +51,7 @@ export function History({ location, children, open: openParams }: HistoryProps) 
             'rounded-full text-foreground/30': location === 'sidebar'
           })}
         >
-          {location === 'header' ? <Menu /> : <ChevronRight size={16} />}
+          {location === 'header' ? <HistoryIcon className="h-[1.2rem] w-[1.2rem]" /> : <ChevronRight size={16} />}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-64 rounded-tl-xl rounded-bl-xl" side="left">
