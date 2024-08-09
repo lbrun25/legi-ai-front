@@ -6,7 +6,6 @@ import {createClient} from "@/lib/supabase/client/server";
 import HistoryContainer from "@/components/history-container";
 import {SquarePen} from 'lucide-react'
 import {Button} from "@/components/ui/button";
-import Link from "next/link";
 
 export const Header: React.FC = async () => {
   const supabase = createClient()
@@ -21,9 +20,9 @@ export const Header: React.FC = async () => {
           variant="ghost"
           size="icon"
         >
-          <Link href="/">
+          <a href="/">
             <SquarePen className="h-[1.2rem] w-[1.2rem]"/>
-          </Link>
+          </a>
         </Button>
       </div>
       <div className="flex gap-0.5">
