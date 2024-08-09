@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error) {
+      console.error('Error retrieving decision from Supabase:', error);
       return new Response(JSON.stringify({ error }), { status: 500 })
     }
     if (!data) {
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
     }
     return new Response(JSON.stringify(data), { status: 200 })
   } catch (error) {
+    console.error('Error retrieving decision:', error);
     return new Response(null, { status: 500 })
   }
 }

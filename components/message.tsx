@@ -12,6 +12,7 @@ import {
 import {ArticleDialogContent} from "@/components/article-dialog-content";
 import {DecisionDialogContent} from "@/components/ui/decision-dialog-content";
 import {extractArticleNumber, extractArticleSource} from "@/lib/utils/article";
+import {extractDecisionNumber} from "@/lib/utils/decision";
 
 export interface BotMessageProps {
   content: string;
@@ -22,10 +23,10 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
   const renderArticle = (node: Element | undefined, props: any) => {
     if (!node) return null;
     if (node.children.length === 0 || node.children[0]?.type !== "text") return null;
-    const content = node.children[0].value;
+    const markedArticle = node.children[0].value;
     try {
-      const articleNumber = extractArticleNumber(content);
-      const source = extractArticleSource(content);
+      const articleNumber = extractArticleNumber(markedArticle);
+      const source = extractArticleSource(markedArticle);
       if (!articleNumber || !source) return null;
       const formattedSource = source[0] + source.slice(1).toLowerCase();
       return (
@@ -42,7 +43,7 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
       )
     } catch (error) {
       console.error("cannot render marked article:", error);
-      return null;
+      return markedArticle;
     }
   }
 
@@ -50,22 +51,24 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
     if (!node) return null;
     if (node.children.length === 0 || node.children[0]?.type !== "text") return null;
     const decisionMarked = node.children[0].value;
-    if (!decisionMarked) return null;
-    const regex = /n[^,\s]*/;
-    const decisionNumber = decisionMarked.match(regex)?.[0].trim();
-    if (!decisionNumber) return null;
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <button>
-            <mark className="bg-blue-700 p-0.5 text-white rounded" {...props} />
-          </button>
-        </DialogTrigger>
-        {!isGenerating && (
-          <DecisionDialogContent decisionNumber={decisionNumber}/>
-        )}
-      </Dialog>
-    )
+    try {
+      const decisionNumber = extractDecisionNumber(decisionMarked);
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <button>
+              <mark className="bg-blue-700 p-0.5 text-white rounded" {...props} />
+            </button>
+          </DialogTrigger>
+          {!isGenerating && (
+            <DecisionDialogContent decisionNumber={decisionNumber}/>
+          )}
+        </Dialog>
+      )
+    } catch (error) {
+      console.error("cannot render marked decision:", error);
+      return decisionMarked;
+    }
   }
 
   return (
