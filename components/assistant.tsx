@@ -263,6 +263,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const appendToLastMessage = (text: string) => {
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
+      if (!lastMessage) return prevMessages;
       const updatedLastMessage = {
         ...lastMessage,
         text: lastMessage.text + text,
@@ -278,6 +279,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const annotateLastMessage = (annotations: Array<AnnotationDelta>) => {
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
+      if (!lastMessage) return prevMessages;
       const updatedLastMessage = {
         ...lastMessage,
       };

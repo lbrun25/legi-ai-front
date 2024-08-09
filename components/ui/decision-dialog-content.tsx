@@ -1,6 +1,6 @@
 import {useDecision} from "@/lib/hooks/use-decision";
 import {Skeleton} from "@/components/ui/skeleton";
-import {DialogContent, DialogDescription, DialogFooter} from "@/components/ui/dialog";
+import {DialogContent, DialogDescription, DialogFooter, DialogTitle} from "@/components/ui/dialog";
 import {MemoizedReactMarkdown} from "@/components/ui/markdown";
 import {Button} from "@/components/ui/button";
 
@@ -14,7 +14,7 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
   return (
     <DialogContent>
       <div>
-        <h1 className="text-2xl font-bold">{`Decision de justice ${decisionNumber}`}</h1>
+        <DialogTitle className="text-2xl font-bold">{`Decision de justice ${decisionNumber}`}</DialogTitle>
         {loading ? (
           <Skeleton className="w-full h-6"/>
         ) : error ? (
@@ -26,7 +26,8 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
                 <h2 className="text-lg font-bold text-muted-foreground">{decision.juridiction}</h2>
               </div>
               <MemoizedReactMarkdown
-                className="prose-sm xl:prose-base prose-a:text-accent-foreground/50 max-h-96 overflow-y-auto pr-2">
+                className="prose-sm xl:prose-base prose-a:text-accent-foreground/50 max-h-96 overflow-y-auto pr-2"
+              >
                 {decision.ficheArret}
               </MemoizedReactMarkdown>
               <DialogFooter className="items-center justify-between">

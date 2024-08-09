@@ -29,7 +29,7 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
           isCollapsed: message.isCollapsed
         }
       }
-      acc[message.id].components.push(message.component)
+      acc[message.id]!.components.push(message.component)
       return acc
     },
     {}
@@ -57,7 +57,7 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
             )),
             isCollapsed: groupedMessage.isCollapsed
           }}
-          isLastMessage={groupedMessage.id === messages[messages.length - 1].id}
+          isLastMessage={groupedMessage.id === messages[messages.length - 1]!.id}
         />
       ))}
     </>
