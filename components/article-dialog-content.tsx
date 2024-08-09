@@ -1,4 +1,4 @@
-import {DialogContent, DialogDescription, DialogFooter} from "@/components/ui/dialog";
+import {DialogContent, DialogDescription, DialogFooter, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {useArticle} from "@/lib/hooks/use-article";
 import {Skeleton} from "@/components/ui/skeleton";
@@ -27,7 +27,7 @@ export function ArticleDialogContent({articleNumber, articleSource}: ArticleDial
   return (
     <DialogContent>
       <div>
-        <h1 className="text-2xl font-bold">{`Article ${articleNumber}`}</h1>
+        <DialogTitle className="text-2xl font-bold">{`Article ${articleNumber}`}</DialogTitle>
         {loading ? (
           <Skeleton className="w-full h-6"/>
         ) : error ? (
@@ -39,7 +39,9 @@ export function ArticleDialogContent({articleNumber, articleSource}: ArticleDial
                 <h2 className="text-lg font-bold text-muted-foreground">{article.source}</h2>
                 <h3 className="text-xs font-medium text-muted-foreground">{article.context.split("\n").join(" - ")}</h3>
               </div>
-              <MemoizedReactMarkdown className="prose-sm xl:prose-base prose-a:text-accent-foreground/50">
+              <MemoizedReactMarkdown
+                className="prose-sm xl:prose-base prose-a:text-accent-foreground/50 max-h-96 overflow-y-auto pr-2"
+              >
                 {article.content}
               </MemoizedReactMarkdown>
               <DialogFooter className="items-center justify-between">

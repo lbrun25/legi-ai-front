@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
     if (!process.env.ARTICLES_DB_NAME) {
       return new Response(null, {status: 500})
     }
+    console.log('number:', articleNumber);
+    console.log('source:', articleSource);
     const {data, error} = await supabaseClient
       .from(process.env.ARTICLES_DB_NAME)
       .select('content, url, source, number, context, startDate, endDate, isRepealed')
@@ -23,6 +25,7 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error) {
+      console.error('Error retrieving article from Supabase:', error);
       return new Response(JSON.stringify({error}), {status: 500})
     }
     if (!data) {
@@ -30,6 +33,7 @@ export async function GET(req: NextRequest) {
     }
     return new Response(JSON.stringify(data), {status: 200})
   } catch (error) {
+    console.error('Error retrieving article:', error);
     return new Response(null, {status: 500})
   }
 }
