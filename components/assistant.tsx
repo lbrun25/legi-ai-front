@@ -162,7 +162,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
   // textCreated - create new assistant message
   const handleTextFormattingCreated = () => {
-    appendMessage("formatting", "");
+    appendMessage("assistant", "");
   };
 
   // textDelta - append text to last assistant message
