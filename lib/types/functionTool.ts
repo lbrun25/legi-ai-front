@@ -14,3 +14,8 @@ export interface GetMatchedDecisionsToolParametersProperties {
 export interface GetMatchedDoctrinesToolParametersProperties {
   query: FunctionToolParametersProperty;
 }
+
+export interface GetArticleByNumberToolParametersProperties {
+  source: FunctionToolParametersProperty;
+  number: FunctionToolParametersProperty;
+}

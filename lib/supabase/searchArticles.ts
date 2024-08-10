@@ -1,6 +1,7 @@
 "use server"
 import {supabaseClient} from "./supabaseClient";
 import {OpenAI} from "openai";
+import {Article} from "@/lib/types/article";
 
 export interface MatchedArticle {
   id: bigint;
@@ -161,4 +162,18 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
       articles: []
     };
   }
+}
+
+export const getArticle = async (source: string, number: string): Promise<Article> => {
+  const {data, error} = await supabaseClient
+    .from("articles_large")
+    .select('content, url, source, number, context, startDate, endDate, isRepealed')
+    .eq('number', number)
+    .eq('source', source)
+    .single();
+  if (error)
+    throw new Error(`Error retrieving article from Supabase: ${error}`);
+  if (!data)
+    throw new Error("no article found");
+  return data;
 }

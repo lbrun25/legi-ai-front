@@ -11,8 +11,10 @@ import {Input} from "@/components/ui/input";
 import {FunctionTool} from "openai/resources/beta/assistants";
 import OpenAI from "openai";
 import {
+  GetArticleByNumberToolParametersProperties,
   GetMatchedArticlesToolParametersProperties,
-  GetMatchedDecisionsToolParametersProperties, GetMatchedDoctrinesToolParametersProperties
+  GetMatchedDecisionsToolParametersProperties,
+  GetMatchedDoctrinesToolParametersProperties
 } from "@/lib/types/functionTool";
 
 export default function Page() {
@@ -30,6 +32,9 @@ export default function Page() {
   const [getMatchedDecisionsQueryDescription, setGetMatchedDecisionsQueryDescription] = useState<string>()
   const [getMatchedDoctrinesDescription, setGetMatchedDoctrinesDescription] = useState<string>()
   const [getMatchedDoctrinesQueryDescription, setGetMatchedDoctrinesQueryDescription] = useState<string>()
+  const [getArticleByNumberDescription, setGetArticleByNumberDescription] = useState<string>()
+  const [getArticleByNumberSourceDescription, setGetArticleByNumberSourceDescription] = useState<string>()
+  const [getArticleByNumberNumberDescription, setGetArticleByNumberNumberDescription] = useState<string>()
 
   function findFunctionByName(arr: AssistantTool[] | undefined, functionName: string): FunctionTool | undefined {
     return arr?.find(item => item.type === "function" && item.function?.name === functionName) as FunctionTool;
@@ -45,16 +50,21 @@ export default function Page() {
     setTopP(String(assistant?.top_p) || "1")
 
     const getMatchedArticlesTool = findFunctionByName(assistant?.tools, "getMatchedArticles");
-    setGetMatchedArticlesDescription(getMatchedArticlesTool?.function.description || "")
-    setGetMatchedArticlesQueryDescription((getMatchedArticlesTool?.function.parameters?.properties as GetMatchedArticlesToolParametersProperties)?.query.description || "")
+    setGetMatchedArticlesDescription(getMatchedArticlesTool?.function.description || "");
+    setGetMatchedArticlesQueryDescription((getMatchedArticlesTool?.function.parameters?.properties as GetMatchedArticlesToolParametersProperties)?.query.description || "");
 
     const getMatchedDecisionsTool = findFunctionByName(assistant?.tools, "getMatchedDecisions");
-    setGetMatchedDecisionsDescription(getMatchedDecisionsTool?.function.description || "")
-    setGetMatchedDecisionsQueryDescription((getMatchedDecisionsTool?.function.parameters?.properties as GetMatchedDecisionsToolParametersProperties)?.query.description || "")
+    setGetMatchedDecisionsDescription(getMatchedDecisionsTool?.function.description || "");
+    setGetMatchedDecisionsQueryDescription((getMatchedDecisionsTool?.function.parameters?.properties as GetMatchedDecisionsToolParametersProperties)?.query.description || "");
 
-    const getMatchedDoctrinesTool = findFunctionByName(assistant?.tools, "getMatchedDoctrines")
-    setGetMatchedDoctrinesDescription(getMatchedDoctrinesTool?.function.description || "")
-    setGetMatchedDoctrinesQueryDescription((getMatchedDoctrinesTool?.function.parameters?.properties as GetMatchedDoctrinesToolParametersProperties)?.query.description || "")
+    const getMatchedDoctrinesTool = findFunctionByName(assistant?.tools, "getMatchedDoctrines");
+    setGetMatchedDoctrinesDescription(getMatchedDoctrinesTool?.function.description || "");
+    setGetMatchedDoctrinesQueryDescription((getMatchedDoctrinesTool?.function.parameters?.properties as GetMatchedDoctrinesToolParametersProperties)?.query.description || "");
+
+    const getArticleByNumberTool = findFunctionByName(assistant?.tools, "getArticleByNumber");
+    setGetArticleByNumberDescription(getArticleByNumberTool?.function.description || "");
+    setGetArticleByNumberSourceDescription((getArticleByNumberTool?.function.parameters?.properties as GetArticleByNumberToolParametersProperties)?.source.description || "");
+    setGetArticleByNumberNumberDescription((getArticleByNumberTool?.function.parameters?.properties as GetArticleByNumberToolParametersProperties)?.number.description || "");
   }, [assistant]);
 
   const onSubmitClicked = async () => {
@@ -108,7 +118,26 @@ export default function Page() {
               }
             }
           }
-        }
+        },
+      }, {
+        type: "function",
+        function: {
+          name: "getArticleByNumber",
+          description: getArticleByNumberDescription,
+          parameters: {
+            type: "object",
+            properties: {
+              source: {
+                type: "string",
+                description: getArticleByNumberSourceDescription,
+              },
+              number: {
+                type: "string",
+                description: getArticleByNumberNumberDescription,
+              }
+            }
+          }
+        },
       }];
     }
     if (temperature) params.temperature = Number(temperature);
@@ -153,7 +182,7 @@ export default function Page() {
               tabIndex={0}
               placeholder="Set instructions..."
               value={instructions}
-              className="resize-none w-full min-h-12 rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
+              className="resize-none w-full min-h-96 h-[500px] rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
               onChange={e => setInstructions(e.target.value)}
             />
           </div>
@@ -254,6 +283,36 @@ export default function Page() {
                 value={getMatchedDoctrinesQueryDescription}
                 className="pr-14 h-12"
                 onChange={e => setGetMatchedDoctrinesQueryDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <h3>{"getArticleByNumber"}</h3>
+              <h4>{"Edit description"}</h4>
+              <Input
+                type="text"
+                name="input"
+                placeholder="Set getArticlesByNumber description..."
+                value={getArticleByNumberDescription}
+                className="pr-14 h-12"
+                onChange={e => setGetArticleByNumberDescription(e.target.value)}
+              />
+              <h4>{"Edit source description"}</h4>
+              <Input
+                type="text"
+                name="input"
+                placeholder="Set getArticlesByNumber source description..."
+                value={getArticleByNumberSourceDescription}
+                className="pr-14 h-12"
+                onChange={e => setGetArticleByNumberSourceDescription(e.target.value)}
+              />
+              <h4>{"Edit number description"}</h4>
+              <Input
+                type="text"
+                name="input"
+                placeholder="Set getArticlesByNumber number description..."
+                value={getArticleByNumberNumberDescription}
+                className="pr-14 h-12"
+                onChange={e => setGetArticleByNumberNumberDescription(e.target.value)}
               />
             </div>
           </div>

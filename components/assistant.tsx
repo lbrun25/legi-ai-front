@@ -13,6 +13,7 @@ import {AssistantStreamEvent} from "openai/resources/beta/assistants";
 import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
+import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
 
 interface AssistantProps {
   threadId?: string;
@@ -207,6 +208,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           return getMatchedDecisionsToolOutput(params, toolCall);
         if (toolCall.function.name === "getMatchedDoctrines")
           return getMatchedDoctrinesToolOutput(params, toolCall);
+        if (toolCall.function.name === "getArticleByNumber")
+          return getArticleByNumberToolOutput(params, toolCall);
       })
     );
     const filteredToolOutputs = toolCallOutputs.filter(item => !!item);
