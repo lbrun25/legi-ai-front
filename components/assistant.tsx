@@ -14,6 +14,7 @@ import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
+import {VoiceRecordButton} from "@/components/voice-record-button";
 
 interface AssistantProps {
   threadId?: string;
@@ -310,8 +311,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         </div>
       )}
       <div ref={messagesEndRef}/>
-      <div
-        className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
+      <div className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-row items-center justify-center bg-background">
+        <VoiceRecordButton
+          isGenerating={isGenerating}
+          onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}`: text)}
+        />
         <ChatInput
           onChange={(e) => setUserInput(e.target.value)}
           isGenerating={isGenerating}
