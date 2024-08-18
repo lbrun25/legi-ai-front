@@ -14,6 +14,7 @@ import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
+import {ProgressChatBar} from "@/components/progress-chat-bar";
 
 interface AssistantProps {
   threadId?: string;
@@ -26,6 +27,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -156,6 +158,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
   // textCreated - create new assistant message
   const handleTextCreated = () => {
+    if (!isStreaming)
+      setIsStreaming(true);
     appendMessage("assistant", "");
   };
 
@@ -219,6 +223,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   // handleRunCompleted - re-enable the input form
   const handleRunCompleted = () => {
     setIsGenerating(false);
+    setIsStreaming(false);
   };
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
@@ -301,8 +306,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           </div>
         );
       })}
-      {isGenerating && (
+      {(isGenerating && isStreaming) && (
         <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
+      )}
+      {(isGenerating && !isStreaming) && (
+        <ProgressChatBar />
       )}
       {loadingMessages && (
         <div className="flex justify-center items-center">
