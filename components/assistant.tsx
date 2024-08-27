@@ -17,6 +17,7 @@ import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getA
 import {IncompleteMessage} from "@/components/incomplete-message";
 import {VoiceRecordButton} from "@/components/voice-record-button";
 import {ProgressChatBar} from "@/components/progress-chat-bar";
+import {formatResponseToolOutput} from "@/lib/ai/openai/assistant/tools/formatResponseToolOutput";
 
 interface AssistantProps {
   threadId?: string;
@@ -242,6 +243,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         if (toolCall.function.name === "getArticleByNumber") {
           return getArticleByNumberToolOutput(params, toolCall);
         }
+        if (toolCall.function.name === "formatResponse")
+          return formatResponseToolOutput(toolCall);
       })
     );
     const filteredToolOutputs = toolCallOutputs.filter(item => !!item);
