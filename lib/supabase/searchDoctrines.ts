@@ -1,5 +1,5 @@
 "use server"
-import {embeddingWithVoyageLaw} from "@/lib/ai/voyage/embedding";
+import {embeddingWithVoyageLaw, embeddingWithVoyageLawForDoctrines} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
 
@@ -84,7 +84,7 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
 
 export const searchMatchedDoctrines = async (input: string): Promise<SearchMatchedDoctrinesResponse> => {
   console.log('searchMatchedDoctrines:', input);
-  const response = await embeddingWithVoyageLaw(input)
+  const response = await embeddingWithVoyageLawForDoctrines(input)
   if (!response) {
     return {
       doctrines: []

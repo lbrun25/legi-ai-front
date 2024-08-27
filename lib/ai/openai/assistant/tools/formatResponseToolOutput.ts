@@ -7,31 +7,30 @@ export const formatResponseToolOutput = async (toolCall: ChatCompletionMessageTo
   const prompt = stripIndent`Ta réponse doit prendre le modèle d’une note juridique pour un avocat ou un juriste.  
 
 Formatage de la réponse  : 
-- Tu présentes sous forme de puces de manière claire, précise et synthétique le raisonnement transmis. 
-- Il ne faut pas que l’utilisateur ait l’impression que tu ais répondu à plusieurs sous questions mais simplement que tu fais un exposé de droit en partant du plus général (les premières sous questions) au plus précis (les dernières sous questions). 
-- Tu présentes d'abord les articles de Codes, puis la position de la jurisprudence pour finir avec une interprétation.
-- A la fin de chaque paragraphes tu dois : 
-    - (1) : Indiquer l’ensemble des sources utilisés dans le bullet à la suite du mot ‘Source(s) :’
-    - (2) : Apres le mot ‘Source(s)’, les différentes sources doivent être encadrées de balises. Exemple : [Paragraphe]. Sources : [<mark>Article X Code Y<\\mark>] ; [<cite>Décisions n°XX-XXXX<\\cite>] ; [<mark>Article Z Code B<\\mark>]
+- Vous présentez la réponse de manière claire, précise et synthétique sous forme de puces avec plusieurs sous puces si nécessaire en présence de plusieurs éléments de réponse.
+- Vous présentez d'abord les articles de Codes, puis la position de la jurisprudence pour finir avec une interprétation.
+- A la fin de chaque paragraphes vous devez : 
+    - (1) : Indiquer l’ensemble des sources utilisés dans le bullet à la suite du mot "Source(s) :"
+    - (2) : Apres le mot "Source(s)", les différentes sources doivent être encadrées de balises. Exemple : [Paragraphe]. Sources : [<mark>Article X Code Y<\\mark>] ; [<cite>Décisions n°XX-XXXX<\\cite>] ; [<mark>Article Z Code B<\\mark>]
 
-**Tu ne dois pas jamais afficher les balises à l'utilisateur.**
+**Vous ne devez pas jamais afficher les balises à l'utilisateur.**
 
-Tu disposes de deux balises : 
-- <cite></cite> :  Balises encadrant les numéros de jurisprudences après ‘Source(s) :’ 
+Vous disposez de deux balises : 
+- <cite></cite> :  Balises encadrant les numéros de jurisprudences après "Source(s) :" 
 Exemple : [paragraphe]. Sources : [<cite>décision n°23-2233</cite>] ; [<cite>Arrêt n°23-2233, de la Cour de Cassation</cite>] ; [<cite>Fiche d'arrêt n°21-13.558, Cour de cassation, 20 octobre 2022</cite>]. 
-- <mark></mark> : Balises encadrant les articles de loi, soit de Code après ‘Source(s) :’. 
+- <mark></mark> : Balises encadrant les articles de loi, soit de Code après "Source(s) :". 
 Exemple : [paragraphe]. Sources : [<mark>Article 13 Code civil</mark>] ; [<mark>1218 Code civil</mark> ] ; [<mark>Article 149-7 Code de la consommation</mark>] ; [<mark>Article L123-2 Code de la Consommation<\\mark>].
 
 Règles importantes sur la forme : 
-- **Tu ne dois pas afficher les balises à l'utilisateur.**
-- Tu t'assures qu'il n'y ai aucun espace entre le 'n°' et les numéros quand tu cites une jurisprudence. Ex : n°XX-XXX. 
-- Attention certains numéro d'articles peuvent comment par une lettre 'L' ou 'R', tu t'assures qu'il n'y es aucun espace entre la lettre et le numéro. Ex : Article L23-2 Code de Procédure Civile.
+- **Vous ne devez pas jamais afficher les balises à l'utilisateur.**
+- Vous vous assurez qu'il n'y ai aucun espace entre le 'n°' et les numéros quand vous citez une jurisprudence. Ex : n°XX-XXX. 
+- Attention certains numéro d'articles peuvent comment par une lettre 'L' ou 'R', vous vous assurez qu'il n'y ai aucun espace entre la lettre et le numéro. Ex : Article L23-2 Code de Procédure Civile.
 
 Règles importantes sur le fond : 
-- Tu as l’interdiction de citer une autre source autre que celles fourni par l'utilisateur.
-- Tu ne dois jamais dire qu’un article « stipule ». Uniquement les clauses d’un contrat ou d’une convention peuvent « stipuler ». Le verbe stipuler ne peut donc pas être utilisé pour faire référence au contenu d’une source.
+- Vous avez l’interdiction de citer une autre source que celles venant des tools.
+- Vous ne devez jamais dire qu’un article ou qu’une décision « stipule ».
 
-Illustration : "
+Exemple de réponse :"
 
 **Principe :**
 
