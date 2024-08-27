@@ -14,6 +14,7 @@ import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
+import {formatResponseToolOutput} from "@/lib/ai/openai/assistant/tools/formatResponseToolOutput";
 
 interface AssistantProps {
   threadId?: string;
@@ -210,6 +211,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           return getMatchedDoctrinesToolOutput(params, toolCall);
         if (toolCall.function.name === "getArticleByNumber")
           return getArticleByNumberToolOutput(params, toolCall);
+        if (toolCall.function.name === "formatResponse")
+          return formatResponseToolOutput(toolCall);
       })
     );
     const filteredToolOutputs = toolCallOutputs.filter(item => !!item);
@@ -225,26 +228,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   }
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
-    // messages
-    stream.on("messageDone", (async message => {
-      const lastMessage = message.content.map((m => m.type === "text" ? m.text.value : "")).join("");
-      const response = await fetch(
-        `/api/threads/${threadId}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            content: lastMessage,
-            isFormattingAssistant: true
-          }),
-        }
-      );
-      if (!response.body || !response.ok) {
-        console.error("Cannot send formatting message:", response.status, response.statusText);
-        return;
-      }
-      const stream = AssistantStream.fromReadableStream(response.body);
-      handleFormattingReadableStream(stream, threadId);
-    }))
+    stream.on("textCreated", handleTextFormattingCreated);
+    stream.on("textDelta", handleTextFormattingDelta);
 
     // code interpreter
     stream.on("toolCallCreated", toolCallCreated);
@@ -254,6 +239,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("event", (event) => {
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
+      if (event.event === "thread.run.completed")
+        setIsGenerating(false);
       if (event.event === "thread.message.incomplete")
         console.log("incomplete message:", event.data);
     });
