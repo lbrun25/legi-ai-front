@@ -1,4 +1,7 @@
+import { generateFormattedRandomNumber } from '@/lib/utils/randomNumber';
 import React, {useEffect, useState} from 'react';
+
+const randomNumber = generateFormattedRandomNumber(17172, 125875);
 
 export const ProgressChatBar = () => {
   const [progress, setProgress] = useState(0);
@@ -30,7 +33,7 @@ export const ProgressChatBar = () => {
       }, 10); // 10ms interval
     } else if (progress >= 50 && progress < 75) {
       // Third phase: 50% to 75% in 4 seconds
-      const duration = 4000; // 4 seconds
+      const duration = 6000; // 6 seconds
       const increment = 25 / (duration / 10); // Increment per 10ms to reach 75% in 4 seconds
 
       interval = setInterval(() => {
@@ -41,7 +44,7 @@ export const ProgressChatBar = () => {
       }, 10); // 10ms interval
     } else if (progress >= 75 && progress < 100) {
       // Fourth phase: 75% to 100% in 4 seconds
-      const duration = 4000; // 4 seconds
+      const duration = 4500; // 4.5 seconds
       const increment = 25 / (duration / 10); // Increment per 10ms to reach 100% in 4 seconds
 
       interval = setInterval(() => {
@@ -61,7 +64,7 @@ export const ProgressChatBar = () => {
     if (progress >= 25 && progress < 50) {
       return "Compréhension de la demande";
     } else if (progress >= 50 && progress < 75) {
-      return `Recherche dans 17 172 sources de droit pertinentes en temps réel`;
+      return `Recherche dans ${randomNumber} sources de droit pertinentes en temps réel`;
     } else if (progress >= 75 && progress < 100) {
       return "Suggestion de la meilleure réponse possible";
     } else {
