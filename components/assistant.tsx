@@ -27,6 +27,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -221,7 +222,10 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("textCreated", handleTextFormattingCreated);
     stream.on("textDelta", handleTextFormattingDelta);
     stream.on("event", (event) => {
-      if (event.event === "thread.run.completed") setIsGenerating(false);
+      if (event.event === "thread.run.created")
+        setCurrentRunId(event.data.id);
+      if (event.event === "thread.run.completed")
+        setIsGenerating(false);
     });
   }
 
@@ -253,6 +257,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
     // events without helpers yet (e.g. requires_action and run.done)
     stream.on("event", (event) => {
+      console.log('event happened lawyer:', event)
+      if (event.event === "thread.run.created") {
+        console.log('thread.run.created event.data.id:', event.data.id)
+        setCurrentRunId(event.data.id);
+      }
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
       if (event.event === "thread.message.incomplete")
@@ -301,6 +310,27 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     });
   }
 
+  const onStopClicked = async () => {
+    try {
+      const response = await fetch(
+        `/api/threads/${threadIdState}/cancel`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            runId: currentRunId,
+          }),
+        }
+      );
+      if (!response.body || !response.ok) {
+        console.error("Cannot cancel run:", response.status, response.statusText);
+        return;
+      }
+      setIsGenerating(false);
+    } catch (error) {
+      console.error("cannot cancel run:", error);
+    }
+  }
+
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
       {messages.map((message, index) => {
@@ -335,8 +365,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           isGenerating={isGenerating}
           input={userInput}
           onSubmit={handleOnSubmit}
-          onStopClicked={() => {
-          }}
+          onStopClicked={onStopClicked}
         />
       </div>
     </div>
