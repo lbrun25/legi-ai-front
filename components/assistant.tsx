@@ -217,14 +217,27 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     const toolCallOutputs = await Promise.all(
       toolCalls.map(async (toolCall: ChatCompletionMessageToolCall) => {
         const params = toolCall.function.arguments;
-        if (toolCall.function.name === "getMatchedArticles")
-          return getMatchedArticlesToolOutput(params, toolCall);
-        if (toolCall.function.name === "getMatchedDecisions")
-          return getMatchedDecisionsToolOutput(params, toolCall);
-        if (toolCall.function.name === "getMatchedDoctrines")
-          return getMatchedDoctrinesToolOutput(params, toolCall);
-        if (toolCall.function.name === "getArticleByNumber")
+        if (toolCall.function.name === "getMatchedArticles") {
+          const articlesTool = await getMatchedArticlesToolOutput(params, toolCall);
+          if (articlesTool.hasTimedOut)
+            handleChatError();
+          return articlesTool.toolOutput;
+        }
+        if (toolCall.function.name === "getMatchedDecisions") {
+          const decisionsTool = await getMatchedDecisionsToolOutput(params, toolCall);
+          if (decisionsTool.hasTimedOut)
+            handleChatError();
+          return decisionsTool.toolOutput;
+        }
+        if (toolCall.function.name === "getMatchedDoctrines") {
+          const doctrinesTool = await getMatchedDoctrinesToolOutput(params, toolCall);
+          if (doctrinesTool.hasTimedOut)
+            handleChatError();
+          return doctrinesTool.toolOutput;
+        }
+        if (toolCall.function.name === "getArticleByNumber") {
           return getArticleByNumberToolOutput(params, toolCall);
+        }
       })
     );
     const filteredToolOutputs = toolCallOutputs.filter(item => !!item);

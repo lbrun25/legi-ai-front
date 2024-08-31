@@ -1,6 +1,7 @@
 "use server"
 import {ChatCompletionMessageToolCall} from "ai/prompts";
 import {MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
+import {ToolOutput} from "@/lib/types/functionTool";
 
 function decodeQueryInGetMatchedDecisions(jsonString: string): string {
   try {
@@ -15,13 +16,15 @@ function decodeQueryInGetMatchedDecisions(jsonString: string): string {
   return "";
 }
 
-export const getMatchedDecisionsToolOutput = async (params: string, toolCall: ChatCompletionMessageToolCall) => {
+export const getMatchedDecisionsToolOutput = async (params: string, toolCall: ChatCompletionMessageToolCall): Promise<ToolOutput> => {
   const input = decodeQueryInGetMatchedDecisions(params);
   if (input.length === 0) {
     console.error("cannot getMatchedDecisions: input is empty");
     return {
-      tool_call_id: toolCall.id,
-      output: ""
+      toolOutput: {
+        tool_call_id: toolCall.id,
+        output: ""
+      }
     };
   }
   console.log('params:', params)
@@ -30,7 +33,10 @@ export const getMatchedDecisionsToolOutput = async (params: string, toolCall: Ch
   const decisions = "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Fiche d'arrêt ${decision.number}: ${decision.ficheArret}`).join("#");
   console.log('formatted decisions for the assistant:', decisions);
   return {
-    tool_call_id: toolCall.id,
-    output: decisions,
+    toolOutput: {
+      tool_call_id: toolCall.id,
+      output: decisions,
+    },
+    hasTimedOut: matchedDecisionsResponse.hasTimedOut
   };
 }
