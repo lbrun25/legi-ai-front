@@ -42,7 +42,8 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
         </Dialog>
       )
     } catch (error) {
-      console.error("cannot render marked article:", error);
+      // can be triggered during streaming when the source has not yet been shown
+      // console.error("cannot render marked article:", error);
       return markedArticle;
     }
   }
@@ -66,7 +67,8 @@ export function BotMessage({content, isGenerating}: BotMessageProps) {
         </Dialog>
       )
     } catch (error) {
-      console.error("cannot render marked decision:", error);
+      // can be triggered during streaming when the number has not yet been shown
+      // console.error("cannot render marked decision:", error);
       return decisionMarked;
     }
   }

@@ -29,7 +29,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
-  const [hasIncomplete, setHasIncomplete] = useState<boolean>(true);
+  const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
