@@ -14,6 +14,7 @@ import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
+import {IncompleteMessage} from "@/components/incomplete-message";
 import {VoiceRecordButton} from "@/components/voice-record-button";
 
 interface AssistantProps {
@@ -28,6 +29,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const [hasIncomplete, setHasIncomplete] = useState<boolean>(true);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -85,7 +87,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     return data.threadId as string;
   };
 
+  const handleChatError = () => {
+    setHasIncomplete(true);
+    setIsGenerating(false);
+    cancelRun();
+  };
+
   const sendMessage = async (text: string, threadId: string) => {
+    if (hasIncomplete) setHasIncomplete(false);
     if (messages.length === 0 && threadId) {
       try {
         updateTitleForThread(threadId, userInput);
@@ -105,6 +114,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     );
     if (!response.body || !response.ok) {
       console.error("Cannot send message:", response.status, response.statusText);
+      handleChatError();
       return;
     }
     const stream = AssistantStream.fromReadableStream(response.body);
@@ -150,12 +160,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       );
       if (!response.ok || !response.body) {
         console.error("Cannot submit tools:", response.status, response.statusText);
+        handleChatError();
         return;
       }
       const stream = AssistantStream.fromReadableStream(response.body);
       handleReadableStream(stream, threadId);
     } catch (error) {
       console.error("Cannot submit tools:", error);
+      handleChatError();
     }
   };
 
@@ -198,6 +210,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     const toolCalls = event.data.required_action?.submit_tool_outputs.tool_calls;
     if (!toolCalls) {
       console.error("Cannot handle requires action: tool calls are undefined");
+      handleChatError();
       return;
     }
     // loop over tool calls and call function handler
@@ -245,6 +258,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       );
       if (!response.body || !response.ok) {
         console.error("Cannot send formatting message:", response.status, response.statusText);
+        handleChatError();
         return;
       }
       const stream = AssistantStream.fromReadableStream(response.body);
@@ -310,7 +324,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     });
   }
 
-  const onStopClicked = async () => {
+  const cancelRun = async () => {
+    if (!threadIdState || !currentRunId) return;
     try {
       const response = await fetch(
         `/api/threads/${threadIdState}/cancel`,
@@ -330,6 +345,34 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       console.error("cannot cancel run:", error);
     }
   }
+
+  const retryMessage = () => {
+    // Find the index of the last "user" message
+    const messageIndex = messages.slice().reverse().findIndex((msg) => msg.role === "user");
+    if (messageIndex === -1) {
+      console.error("Cannot retry because there is no user message");
+      return;
+    }
+    // Calculate the index of the last user message in the original array
+    const lastIndex = messages.length - 1 - messageIndex;
+
+    // Retain only the messages up to and including the last "user" message
+    let updatedMessages = messages.slice(0, lastIndex + 1);
+
+    // Remove any "assistant" messages that appear after the last "user" message
+    updatedMessages = updatedMessages.filter((msg, index) => {
+      return index <= lastIndex || msg.role !== "assistant";
+    });
+    setMessages(updatedMessages);
+
+    const threadId = threadIdState ? threadIdState : threadIdParams;
+    if (!threadId) {
+      console.error("Cannot retry because there is no threadId");
+      return;
+    }
+    // Send the message with the last "user" message's text
+    sendMessage(updatedMessages[lastIndex].text, threadId);
+  };
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
@@ -354,6 +397,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           <Spinner/>
         </div>
       )}
+      {hasIncomplete && (
+        <div className="mb-8">
+          <IncompleteMessage onRetryClicked={retryMessage} />
+        </div>
+      )}
       <div ref={messagesEndRef}/>
       <div className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-row items-center justify-center bg-background">
         <VoiceRecordButton
@@ -365,7 +413,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           isGenerating={isGenerating}
           input={userInput}
           onSubmit={handleOnSubmit}
-          onStopClicked={onStopClicked}
+          onStopClicked={cancelRun}
         />
       </div>
     </div>
