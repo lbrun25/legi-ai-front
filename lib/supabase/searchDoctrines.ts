@@ -12,11 +12,23 @@ export interface MatchedDoctrine {
 
 export interface SearchMatchedDoctrinesResponse {
   doctrines: MatchedDoctrine[];
+  hasTimedOut: boolean;
 }
 
-const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
+interface FetchDoctrinesFromPartitionsResponse {
+  doctrines: Pick<MatchedDoctrine, "id">[];
+  hasTimedOut: boolean;
+}
+
+interface FetchDoctrinesFromIdsResponse {
+  doctrines: MatchedDoctrine[];
+  hasTimedOut: boolean;
+}
+
+const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number): Promise<FetchDoctrinesFromPartitionsResponse> => {
   const allDoctrines: MatchedDoctrine[] = [];
   const promises: any[] = [];
+  let hasTimedOut = false;
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -28,6 +40,10 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
 
         if (error) {
           console.error(`Error fetching doctrines from partition ${partitionIndex}:`, error);
+          // canceling statement due to statement timeout
+          if (error.code === "57014") {
+            hasTimedOut = true;
+          }
           return [];
         }
 
@@ -57,10 +73,13 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
     console.error('Unexpected error occurred while fetching doctrines from partitions:', err);
   }
 
-  return allDoctrines;
+  return {
+    doctrines: allDoctrines,
+    hasTimedOut: hasTimedOut,
+  };
 };
 
-const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matchCount: number) => {
+const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDoctrinesFromIdsResponse> => {
   console.log('Will call match_doctrines_by_ids with IDs:', idList);
   try {
     console.time('call match_doctrines_by_ids')
@@ -73,12 +92,28 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
     console.timeEnd('call match_doctrines_by_ids');
     if (error) {
       console.error(`Error fetching doctrines from indexes:`, error);
-      return [];
+      // canceling statement due to statement timeout
+      if (error.code === "57014") {
+        return {
+          doctrines: [],
+          hasTimedOut: true,
+        }
+      }
+      return {
+        doctrines: [],
+        hasTimedOut: false
+      };
     }
-    return matchedDoctrines;
+    return {
+      doctrines: matchedDoctrines,
+      hasTimedOut: false,
+    };
   } catch (error) {
     console.error(`Exception occurred when fetching doctrines from indexes:`, error);
-    return [];
+    return {
+      doctrines: [],
+      hasTimedOut: false
+    };
   }
 };
 
@@ -87,8 +122,9 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   const response = await embeddingWithVoyageLaw(input)
   if (!response) {
     return {
-      doctrines: []
-    }
+      doctrines: [],
+      hasTimedOut: false
+    };
   }
   const embedding_Voyage = response.data[0].embedding;
   const openai = new OpenAI({
@@ -104,17 +140,25 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   const matchCount = 5;
 
   try {
-    const allDoctrines = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
-    const doctrineIds: bigint[] = allDoctrines.map((doctrine: MatchedDoctrine) => doctrine.id);
-    const topDoctrines = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, matchCount);
-    console.log(`topDoctrines:`, topDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, number: m.paragrapheNumber, similarity: m.similarity })));
+    const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    if (fetchDoctrinesFromPartitionsResponse.hasTimedOut) {
+      return {
+        doctrines: [],
+        hasTimedOut: true,
+      }
+    }
+    const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);
+    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, matchCount);
+    console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, number: m.paragrapheNumber, similarity: m.similarity })));
     return {
-      doctrines: topDoctrines
+      doctrines: fetchDoctrinesFromIdsResponse.doctrines,
+      hasTimedOut: fetchDoctrinesFromIdsResponse.hasTimedOut,
     };
   } catch (err) {
     console.error('Error occurred while fetching doctrines:', err);
     return {
-      doctrines: []
+      doctrines: [],
+      hasTimedOut: false
     };
   }
 }

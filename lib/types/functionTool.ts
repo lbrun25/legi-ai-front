@@ -1,3 +1,5 @@
+import {RunSubmitToolOutputsParams} from "openai/resources/beta/threads/runs/runs";
+
 export interface FunctionToolParametersProperty {
   type: string;
   description: string;
@@ -18,4 +20,9 @@ export interface GetMatchedDoctrinesToolParametersProperties {
 export interface GetArticleByNumberToolParametersProperties {
   source: FunctionToolParametersProperty;
   number: FunctionToolParametersProperty;
+}
+
+export interface ToolOutput {
+  toolOutput: RunSubmitToolOutputsParams.ToolOutput;
+  hasTimedOut?: boolean;
 }

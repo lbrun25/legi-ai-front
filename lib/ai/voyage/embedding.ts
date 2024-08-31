@@ -44,7 +44,7 @@ export const embeddingWithVoyageLaw = async (input: string): Promise<VoyageEmbed
       console.error("Cannot embed text with Voyage AI:", (responseBody as VoyageEmbeddingErrorResponse).detail);
       return null;
     }
-    console.log('embeddingWithVoyageLaw res:', responseBody)
+    console.debug('embeddingWithVoyageLaw res:', responseBody)
     return responseBody;
   } catch (error) {
     console.error("Cannot embed text with Voyage AI: there was a problem with the fetch operation:", error);

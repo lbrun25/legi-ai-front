@@ -13,12 +13,9 @@ export async function GET(
 ) {
   try {
     const { params } = routeContextSchema.parse(context)
-    if (!process.env.ARTICLES_DB_NAME) {
-      return new Response(null, { status: 500 })
-    }
     const { data, error } = await supabaseClient
-      .from(process.env.ARTICLES_DB_NAME)
-      .select('content, url, source, number, context, startDate, endDate, isRepealed')
+      .from("LegalDecisions")
+      .select('number, date, juridiction, ficheArret, decisionContent, decisionLink')
       .eq('number', params.number)
       .single();
 
