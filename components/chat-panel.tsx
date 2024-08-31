@@ -11,7 +11,7 @@ import { ArrowRight, Plus } from 'lucide-react'
 import { EmptyScreen } from './empty-screen'
 import Textarea from 'react-textarea-autosize'
 import { generateId } from 'ai'
-import { useAppState } from '@/lib/utils/app-state'
+import {useAppState} from "@/lib/context/app-state";
 
 interface ChatPanelProps {
   messages: UIState

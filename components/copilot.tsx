@@ -15,7 +15,7 @@ import {
 } from 'ai/rsc'
 import type { AI } from '@/app/actions'
 import { IconLogo } from './ui/icons'
-import { useAppState } from '@/lib/utils/app-state'
+import { useAppState } from '@/lib/context/app-state'
 
 export type CopilotProps = {
   inquiry?: StreamableValue<PartialInquiry>
