@@ -71,6 +71,7 @@ export async function POST(
 
     return new Response(stream.toReadableStream());
   } catch (error) {
+    console.error(`cannot send message:`, error);
     if (error instanceof z.ZodError) {
       return new Response(JSON.stringify(error.issues), {status: 422})
     }

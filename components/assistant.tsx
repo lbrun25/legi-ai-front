@@ -90,9 +90,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   const handleChatError = () => {
+    cancelRun();
     setHasIncomplete(true);
     setIsGenerating(false);
-    cancelRun();
   };
 
   const sendMessage = async (text: string, threadId: string) => {
@@ -262,26 +262,10 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   }
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
+    let lastMessage: string;
     // messages
     stream.on("messageDone", (async message => {
-      const lastMessage = message.content.map((m => m.type === "text" ? m.text.value : "")).join("");
-      const response = await fetch(
-        `/api/threads/${threadId}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            content: lastMessage,
-            isFormattingAssistant: true
-          }),
-        }
-      );
-      if (!response.body || !response.ok) {
-        console.error("Cannot send formatting message:", response.status, response.statusText);
-        handleChatError();
-        return;
-      }
-      const stream = AssistantStream.fromReadableStream(response.body);
-      handleFormattingReadableStream(stream, threadId);
+      lastMessage = message.content.map((m => m.type === "text" ? m.text.value : "")).join("");
     }))
 
     // code interpreter
@@ -289,11 +273,28 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stream.on("toolCallDelta", toolCallDelta);
 
     // events without helpers yet (e.g. requires_action and run.done)
-    stream.on("event", (event) => {
-      console.log('event happened lawyer:', event)
+    stream.on("event", async (event) => {
       if (event.event === "thread.run.created") {
-        console.log('thread.run.created event.data.id:', event.data.id)
         setCurrentRunId(event.data.id);
+      }
+      if (event.event === "thread.run.completed") {
+        const response = await fetch(
+          `/api/threads/${threadId}/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              content: lastMessage,
+              isFormattingAssistant: true
+            }),
+          }
+        );
+        if (!response.body || !response.ok) {
+          console.error("Cannot send formatting message:", response.status, response.statusText);
+          handleChatError();
+          return;
+        }
+        const stream = AssistantStream.fromReadableStream(response.body);
+        handleFormattingReadableStream(stream, threadId);
       }
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);

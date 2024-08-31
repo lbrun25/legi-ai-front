@@ -47,7 +47,7 @@ export const ProgressChatBar = () => {
       interval = setInterval(() => {
         setProgress((prev) => {
           const newProgress = prev + increment;
-          return newProgress >= 100 ? 100 : newProgress;
+          return newProgress >= 99 ? 99 : newProgress;
         });
       }, 10); // 10ms interval
     }
