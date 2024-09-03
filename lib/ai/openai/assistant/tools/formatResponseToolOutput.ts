@@ -1,10 +1,9 @@
 "use server"
-import {stripIndent} from "common-tags";
 import {ChatCompletionMessageToolCall} from "ai/prompts";
 
 export const formatResponseToolOutput = async (toolCall: ChatCompletionMessageToolCall) => {
   console.log('formatResponse tool called')
-  const prompt = stripIndent`En tant qu'expert juridique, fournissez une réponse structurée selon le modèle suivant pour une note juridique destinée à un avocat ou un juriste :
+  const prompt = `En tant qu'expert juridique, fournissez une réponse structurée selon le modèle suivant pour une note juridique destinée à un avocat ou un juriste :
 
 **Format de la réponse :**
 
@@ -87,7 +86,7 @@ Source : [<cite>Cass. com., 27 sept. 2005, n°03-18.952</cite>]
 
 Il semblerait que l’associé qui n’a pas été convoqué puisse demander la nullité des assemblées générales où il n’a pas été convoquée (dans la limite de la prescription triennale) si :
 (i) il n’était en effet pas présente derrière, et que 
-(ii) cela a pu causer un grief à ses intérêts ou à ceux de la société. "`
+(ii) cela a pu causer un grief à ses intérêts ou à ceux de la société.`
 
   return {
     tool_call_id: toolCall.id,
