@@ -1,9 +1,10 @@
 import { generateFormattedRandomNumber } from '@/lib/utils/randomNumber';
 import React, {useEffect, useState} from 'react';
 
+const randomNumber = generateFormattedRandomNumber(17172, 125875);
+
 export const ProgressChatBar = () => {
   const [progress, setProgress] = useState(0);
-  const randomNumber = generateFormattedRandomNumber(17172, 125875);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
