@@ -14,7 +14,9 @@ import {Message} from "@/lib/types/message";
 import {updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {getArticleByNumberToolOutput} from "@/lib/ai/openai/assistant/tools/getArticleByNumberToolOutput";
+import {IncompleteMessage} from "@/components/incomplete-message";
 import {VoiceRecordButton} from "@/components/voice-record-button";
+import {ProgressChatBar} from "@/components/progress-chat-bar";
 
 interface AssistantProps {
   threadId?: string;
@@ -27,6 +29,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -47,8 +52,12 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           return;
         }
         const data: OpenAI.Beta.Threads.Message[] = await response.json();
-        data.reverse();
-        const messages: Message[] = data.map(openaiMessage => {
+        const userMessages = data
+          .filter(openaiMessage => openaiMessage.assistant_id === null)
+          .filter((_, index) => index % 2 !== 0);
+        const assistantMessages = data.filter(openaiMessage => openaiMessage.assistant_id === process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID);
+        const filteredMessages = userMessages.concat(assistantMessages).sort((a, b) => a.created_at - b.created_at);
+        const messages: Message[] = filteredMessages.map(openaiMessage => {
           const text = openaiMessage.content
             .filter(content => content.type === "text")
             .map(content => content.text.value)
@@ -80,7 +89,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     return data.threadId as string;
   };
 
+  const handleChatError = () => {
+    cancelRun();
+    setHasIncomplete(true);
+    setIsGenerating(false);
+  };
+
   const sendMessage = async (text: string, threadId: string) => {
+    if (hasIncomplete) setHasIncomplete(false);
     if (messages.length === 0 && threadId) {
       try {
         updateTitleForThread(threadId, userInput);
@@ -94,11 +110,13 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         method: "POST",
         body: JSON.stringify({
           content: text,
+          isFormattingAssistant: false
         }),
       }
     );
     if (!response.body || !response.ok) {
       console.error("Cannot send message:", response.status, response.statusText);
+      handleChatError();
       return;
     }
     const stream = AssistantStream.fromReadableStream(response.body);
@@ -144,24 +162,28 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       );
       if (!response.ok || !response.body) {
         console.error("Cannot submit tools:", response.status, response.statusText);
+        handleChatError();
         return;
       }
       const stream = AssistantStream.fromReadableStream(response.body);
       handleReadableStream(stream, threadId);
     } catch (error) {
       console.error("Cannot submit tools:", error);
+      handleChatError();
     }
   };
 
   /* Stream Event Handlers */
 
   // textCreated - create new assistant message
-  const handleTextCreated = () => {
+  const handleTextFormattingCreated = () => {
+    if (!isStreaming)
+      setIsStreaming(true);
     appendMessage("assistant", "");
   };
 
   // textDelta - append text to last assistant message
-  const handleTextDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
+  const handleTextFormattingDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
     if (delta.value != null) {
       appendToLastMessage(delta.value);
     }
@@ -169,11 +191,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       annotateLastMessage(delta.annotations);
     }
   };
-
-  // imageFileDone - show image in chat
-  const handleImageFileDone = (image: OpenAI.Beta.Threads.Messages.ImageFile) => {
-    appendToLastMessage(`\n![${image.file_id}](/api/files/${image.file_id})\n`);
-  }
 
   // toolCallCreated - log new tool call
   const toolCallCreated = (toolCall: OpenAI.Beta.Threads.Runs.Steps.ToolCall) => {
@@ -197,52 +214,90 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     const toolCalls = event.data.required_action?.submit_tool_outputs.tool_calls;
     if (!toolCalls) {
       console.error("Cannot handle requires action: tool calls are undefined");
+      handleChatError();
       return;
     }
     // loop over tool calls and call function handler
     const toolCallOutputs = await Promise.all(
       toolCalls.map(async (toolCall: ChatCompletionMessageToolCall) => {
         const params = toolCall.function.arguments;
-        if (toolCall.function.name === "getMatchedArticles")
-          return getMatchedArticlesToolOutput(params, toolCall);
-        if (toolCall.function.name === "getMatchedDecisions")
-          return getMatchedDecisionsToolOutput(params, toolCall);
-        if (toolCall.function.name === "getMatchedDoctrines")
-          return getMatchedDoctrinesToolOutput(params, toolCall);
-        if (toolCall.function.name === "getArticleByNumber")
+        if (toolCall.function.name === "getMatchedArticles") {
+          const articlesTool = await getMatchedArticlesToolOutput(params, toolCall);
+          if (articlesTool.hasTimedOut)
+            handleChatError();
+          return articlesTool.toolOutput;
+        }
+        if (toolCall.function.name === "getMatchedDecisions") {
+          const decisionsTool = await getMatchedDecisionsToolOutput(params, toolCall);
+          if (decisionsTool.hasTimedOut)
+            handleChatError();
+          return decisionsTool.toolOutput;
+        }
+        if (toolCall.function.name === "getMatchedDoctrines") {
+          const doctrinesTool = await getMatchedDoctrinesToolOutput(params, toolCall);
+          if (doctrinesTool.hasTimedOut)
+            handleChatError();
+          return doctrinesTool.toolOutput;
+        }
+        if (toolCall.function.name === "getArticleByNumber") {
           return getArticleByNumberToolOutput(params, toolCall);
+        }
       })
     );
     const filteredToolOutputs = toolCallOutputs.filter(item => !!item);
     submitActionResult(runId, filteredToolOutputs, threadId);
   };
 
-  // handleRunCompleted - re-enable the input form
-  const handleRunCompleted = () => {
-    setIsGenerating(false);
-  };
+  const handleFormattingReadableStream = (stream: AssistantStream, threadId: string) => {
+    stream.on("textCreated", handleTextFormattingCreated);
+    stream.on("textDelta", handleTextFormattingDelta);
+    stream.on("event", (event) => {
+      if (event.event === "thread.run.created")
+        setCurrentRunId(event.data.id);
+      if (event.event === "thread.run.completed") {
+        setIsGenerating(false);
+        setIsStreaming(false);
+      }
+    });
+  }
 
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
+    let lastMessage: string;
     // messages
-    stream.on("textCreated", handleTextCreated);
-    stream.on("textDelta", handleTextDelta);
-
-    // image
-    stream.on("imageFileDone", handleImageFileDone);
+    stream.on("messageDone", (async message => {
+      lastMessage = message.content.map((m => m.type === "text" ? m.text.value : "")).join("");
+    }))
 
     // code interpreter
     stream.on("toolCallCreated", toolCallCreated);
     stream.on("toolCallDelta", toolCallDelta);
 
-    stream.on("messageDone", (message) => {
-      console.log('message done:', message);
-    })
-
     // events without helpers yet (e.g. requires_action and run.done)
-    stream.on("event", (event) => {
+    stream.on("event", async (event) => {
+      if (event.event === "thread.run.created") {
+        setCurrentRunId(event.data.id);
+      }
+      if (event.event === "thread.run.completed") {
+        const response = await fetch(
+          `/api/threads/${threadId}/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              content: lastMessage,
+              isFormattingAssistant: true
+            }),
+          }
+        );
+        if (!response.body || !response.ok) {
+          console.error("Cannot send formatting message:", response.status, response.statusText);
+          handleChatError();
+          return;
+        }
+        const stream = AssistantStream.fromReadableStream(response.body);
+        handleFormattingReadableStream(stream, threadId);
+      }
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
-      if (event.event === "thread.run.completed") handleRunCompleted();
       if (event.event === "thread.message.incomplete")
         console.log("incomplete message:", event.data);
     });
@@ -257,6 +312,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const appendToLastMessage = (text: string) => {
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
+      if (!lastMessage) return prevMessages;
       const updatedLastMessage = {
         ...lastMessage,
         text: lastMessage.text + text,
@@ -272,6 +328,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const annotateLastMessage = (annotations: Array<AnnotationDelta>) => {
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
+      if (!lastMessage) return prevMessages;
       const updatedLastMessage = {
         ...lastMessage,
       };
@@ -286,6 +343,56 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       return [...prevMessages.slice(0, -1), updatedLastMessage];
     });
   }
+
+  const cancelRun = async () => {
+    if (!threadIdState || !currentRunId) return;
+    try {
+      const response = await fetch(
+        `/api/threads/${threadIdState}/cancel`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            runId: currentRunId,
+          }),
+        }
+      );
+      if (!response.body || !response.ok) {
+        console.error("Cannot cancel run:", response.status, response.statusText);
+        return;
+      }
+      setIsGenerating(false);
+    } catch (error) {
+      console.error("cannot cancel run:", error);
+    }
+  }
+
+  const retryMessage = () => {
+    // Find the index of the last "user" message
+    const messageIndex = messages.slice().reverse().findIndex((msg) => msg.role === "user");
+    if (messageIndex === -1) {
+      console.error("Cannot retry because there is no user message");
+      return;
+    }
+    // Calculate the index of the last user message in the original array
+    const lastIndex = messages.length - 1 - messageIndex;
+
+    // Retain only the messages up to and including the last "user" message
+    let updatedMessages = messages.slice(0, lastIndex + 1);
+
+    // Remove any "assistant" messages that appear after the last "user" message
+    updatedMessages = updatedMessages.filter((msg, index) => {
+      return index <= lastIndex || msg.role !== "assistant";
+    });
+    setMessages(updatedMessages);
+
+    const threadId = threadIdState ? threadIdState : threadIdParams;
+    if (!threadId) {
+      console.error("Cannot retry because there is no threadId");
+      return;
+    }
+    // Send the message with the last "user" message's text
+    sendMessage(updatedMessages[lastIndex].text, threadId);
+  };
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
@@ -302,12 +409,20 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           </div>
         );
       })}
-      {isGenerating && (
+      {(isGenerating && isStreaming) && (
         <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
+      )}
+      {(isGenerating && !isStreaming) && (
+        <ProgressChatBar />
       )}
       {loadingMessages && (
         <div className="flex justify-center items-center">
           <Spinner/>
+        </div>
+      )}
+      {hasIncomplete && (
+        <div className="mb-8">
+          <IncompleteMessage onRetryClicked={retryMessage} />
         </div>
       )}
       <div ref={messagesEndRef}/>
@@ -321,8 +436,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           isGenerating={isGenerating}
           input={userInput}
           onSubmit={handleOnSubmit}
-          onStopClicked={() => {
-          }}
+          onStopClicked={cancelRun}
         />
       </div>
     </div>

@@ -4,11 +4,8 @@ import './globals.css'
 import { cn } from '@/lib/utils'
 import { ThemeProvider } from '@/components/theme-provider'
 import Header from '@/components/header'
-import Footer from '@/components/footer'
-import { Sidebar } from '@/components/sidebar'
 import { Toaster } from '@/components/ui/sonner'
-import { AppStateProvider } from '@/lib/utils/app-state'
-import {createClient} from "@/lib/supabase/client/server";
+import { AppStateProvider } from "@/lib/context/app-state";
 
 const fontSans = FontSans({
   subsets: ['latin'],
@@ -50,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
+      <AppStateProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -62,6 +60,7 @@ export default function RootLayout({
           {/*<Footer />*/}
           <Toaster />
         </ThemeProvider>
+      </AppStateProvider>
       </body>
     </html>
   )

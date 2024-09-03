@@ -12,9 +12,15 @@ export interface MatchedArticle {
 
 export interface SearchMatchedArticlesResponse {
   articles: MatchedArticle[];
+  hasTimedOut: boolean;
 }
 
-const fetchArticles = async (embedding: number[], matchCount: number, codeTitle: string) => {
+interface FetchArticlesResponse {
+  articles: MatchedArticle[];
+  hasTimedOut: boolean;
+}
+
+const fetchArticles = async (embedding: number[], matchCount: number, codeTitle: string): Promise<FetchArticlesResponse> => {
     try {
       console.time(`call articles from ${codeTitle}`);
       const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}_adaptive`, {
@@ -24,18 +30,35 @@ const fetchArticles = async (embedding: number[], matchCount: number, codeTitle:
       console.timeEnd(`call articles from ${codeTitle}`);
       if (error) {
         console.error(`Error in table ${codeTitle}`, error);
-        return [];
+        // canceling statement due to statement timeout
+        if (error.code === "57014") {
+          return {
+            articles: [],
+            hasTimedOut: true,
+          }
+        }
+        return {
+          articles: [],
+          hasTimedOut: false,
+        }
       }
-      return matchedArticles;
+      return {
+        articles: matchedArticles,
+        hasTimedOut: false,
+      };
     } catch (err) {
       console.error(`Exception occurred in table ${codeTitle}`, err);
-      return [];
+      return {
+        articles: [],
+        hasTimedOut: false,
+      }
     }
 };
 
 const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number, codeTitle: string) => {
   const allArticles: MatchedArticle[] = [];
   const promises: any[] = [];
+  let hasTimedOut = false;
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -48,6 +71,10 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
 
         if (error) {
           console.error(`Error fetching articles from ${codeTitle} partition ${partitionIndex}:`, error);
+          // canceling statement due to statement timeout
+          if (error.code === "57014") {
+            hasTimedOut = true;
+          }
           return [];
         }
 
@@ -78,7 +105,10 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
     console.error('Unexpected error occurred while fetching articles from partitions:', err);
   }
 
-  return allArticles;
+  return {
+    articles: allArticles,
+    hasTimedOut: hasTimedOut,
+  };
 }
 
 async function getCodeTitle(input: string): Promise<string> {
@@ -135,31 +165,36 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
 
   if (isCodePartitioned) {
     try {
-      const allArticles = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount, codeTitle);
+      const articlesFromPartitionsResponse = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount, codeTitle);
+      const allArticles = articlesFromPartitionsResponse.articles;
       allArticles.sort((a, b) => b.similarity - a.similarity);
       const topArticles = allArticles.slice(0, matchCount);
       return {
-        articles: topArticles
+        articles: topArticles,
+        hasTimedOut: articlesFromPartitionsResponse.hasTimedOut,
       };
     } catch (error) {
       console.error('Error occurred while fetching articles:', error);
       return {
-        articles: []
+        articles: [],
+        hasTimedOut: false
       };
     }
   }
 
   try {
-    const allArticles = await fetchArticles(embedding, matchCount, codeTitle);
-    const topArticles = allArticles.slice(0, matchCount);
+    const articlesResponse = await fetchArticles(embedding, matchCount, codeTitle);
+    const topArticles = articlesResponse.articles.slice(0, matchCount);
     //console.log("got matched articles:", topArticles);
     return {
-      articles: topArticles
+      articles: topArticles,
+      hasTimedOut: articlesResponse.hasTimedOut,
     };
   } catch (err) {
     console.error('Error occurred while fetching articles:', err);
     return {
-      articles: []
+      articles: [],
+      hasTimedOut: false
     };
   }
 }

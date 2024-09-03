@@ -12,11 +12,23 @@ export interface MatchedDecision {
 
 export interface SearchMatchedDecisionsResponse {
   decisions: MatchedDecision[];
+  hasTimedOut: boolean;
 }
 
-const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number) => {
+interface FetchDecisionsFromPartitionsResponse {
+  decisions: Pick<MatchedDecision, "id">[];
+  hasTimedOut: boolean;
+}
+
+interface FetchDecisionsFromIdsResponse {
+  decisions: MatchedDecision[];
+  hasTimedOut: boolean;
+}
+
+const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[], matchCount: number): Promise<FetchDecisionsFromPartitionsResponse> => {
   const allDecisions: MatchedDecision[] = [];
   const promises: any[] = [];
+  let hasTimedOut = false;
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
@@ -29,6 +41,10 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 
         if (error) {
           console.error(`Error fetching decisions from partition ${partitionIndex}:`, error);
+          // canceling statement due to statement timeout
+          if (error.code === "57014") {
+            hasTimedOut = true;
+          }
           return [];
         }
 
@@ -59,10 +75,13 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     console.error('Unexpected error occurred while fetching decisions from partitions:', err);
   }
 
-  return allDecisions;
+  return {
+    decisions: allDecisions,
+    hasTimedOut: hasTimedOut,
+  };
 };
 
-const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number) => {
+const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
     console.time('call match_decisions_by_ids')
@@ -75,12 +94,28 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
     console.timeEnd('call match_decisions_by_ids');
     if (error) {
       console.error(`Error fetching decisions from indexes:`, error);
-      return [];
+      // canceling statement due to statement timeout
+      if (error.code === "57014") {
+        return {
+          decisions: [],
+          hasTimedOut: true,
+        }
+      }
+      return {
+        decisions: [],
+        hasTimedOut: false,
+      }
     }
-    return matchedDecisions;
+    return {
+      decisions: matchedDecisions,
+      hasTimedOut: false,
+    };
   } catch (error) {
     console.error(`Exception occurred when fetching decisions from indexes:`, error);
-    return [];
+    return {
+      decisions: [],
+      hasTimedOut: false,
+    }
   }
 };
 
@@ -89,7 +124,8 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   const response = await embeddingWithVoyageLaw(input);
   if (!response) {
     return {
-      decisions: []
+      decisions: [],
+      hasTimedOut: false,
     }
   }
   const embedding_Voyage = response.data[0].embedding;
@@ -106,17 +142,25 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   const matchCount = 5;
 
   try {
-    const allDecisions = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCount);
-    const decisionIds: bigint[] = allDecisions.map((decision: MatchedDecision) => decision.id);
-    const topDecisions = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
-    console.log(`topDecisions:`, topDecisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
+    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    if (decisionsFromPartitionsResponse.hasTimedOut) {
+      return {
+        decisions: [],
+        hasTimedOut: true,
+      }
+    }
+    const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
+    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
+    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
     return {
-      decisions: topDecisions
+      decisions: decisionsFromIdsResponse.decisions,
+      hasTimedOut: decisionsFromIdsResponse.hasTimedOut
     };
   } catch (err) {
     console.error('Error occurred while fetching decisions:', err);
     return {
-      decisions: []
+      decisions: [],
+      hasTimedOut: false
     };
   }
 }

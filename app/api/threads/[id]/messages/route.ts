@@ -55,6 +55,7 @@ export async function POST(
 ) {
   const input: {
     content: string;
+    isFormattingAssistant: boolean;
   } = await req.json();
   try {
     const {params} = routeContextSchema.parse(context);
@@ -65,14 +66,12 @@ export async function POST(
     });
 
     const stream = openai.beta.threads.runs.stream(threadId, {
-      assistant_id: process.env.ASSISTANT_ID ??
-        (() => {
-          throw new Error('ASSISTANT_ID is not set');
-        })(),
+      assistant_id: input.isFormattingAssistant ? process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID! : process.env.ASSISTANT_ID!,
     });
 
     return new Response(stream.toReadableStream());
   } catch (error) {
+    console.error(`cannot send message:`, error);
     if (error instanceof z.ZodError) {
       return new Response(JSON.stringify(error.issues), {status: 422})
     }

@@ -1,6 +1,7 @@
 "use server"
 import {MatchedArticle, searchMatchedArticles} from "@/lib/supabase/searchArticles";
 import {ChatCompletionMessageToolCall} from "ai/prompts";
+import {ToolOutput} from "@/lib/types/functionTool";
 
 function decodeQueryInGetMatchedArticles(jsonString: string): string {
   try {
@@ -15,14 +16,16 @@ function decodeQueryInGetMatchedArticles(jsonString: string): string {
   return "";
 }
 
-export const getMatchedArticlesToolOutput = async (params: string, toolCall: ChatCompletionMessageToolCall) => {
+export const getMatchedArticlesToolOutput = async (params: string, toolCall: ChatCompletionMessageToolCall): Promise<ToolOutput> => {
   console.log('params:', params)
   const input = decodeQueryInGetMatchedArticles(params);
   if (input.length === 0) {
     console.error("cannot getMatchedArticles: input is empty");
     return {
-      tool_call_id: toolCall.id,
-      output: ""
+      toolOutput: {
+        tool_call_id: toolCall.id,
+        output: ""
+      }
     };
   }
   const matchedArticlesResponse = await searchMatchedArticles(input);
@@ -31,7 +34,10 @@ export const getMatchedArticlesToolOutput = async (params: string, toolCall: Cha
   console.log('articles:', articles);
   console.log('tool call id:', toolCall.id);
   return {
-    tool_call_id: toolCall.id,
-    output: articles,
+    toolOutput: {
+      tool_call_id: toolCall.id,
+      output: articles,
+    },
+    hasTimedOut: matchedArticlesResponse.hasTimedOut
   };
 }
