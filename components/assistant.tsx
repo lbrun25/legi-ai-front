@@ -177,14 +177,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   /* Stream Event Handlers */
 
   // textCreated - create new assistant message
-  const handleTextFormattingCreated = () => {
+  const handleTextCreated = () => {
     if (!isStreaming)
       setIsStreaming(true);
     appendMessage("assistant", "");
   };
 
   // textDelta - append text to last assistant message
-  const handleTextFormattingDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
+  const handleTextDelta = (delta: OpenAI.Beta.Threads.Messages.TextDelta) => {
     if (delta.value != null) {
       appendToLastMessage(delta.value);
     }
@@ -251,20 +251,10 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     submitActionResult(runId, filteredToolOutputs, threadId);
   };
 
-  const handleFormattingReadableStream = (stream: AssistantStream, threadId: string) => {
-    stream.on("textCreated", handleTextFormattingCreated);
-    stream.on("textDelta", handleTextFormattingDelta);
-    stream.on("event", (event) => {
-      if (event.event === "thread.run.created")
-        setCurrentRunId(event.data.id);
-      if (event.event === "thread.run.completed") {
-        setIsGenerating(false);
-        setIsStreaming(false);
-      }
-    });
-  }
-
   const handleReadableStream = (stream: AssistantStream, threadId: string) => {
+    stream.on("textCreated", handleTextCreated);
+    stream.on("textDelta", handleTextDelta);
+
     let lastMessage: string;
     // messages
     stream.on("messageDone", (async message => {
@@ -281,23 +271,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         setCurrentRunId(event.data.id);
       }
       if (event.event === "thread.run.completed") {
-        const response = await fetch(
-          `/api/threads/${threadId}/messages`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              content: lastMessage,
-              isFormattingAssistant: true
-            }),
-          }
-        );
-        if (!response.body || !response.ok) {
-          console.error("Cannot send formatting message:", response.status, response.statusText);
-          handleChatError();
-          return;
-        }
-        const stream = AssistantStream.fromReadableStream(response.body);
-        handleFormattingReadableStream(stream, threadId);
+        setIsGenerating(false);
+        setIsStreaming(false);
       }
       if (event.event === "thread.run.requires_action")
         handleRequiresAction(event, threadId);
