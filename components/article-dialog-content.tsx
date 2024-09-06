@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {DialogContent, DialogDescription, DialogFooter, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {useArticle} from "@/lib/hooks/use-article";
@@ -13,6 +14,13 @@ interface ArticleDialogContentProps {
 
 export function ArticleDialogContent({articleNumber, articleSource}: ArticleDialogContentProps) {
   const {article, loading, error} = useArticle(articleNumber, articleSource);
+  const [isReported, setIsReported] = useState(false);
+
+  const handleReport = () => {
+    // Ici, vous pouvez ajouter la logique pour envoyer le signalement
+    // Par exemple, appeler une API
+    setIsReported(true);
+  };
 
   const renderArticleDate = (article: Article) => {
     return (
@@ -31,7 +39,18 @@ export function ArticleDialogContent({articleNumber, articleSource}: ArticleDial
         {loading ? (
           <Skeleton className="w-full h-6"/>
         ) : error ? (
-          <DialogDescription className="text-sm">Error: {error}</DialogDescription>
+          <div>
+            <DialogDescription className="text-sm mb-4">
+              {isReported 
+                ? "Signalement envoyé, merci ! 🙂" 
+                : "Désolé, nous n'avons pas pu récupérer le contenu de cet article. 😢"}
+            </DialogDescription>
+            {!isReported && (
+              <Button onClick={handleReport}>
+                Signaler un problème à l'équipe technique
+              </Button>
+            )}
+          </div>
         ) : (
           article && (
             <div className="space-y-4">

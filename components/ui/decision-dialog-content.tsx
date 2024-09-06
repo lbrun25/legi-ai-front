@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {useDecision} from "@/lib/hooks/use-decision";
 import {Skeleton} from "@/components/ui/skeleton";
 import {DialogContent, DialogDescription, DialogFooter, DialogTitle} from "@/components/ui/dialog";
@@ -10,6 +11,13 @@ interface DecisionDialogContentProps {
 
 export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({decisionNumber}: DecisionDialogContentProps) => {
   const {decision, loading, error} = useDecision(decisionNumber);
+  const [isReported, setIsReported] = useState(false);
+
+  const handleReport = () => {
+    // Ici, vous pouvez ajouter la logique pour envoyer le signalement
+    // Par exemple, appeler une API
+    setIsReported(true);
+  };
 
   return (
     <DialogContent>
@@ -18,7 +26,18 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
         {loading ? (
           <Skeleton className="w-full h-6"/>
         ) : error ? (
-          <DialogDescription className="text-sm">Error: {error}</DialogDescription>
+          <div>
+            <DialogDescription className="text-sm mb-4">
+              {isReported 
+                ? "Signalement envoyé, merci ! 🙂" 
+                : "La visualisation de cette décision n'est pas encore possible car la juridiction limite son partage. 😢 \nNous faisons tout notre possible pour corriger cela. \n"}
+            </DialogDescription>
+            {!isReported && (
+              <Button onClick={handleReport}>
+                Signaler un problème à l'équipe technique
+              </Button>
+            )}
+          </div>
         ) : (
           decision && (
             <div className="space-y-4">
