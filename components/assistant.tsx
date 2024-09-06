@@ -18,6 +18,7 @@ import {IncompleteMessage} from "@/components/incomplete-message";
 import {VoiceRecordButton} from "@/components/voice-record-button";
 import {ProgressChatBar} from "@/components/progress-chat-bar";
 import {formatResponseToolOutput} from "@/lib/ai/openai/assistant/tools/formatResponseToolOutput";
+import {streamingFetch} from "@/lib/utils/fetch";
 
 interface AssistantProps {
   threadId?: string;
@@ -105,23 +106,24 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         console.error("cannot update title for thread:", error);
       }
     }
-    const response = await fetch(
-      `/api/threads/${threadId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          content: text,
-          isFormattingAssistant: false
-        }),
+    handleTextCreated();
+    const stream = streamingFetch(`/api/threads/${threadId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: text,
+        isFormattingAssistant: false
+      }),
+    })
+    for await (let chunk of stream) {
+      try {
+        console.log('received:', chunk);
+        appendToLastMessage(chunk);
+      } catch (error) {
+        console.error("Cannot received streaming token:", error);
       }
-    );
-    if (!response.body || !response.ok) {
-      console.error("Cannot send message:", response.status, response.statusText);
-      handleChatError();
-      return;
     }
-    const stream = AssistantStream.fromReadableStream(response.body);
-    handleReadableStream(stream, threadId);
+    setIsGenerating(false);
+    setIsStreaming(false);
   };
 
   const handleOnSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -133,11 +135,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       threadId = await createThread();
       setThreadIdState(threadId);
     }
-    sendMessage(userInput, threadId ?? threadIdState);
     setMessages((prevMessages) => [
       ...prevMessages,
       {role: "user", text: userInput},
     ]);
+    sendMessage(userInput, threadId ?? threadIdState);
     setUserInput("");
     scrollToBottom();
   }

@@ -1,5 +1,5 @@
 "use server"
-import {embeddingWithVoyageLaw, embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
+import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
 

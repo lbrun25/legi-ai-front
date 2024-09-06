@@ -2,6 +2,8 @@ import {z} from "zod";
 import {createClient} from "@/lib/supabase/client/server";
 import {Thread} from "@/lib/types/thread";
 import OpenAI from "openai";
+import {HumanMessage} from "@langchain/core/messages";
+import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -60,16 +62,48 @@ export async function POST(
   try {
     const {params} = routeContextSchema.parse(context);
     const threadId = params.id;
-    await openai.beta.threads.messages.create(threadId, {
-      role: "user",
-      content: input.content,
+
+    const app = await getCompiledGraph();
+
+    // Start timing the second phase (invoke response)
+    console.time("Streaming answer");
+
+    const inputs = { messages: [new HumanMessage(input.content)] };
+
+    const eventStreamFinalRes = app.streamEvents(inputs, {
+      version: "v2",
+      configurable: { thread_id: threadId },
     });
 
-    const stream = openai.beta.threads.runs.stream(threadId, {
-      assistant_id: input.isFormattingAssistant ? process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID! : process.env.ASSISTANT_ID!,
+    let firstCalledChunk = false;
+
+    const textEncoder = new TextEncoder();
+    const transformStream = new ReadableStream({
+      async start(controller) {
+        for await (const { event, data } of eventStreamFinalRes) {
+          if (event === "on_chat_model_stream") {
+            // Intermediate chat model generations will contain tool calls and no content
+            if (!!data.chunk.content) {
+              if (!firstCalledChunk) {
+                console.timeEnd("Streaming answer");
+                firstCalledChunk = true;
+              }
+              controller.enqueue(textEncoder.encode(data.chunk.content));
+            }
+          }
+        }
+        controller.close();
+      },
     });
 
-    return new Response(stream.toReadableStream());
+    return new Response(transformStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+      status: 200,
+    })
   } catch (error) {
     console.error(`cannot send message:`, error);
     if (error instanceof z.ZodError) {
