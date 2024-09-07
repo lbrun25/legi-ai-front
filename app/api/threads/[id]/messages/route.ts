@@ -2,6 +2,9 @@ import {z} from "zod";
 import {createClient} from "@/lib/supabase/client/server";
 import {Thread} from "@/lib/types/thread";
 import OpenAI from "openai";
+import {AIMessage, HumanMessage} from "@langchain/core/messages";
+import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
+import {Message} from "@/lib/types/message";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -56,20 +59,76 @@ export async function POST(
   const input: {
     content: string;
     isFormattingAssistant: boolean;
+    messages: Message[]
   } = await req.json();
+  const { signal } = req;
   try {
     const {params} = routeContextSchema.parse(context);
     const threadId = params.id;
-    await openai.beta.threads.messages.create(threadId, {
-      role: "user",
-      content: input.content,
+
+    const app = await getCompiledGraph();
+
+    // Start timing the second phase (invoke response)
+    console.time("Streaming answer");
+
+    const inputs = {
+      messages: input.messages.map((message) => {
+        if (message.role === "user") {
+          return new HumanMessage(message.text);
+        } else if (message.role === "assistant") {
+          return new AIMessage(message.text);
+        }
+      })
+    };
+
+    console.log('inputs', inputs);
+
+    const eventStreamFinalRes = app.streamEvents(inputs, {
+      version: "v2",
+      configurable: { thread_id: threadId },
     });
 
-    const stream = openai.beta.threads.runs.stream(threadId, {
-      assistant_id: input.isFormattingAssistant ? process.env.NEXT_PUBLIC_FORMATTING_ASSISTANT_ID! : process.env.ASSISTANT_ID!,
+    let firstCalledChunk = false;
+
+    const textEncoder = new TextEncoder();
+    const transformStream = new ReadableStream({
+      async start(controller) {
+        // Listen for cancellation
+        signal.addEventListener('abort', () => {
+          console.log('Request aborted by the client');
+          controller.close();
+        });
+
+        for await (const { event, data } of eventStreamFinalRes) {
+          if (signal.aborted) {
+            console.log("Streaming aborted, stopping early.");
+            controller.close();
+            break;
+          }
+
+          if (event === "on_chat_model_stream") {
+            // Intermediate chat model generations will contain tool calls and no content
+            if (!!data.chunk.content) {
+              if (!firstCalledChunk) {
+                console.timeEnd("Streaming answer");
+                firstCalledChunk = true;
+              }
+              controller.enqueue(textEncoder.encode(data.chunk.content));
+            }
+          }
+        }
+        controller.close();
+      },
     });
 
-    return new Response(stream.toReadableStream());
+    return new Response(transformStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+      status: 200,
+    })
   } catch (error) {
     console.error(`cannot send message:`, error);
     if (error instanceof z.ZodError) {

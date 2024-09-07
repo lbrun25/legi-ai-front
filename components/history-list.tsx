@@ -53,7 +53,7 @@ export function HistoryList({onHistoryCleaned}: HistoryListProps) {
         )}
       </div>
       <div className="mt-auto">
-        <ClearHistory empty={!threads?.length} onHistoryCleaned={() => onHistoryCleaned()} />
+        <ClearHistory threads={threads} onHistoryCleaned={() => onHistoryCleaned()} />
       </div>
     </div>
   )
