@@ -205,6 +205,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       console.error("Cannot retry because there is no threadId");
       return;
     }
+    setIsGenerating(true);
     // Send the message with the last "user" message's text
     sendMessage(updatedMessages[lastIndex].text, threadId, updatedMessages);
   };
