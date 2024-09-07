@@ -21,7 +21,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
-  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
