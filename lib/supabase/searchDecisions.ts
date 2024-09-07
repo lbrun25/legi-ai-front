@@ -138,7 +138,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 2;
+  const maxIndex = 9;
   const matchCount = 5;
 
   try {
