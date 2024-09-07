@@ -61,10 +61,7 @@ const createGraph = () => {
     .addConditionalEdges("agent", shouldContinue)
     .addEdge("tools", "agent");
 
-  // Initialize memory to persist state between graph runs
-  const checkpointer = new MemorySaver();
-
-  return workflow.compile({checkpointer});
+  return workflow.compile();
 }
 
 export const getCompiledGraph = async () => {

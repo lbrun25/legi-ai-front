@@ -2,8 +2,9 @@ import {z} from "zod";
 import {createClient} from "@/lib/supabase/client/server";
 import {Thread} from "@/lib/types/thread";
 import OpenAI from "openai";
-import {HumanMessage} from "@langchain/core/messages";
+import {AIMessage, HumanMessage} from "@langchain/core/messages";
 import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
+import {Message} from "@/lib/types/message";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -58,6 +59,7 @@ export async function POST(
   const input: {
     content: string;
     isFormattingAssistant: boolean;
+    messages: Message[]
   } = await req.json();
   try {
     const {params} = routeContextSchema.parse(context);
@@ -68,7 +70,17 @@ export async function POST(
     // Start timing the second phase (invoke response)
     console.time("Streaming answer");
 
-    const inputs = { messages: [new HumanMessage(input.content)] };
+    const inputs = {
+      messages: input.messages.map((message) => {
+        if (message.role === "user") {
+          return new HumanMessage(message.text);
+        } else if (message.role === "assistant") {
+          return new AIMessage(message.text);
+        }
+      })
+    };
+
+    console.log('inputs', inputs);
 
     const eventStreamFinalRes = app.streamEvents(inputs, {
       version: "v2",

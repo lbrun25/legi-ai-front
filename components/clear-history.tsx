@@ -16,20 +16,22 @@ import {toast} from 'sonner'
 import {Spinner} from './ui/spinner'
 import {deleteThreads} from "@/lib/supabase/threads";
 import {PostgrestError} from "@supabase/supabase-js";
+import {deleteMessages} from "@/lib/supabase/message";
+import {Thread} from "@/lib/types/thread";
 
 type ClearHistoryProps = {
-  empty: boolean
+  threads: Thread[];
   onHistoryCleaned: () => void;
 }
 
-export function ClearHistory({empty, onHistoryCleaned}: ClearHistoryProps) {
+export function ClearHistory({threads, onHistoryCleaned}: ClearHistoryProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" className="w-full" disabled={empty}>
+        <Button variant="outline" className="w-full" disabled={!threads?.length}>
           Clear History
         </Button>
       </AlertDialogTrigger>
@@ -50,6 +52,8 @@ export function ClearHistory({empty, onHistoryCleaned}: ClearHistoryProps) {
               startTransition(async () => {
                 try {
                   await deleteThreads();
+                  const deleteMessagesPromises = threads.map(thread => deleteMessages(thread.thread_id));
+                  await Promise.all(deleteMessagesPromises);
                   onHistoryCleaned();
                   toast.success('History cleared');
                 } catch (error) {
