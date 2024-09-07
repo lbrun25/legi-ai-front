@@ -24,6 +24,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -64,7 +65,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   const handleChatError = () => {
-    cancelRun();
+    stopStreaming();
     setHasIncomplete(true);
     setIsGenerating(false);
   };
@@ -79,28 +80,48 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       }
     }
     handleTextCreated();
-    const stream = streamingFetch(`/api/threads/${threadId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        content: text,
-        isFormattingAssistant: false,
-        messages: messages
-      }),
-    })
+
+    if (abortControllerRef.current)
+      abortControllerRef.current.abort("Cancel any ongoing streaming request"); // Cancel any ongoing request before starting a new one
+
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+
     let answer = "";
     let firstChunkReceived = false;
-    for await (let chunk of stream) {
-      if (!firstChunkReceived) {
-        setIsStreaming(true);
-        firstChunkReceived = true;
+
+    try {
+      const stream = streamingFetch(`/api/threads/${threadId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          content: text,
+          isFormattingAssistant: false,
+          messages: messages
+        }),
+        signal
+      });
+
+      for await (let chunk of stream) {
+        if (!firstChunkReceived) {
+          setIsStreaming(true);
+          firstChunkReceived = true;
+        }
+        appendToLastMessage(chunk);
+        answer += chunk;
       }
-      appendToLastMessage(chunk);
-      answer = answer += chunk;
+      insertMessage("user", text, threadId);
+      insertMessage("assistant", answer, threadId);
+    } catch (error) {
+      if (error === "User stopped the streaming") {
+        console.log("Streaming request was aborted");
+        insertMessage("user", text, threadId);
+      } else {
+        console.error("Streaming error:", error);
+      }
+    } finally {
+      setIsGenerating(false);
+      setIsStreaming(false);
     }
-    insertMessage("user", text, threadId);
-    insertMessage("assistant", answer, threadId);
-    setIsGenerating(false);
-    setIsStreaming(false);
   };
 
   const handleOnSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -153,25 +174,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     setMessages((prevMessages) => [...prevMessages, {role, text}]);
   };
 
-  const cancelRun = async () => {
-    if (!threadIdState || !currentRunId) return;
-    try {
-      const response = await fetch(
-        `/api/threads/${threadIdState}/cancel`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            runId: currentRunId,
-          }),
-        }
-      );
-      if (!response.body || !response.ok) {
-        console.error("Cannot cancel run:", response.status, response.statusText);
-        return;
-      }
+  const stopStreaming = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort("User stopped the streaming"); // Call abort on the AbortController to cancel the request
+      setIsStreaming(false);
       setIsGenerating(false);
-    } catch (error) {
-      console.error("cannot cancel run:", error);
     }
   }
 
@@ -245,7 +252,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           isGenerating={isGenerating}
           input={userInput}
           onSubmit={handleOnSubmit}
-          onStopClicked={cancelRun}
+          onStopClicked={stopStreaming}
         />
       </div>
     </div>

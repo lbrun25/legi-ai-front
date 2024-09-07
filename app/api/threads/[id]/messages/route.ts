@@ -61,6 +61,7 @@ export async function POST(
     isFormattingAssistant: boolean;
     messages: Message[]
   } = await req.json();
+  const { signal } = req;
   try {
     const {params} = routeContextSchema.parse(context);
     const threadId = params.id;
@@ -92,7 +93,19 @@ export async function POST(
     const textEncoder = new TextEncoder();
     const transformStream = new ReadableStream({
       async start(controller) {
+        // Listen for cancellation
+        signal.addEventListener('abort', () => {
+          console.log('Request aborted by the client');
+          controller.close();
+        });
+
         for await (const { event, data } of eventStreamFinalRes) {
+          if (signal.aborted) {
+            console.log("Streaming aborted, stopping early.");
+            controller.close();
+            break;
+          }
+
           if (event === "on_chat_model_stream") {
             // Intermediate chat model generations will contain tool calls and no content
             if (!!data.chunk.content) {

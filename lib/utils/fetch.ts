@@ -10,7 +10,7 @@ export async function* streamingFetch(input: RequestInfo | URL, init?: RequestIn
     try {
       yield decoder.decode(value)
     } catch (error) {
-      console.warn("cannot fetch stream:", error)
+      console.error("cannot fetch stream:", error);
     }
   }
 }
