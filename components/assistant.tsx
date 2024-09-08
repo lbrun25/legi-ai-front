@@ -242,18 +242,23 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         </div>
       )}
       <div ref={messagesEndRef}/>
-      <div className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-row items-center justify-center bg-background">
-        <VoiceRecordButton
-          isGenerating={isGenerating}
-          onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}`: text)}
-        />
-        <ChatInput
-          onChange={(e) => setUserInput(e.target.value)}
-          isGenerating={isGenerating}
-          input={userInput}
-          onSubmit={handleOnSubmit}
-          onStopClicked={stopStreaming}
-        />
+      <div className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
+        <div className="flex flex-row items-center justify-center w-full">
+          <VoiceRecordButton
+            isGenerating={isGenerating}
+            onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}`: text)}
+          />
+          <ChatInput
+            onChange={(e) => setUserInput(e.target.value)}
+            isGenerating={isGenerating}
+            input={userInput}
+            onSubmit={handleOnSubmit}
+            onStopClicked={stopStreaming}
+          />
+        </div>
+        <div className="text-sm text-gray-500 mb-[-20px] mt-2">
+          Attention, notre assistant peut faire des erreurs, pensez à vérifier les réponses.
+        </div>
       </div>
     </div>
   );
