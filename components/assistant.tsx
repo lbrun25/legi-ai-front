@@ -257,7 +257,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           />
         </div>
         <div className="text-sm text-gray-500 mb-[-20px] mt-2">
-          Attention, notre assistant peut faire des erreurs, pensez à vérifier les réponses.
+          Attention, l'assistant peut faire des erreurs, pensez à vérifier les réponses.
         </div>
       </div>
     </div>
