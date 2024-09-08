@@ -19,6 +19,11 @@ export function ChatInput({input, onChange, isGenerating, onSubmit, onStopClicke
   return (
     <form onSubmit={onSubmit} className="max-w-2xl w-full px-4">
       <div className="relative flex items-center w-full">
+        {input.length > 0 && ( // A voir si on garde ou non
+          <span className="absolute top-[-20px] right-5 text-xs text-gray-400 dark:text-gray-600">
+            <strong>Shift + Entrée</strong> pour ajouter un retour à la ligne
+          </span>
+        )}
         <Textarea
           ref={inputRef}
           name="input"
@@ -82,11 +87,6 @@ export function ChatInput({input, onChange, isGenerating, onSubmit, onStopClicke
           </Button>
         )}
       </div>
-      {input.length > 0 && (
-        <div className="flex w-full flex-wrap relative">
-          <span className="absolute top-2 right-2 text-xs text-gray-500"><strong>Shift + Return</strong> to add a new line</span>
-        </div>
-      )}
     </form>
   );
 }
