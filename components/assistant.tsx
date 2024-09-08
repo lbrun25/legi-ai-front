@@ -256,7 +256,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
             onStopClicked={stopStreaming}
           />
         </div>
-        <div className="text-sm text-gray-500 mb-[-20px] mt-2">
+        <div className="text-xs text-gray-500 mb-[-20px] mt-2">
           Attention, l'assistant peut faire des erreurs, pensez à vérifier les réponses.
         </div>
       </div>
