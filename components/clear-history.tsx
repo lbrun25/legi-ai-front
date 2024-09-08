@@ -44,7 +44,7 @@ export function ClearHistory({threads, onHistoryCleaned}: ClearHistoryProps) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
           <AlertDialogAction
             disabled={isPending}
             onClick={event => {
@@ -64,7 +64,7 @@ export function ClearHistory({threads, onHistoryCleaned}: ClearHistoryProps) {
               })
             }}
           >
-            {isPending ? <Spinner/> : 'Clear'}
+            {isPending ? <Spinner/> : 'Supprimer'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
