@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
       .from("LegalDecisions")
       .select('number, date, juridiction, ficheArret, decisionContent, decisionLink')
       .eq('number', decisionNumber)
-      .single();
 
     if (error) {
       console.error('Error retrieving decision from Supabase:', error);
@@ -20,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (!data) {
       return new Response(null, { status: 404 })
     }
-    return new Response(JSON.stringify(data), { status: 200 })
+    return new Response(JSON.stringify(data[0]), { status: 200 })
   } catch (error) {
     console.error('Error retrieving decision:', error);
     return new Response(null, { status: 500 })
