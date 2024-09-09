@@ -34,7 +34,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     const promise = (async () => {
       try {
         console.time("db decisions partition" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_part_${partitionIndex}_adaptive`, {
+        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, { 
           query_embedding: embedding,
           match_count: matchCount,
         });
