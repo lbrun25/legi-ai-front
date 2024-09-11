@@ -164,7 +164,6 @@ const createGraph = async () => {
     console.log('formattingNode state:', state)
     console.time("formatting invoke")
     const filteredMessages = state.messages
-      .filter((message) => !message.name)
       .filter((message) =>
         message.name !== undefined && ['ArticlesAgent', 'DecisionsAgent', 'DoctrinesAgent'].includes(message.name)
       )
