@@ -47,7 +47,7 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
           return [];
         }
 
-        console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
+        // console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
         return matchedDoctrines;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
@@ -80,7 +80,7 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
 };
 
 const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDoctrinesFromIdsResponse> => {
-  console.log('Will call match_doctrines_by_ids with IDs:', idList);
+  // console.log('Will call match_doctrines_by_ids with IDs:', idList);
   try {
     console.time('call match_doctrines_by_ids')
     const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_by_ids`, {
