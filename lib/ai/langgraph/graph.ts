@@ -30,10 +30,6 @@ const GraphAnnotation = Annotation.Root({
     reducer: (state, update) => update ?? state ?? END,
     default: () => [END],
   }),
-  userQuestion: Annotation<string>({
-    reducer: (state, update) => update ?? state,
-    default: () => "",
-  }),
   subQuestions: Annotation<string[]>({
     reducer: (state, update) => update ?? state,
     default: () => [],
@@ -262,7 +258,7 @@ const createGraph = async () => {
       .fromTemplate(ValidationAgentPrompt)
       .format({
         subQuestions: state.subQuestions.join("#"),
-        userQuestion: state.userQuestion,
+        userQuestion: state.messages[0].content,
       });
 
     const input = [
