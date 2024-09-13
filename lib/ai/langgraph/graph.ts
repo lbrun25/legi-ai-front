@@ -73,11 +73,16 @@ const createGraph = async () => {
 
   console.time("call reflectionAgent");
   console.time("call doctrinesAgent")
+  console.time("call doctrinesAgent invoke")
   console.time("call decisionsAgent")
+  console.time("call decisionsAgent invoke")
   console.time("call articlesAgent")
+  console.time("call articlesAgent invoke")
   console.time("call formattingAgent")
   console.time("call supervisor")
   console.time("call validationAgent")
+  console.time("call validationAgent invoke")
+  console.time("call reflection");
 
   const reflectionPrompt = ChatPromptTemplate.fromMessages([
     ["system", ReflectionAgentPrompt],
@@ -98,7 +103,7 @@ const createGraph = async () => {
   const reflectionChain = reflectionPrompt
     .pipe(llm.bindTools([subQuestionsTool]))
     .pipe(new JsonOutputToolsParser())
-    .pipe((x) =>  { console.log('subQuestions:', JSON.stringify(x));  return (x[0].args) });
+    .pipe((x) =>  { console.timeEnd("call reflection"); console.log('subQuestions:', JSON.stringify(x));  return (x[0].args) });
 
 
   // Supervisor
@@ -111,7 +116,7 @@ const createGraph = async () => {
     ))
     .pipe(new JsonOutputToolsParser())
     // select the first one
-    .pipe((x) =>  { console.log('x:', JSON.stringify(x));  return (x[0].args) });
+    .pipe((x) =>  {  console.timeEnd("call supervisor"); console.log('x:', JSON.stringify(x));  return (x[0].args) });
 
 
   // ArticlesAgent
@@ -137,6 +142,7 @@ const createGraph = async () => {
     ];
     try {
       const result = await articlesAgent.invoke({messages: input}, config);
+      console.timeEnd("call articlesAgent invoke")
       const lastMessage = result.messages[result.messages.length - 1];
       return {
         messages: [
@@ -172,6 +178,7 @@ const createGraph = async () => {
     ]
     try {
       const result = await decisionsAgent.invoke({messages: input}, config);
+      console.timeEnd("call decisionsAgent invoke")
       const lastMessage = result.messages[result.messages.length - 1];
       return {
         messages: [
@@ -205,6 +212,7 @@ const createGraph = async () => {
     ]
     try {
       const result = await doctrinesAgent.invoke({messages: input}, config);
+      console.timeEnd("call doctrinesAgent invoke")
       const lastMessage = result.messages[result.messages.length - 1];
       return {
         messages: [
@@ -222,8 +230,6 @@ const createGraph = async () => {
   // Formatting node to handle the final formatted response
   const formattingNode = async (state: typeof GraphAnnotation.State, config?: RunnableConfig) => {
     console.timeEnd("call formattingAgent");
-    console.log('formattingNode state:', state)
-
     const lastMessage = state.messages[state.messages.length - 1];
 
     try {
@@ -231,6 +237,7 @@ const createGraph = async () => {
         new SystemMessage({ content: FormattingPrompt }),
         lastMessage
       ];
+      console.log("formatting input:", input)
       const result = await llm.withConfig({tags: ["formatting_agent"]}).invoke(input, config);
       console.timeEnd("formatting invoke")
       return {
@@ -265,9 +272,8 @@ const createGraph = async () => {
       systemMessage,
       ...expertMessages,
     ]
-    console.log("validationNode input:", input)
-
     const result = await llm.invoke(input, config);
+    console.timeEnd("call validationAgent invoke");
     return {
       messages: [
         new HumanMessage({ content: result.content, name: "ValidationAgent" }),
@@ -278,7 +284,6 @@ const createGraph = async () => {
   const shouldContinue = (state: typeof GraphAnnotation.State) => {
     const { messages } = state;
     const lastMessage = messages[messages.length - 1];
-    console.log("lastMessage shouldContinue:", lastMessage)
     if (typeof lastMessage.content === "string" && lastMessage.content.includes("FINISH")) {
       console.log("ValidationAgent FINISH -> Start formatting");
       return "FormattingAgent";
