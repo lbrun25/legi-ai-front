@@ -138,7 +138,6 @@ const createGraph = async () => {
 
     const input = [
       systemMessage,
-      new AIMessage({content: `Voici les sous-questions auxquelles tu dois répondre: #${state.subQuestions.join("#")}`})
     ];
     try {
       const result = await articlesAgent.invoke({messages: input}, config);
@@ -174,7 +173,6 @@ const createGraph = async () => {
       });
     const input = [
       systemMessage,
-      new HumanMessage({content: `Voici les sous-questions: #${state.subQuestions.join("#")}`})
     ]
     try {
       const result = await decisionsAgent.invoke({messages: input}, config);
@@ -208,7 +206,6 @@ const createGraph = async () => {
       });
     const input = [
       systemMessage,
-      new HumanMessage({content: `Voici les sous-questions: #${state.subQuestions.join("#")}`})
     ]
     try {
       const result = await doctrinesAgent.invoke({messages: input}, config);
