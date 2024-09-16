@@ -3,11 +3,19 @@ import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
 
+export interface MatchedQuestion {
+  id: bigint;
+  id_other_table: bigint;
+  number: string;
+  similarity: number;
+}
+
 export interface MatchedDecision {
   id: bigint;
   ficheArret: string;
   number: string;
-  similarity: number;
+  date: string;
+  juridiction: string;
 }
 
 export interface SearchMatchedDecisionsResponse {
@@ -21,7 +29,7 @@ interface FetchDecisionsFromPartitionsResponse {
 }
 
 interface FetchDecisionsFromIdsResponse {
-  decisions: MatchedDecision[];
+  decisions: MatchedQuestion[];
   hasTimedOut: boolean;
 }
 
@@ -34,7 +42,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     const promise = (async () => {
       try {
         console.time("db decisions partition" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, { 
+        const { data: matchedQuestsions, error } = await supabaseClient.rpc(`match_questions_part_${partitionIndex}_adaptive`, { 
           query_embedding: embedding,
           match_count: matchCount,
         });
@@ -48,9 +56,9 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
           return [];
         }
 
-        console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+        console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedQuestsions.map((m: MatchedQuestion) => JSON.stringify({ id: m.id, id_other_table: m.id_other_table, number: m.number, similarity: m.similarity })));
         console.timeEnd("db decisions partition" + partitionIndex);
-        return matchedDecisions;
+        return matchedQuestsions;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
         return [];
@@ -84,14 +92,14 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
-    console.time('call match_decisions_by_ids')
-    const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_by_ids`, {
+    console.time('call match_questions_by_ids')
+    const { data: matchedQuestsions, error } = await supabaseClient.rpc(`match_questions_by_ids`, {
       query_embedding: embedding,
       match_threshold: 0.2,
       match_count: matchCount,
       id_list: idList,
     });
-    console.timeEnd('call match_decisions_by_ids');
+    console.timeEnd('call match_questions_by_ids');
     if (error) {
       console.error(`Error fetching decisions from indexes:`, error);
       // canceling statement due to statement timeout
@@ -107,7 +115,7 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
       }
     }
     return {
-      decisions: matchedDecisions,
+      decisions: matchedQuestsions,
       hasTimedOut: false,
     };
   } catch (error) {
@@ -118,6 +126,21 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
     }
   }
 };
+
+async function getFicheArretFromsQuestions(questionIds: bigint[]): Promise<MatchedDecision[]> {
+  const { data: questions, error } = await supabaseClient.from('legaldecisions_test').select('id, number, date, juridiction, ficheArret').in('id', questionIds);
+  if (error) {
+    console.error('Error fetching questions:', error);
+    return [];
+  }
+  return questions.map((question) => ({
+    id: question.id,
+    juridiction: question.juridiction,
+    number: question.number,
+    date: question.date,
+    ficheArret: question.ficheArret,
+  }));
+}
 
 export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
   console.log('searchMatchedDecisions:', input);
@@ -138,7 +161,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 9;
+  const maxIndex = 14;
   const matchCount = 5;
 
   try {
@@ -149,12 +172,14 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
         hasTimedOut: true,
       }
     }
-    const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
-    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
-    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
+    const QuestionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
+    const questionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, QuestionIds, matchCount);
+    console.log(`topDecisions:`, questionsFromIdsResponse.decisions.map((m: MatchedQuestion) => JSON.stringify({ id: m.id, id_other_table: m.id_other_table, similarity: m.similarity })));
+    const decisionIds: bigint[] = questionsFromIdsResponse.decisions.map((decision) => decision.id_other_table);
+    const decisions = await getFicheArretFromsQuestions(decisionIds);
     return {
-      decisions: decisionsFromIdsResponse.decisions,
-      hasTimedOut: decisionsFromIdsResponse.hasTimedOut
+      decisions: decisions,
+      hasTimedOut: questionsFromIdsResponse.hasTimedOut
     };
   } catch (err) {
     console.error('Error occurred while fetching decisions:', err);

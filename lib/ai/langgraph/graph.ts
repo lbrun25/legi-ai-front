@@ -20,7 +20,7 @@ const GraphAnnotation = Annotation.Root({
 })
 
 const createGraph = () => {
-  const tools = [getMatchedDecisions, getMatchedArticles, getMatchedDoctrines, getArticleByNumber, formatResponse]
+  const tools = [getMatchedDecisions] //, getMatchedArticles, getMatchedDoctrines, getArticleByNumber, formatResponse]
   const toolNode = new ToolNode(tools)
 
   const model = new ChatOpenAI({
