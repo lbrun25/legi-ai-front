@@ -2,10 +2,13 @@
 import {ChatOpenAI} from "@langchain/openai";
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import {
-  ArticlesAgentPrompt,
+  //ArticlesAgentPrompt,
   DecisionsAgentPrompt,
-  DoctrinesAgentPrompt, FormattingPrompt, ReflectionAgentPrompt,
-  SupervisorPrompt, ValidationAgentPrompt
+  //DoctrinesAgentPrompt,
+  FormattingPrompt,
+  ReflectionAgentPrompt,
+  SupervisorPrompt,
+  ValidationAgentPrompt
 } from "@/lib/ai/langgraph/prompt";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {getMatchedDecisions} from "@/lib/ai/tools/getMatchedDecisions";
@@ -37,7 +40,7 @@ const GraphAnnotation = Annotation.Root({
 })
 
 const createGraph = async () => {
-  const members = ["ArticlesAgent", "DecisionsAgent", "DoctrinesAgent"] as const;
+  const members = ["DecisionsAgent"] as const;
 
   const options = ["FINISH", ...members];
 
@@ -87,14 +90,10 @@ const createGraph = async () => {
   const reflectionPrompt = ChatPromptTemplate.fromMessages([
     ["system", ReflectionAgentPrompt],
     new MessagesPlaceholder("messages"),
-    [
-      "system",
-      "Given the query above, what are the sub questions?"
-    ],
   ])
   const subQuestionsTool = {
     name: "subQuestions",
-    description: "Créer les sous-questions nécessaires pour répondre à la question.",
+    description: "Transmets les questions au superadvisor",
     schema: z.object({
       subQuestions: z.array(z.string()),
     }),
@@ -118,42 +117,6 @@ const createGraph = async () => {
     // select the first one
     .pipe((x) =>  {  console.timeEnd("call supervisor"); console.log('x:', JSON.stringify(x));  return (x[0].args) });
 
-
-  // ArticlesAgent
-  const articlesAgent = createReactAgent({
-    llm,
-    tools: [getMatchedArticles, getArticleByNumber],
-  })
-  const articlesNode = async (
-    state: typeof GraphAnnotation.State,
-    config?: RunnableConfig,
-  ) => {
-    console.timeEnd("call articlesAgent");
-    // console.log('articlesNode state:', state)
-    const systemMessage = await SystemMessagePromptTemplate
-      .fromTemplate(ArticlesAgentPrompt)
-      .format({
-        subQuestions: state.subQuestions.join("#"),
-      });
-
-    const input = [
-      systemMessage,
-    ];
-    try {
-      const result = await articlesAgent.invoke({messages: input}, config);
-      console.timeEnd("call articlesAgent invoke")
-      const lastMessage = result.messages[result.messages.length - 1];
-      return {
-        messages: [
-          new HumanMessage({ content: lastMessage.content, name: "ArticlesAgent" }),
-        ],
-      };
-    } catch (error) {
-      console.error("error when invoking articles agent:", error);
-      return { messages: [] }
-    }
-  };
-
   const decisionsAgent = createReactAgent({
     llm,
     tools: [getMatchedDecisions],
@@ -176,6 +139,7 @@ const createGraph = async () => {
     ]
     try {
       const result = await decisionsAgent.invoke({messages: input}, config);
+      console.log('decisionsAgent result:', result.messages)
       console.timeEnd("call decisionsAgent invoke")
       const lastMessage = result.messages[result.messages.length - 1];
       return {
@@ -186,41 +150,6 @@ const createGraph = async () => {
     } catch (error) {
       console.error("error when invoking decisions agent:", error);
       return { messages: [] }
-    }
-  };
-
-  const doctrinesAgent = createReactAgent({
-    llm,
-    tools: [getMatchedDoctrines],
-    messageModifier: new SystemMessage(DoctrinesAgentPrompt)
-  })
-  const doctrinesNode = async (
-    state: typeof GraphAnnotation.State,
-    config?: RunnableConfig,
-  ) => {
-    console.timeEnd("call doctrinesAgent");
-    const systemMessage = await SystemMessagePromptTemplate
-      .fromTemplate(DoctrinesAgentPrompt)
-      .format({
-        subQuestions: state.subQuestions.join("#"),
-      });
-    const input = [
-      systemMessage,
-    ]
-    try {
-      const result = await doctrinesAgent.invoke({messages: input}, config);
-      console.timeEnd("call doctrinesAgent invoke")
-      const lastMessage = result.messages[result.messages.length - 1];
-      return {
-        messages: [
-          new HumanMessage({ content: lastMessage.content, name: "DoctrinesAgent" }),
-        ],
-      };
-    } catch(error) {
-      console.error("error when invoking doctrines agent:", error);
-      return {
-        messages: [],
-      }
     }
   };
 
@@ -256,7 +185,7 @@ const createGraph = async () => {
     console.timeEnd("call validationAgent");
     const expertMessages = state.messages
       .filter((message) =>
-        message.name !== undefined && ['ArticlesAgent', 'DecisionsAgent', 'DoctrinesAgent'].includes(message.name)
+        message.name !== undefined && ['DecisionsAgent'].includes(message.name)
       )
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(ValidationAgentPrompt)
@@ -297,25 +226,18 @@ const createGraph = async () => {
 
   const workflow = new StateGraph(GraphAnnotation)
     .addNode("ReflectionAgent", reflectionChain)
-    .addNode("ArticlesAgent", articlesNode)
     .addNode("DecisionsAgent", decisionsNode)
-    .addNode("DoctrinesAgent", doctrinesNode)
     .addNode("FormattingAgent", formattingNode)
     .addNode("ValidationAgent", validationNode)
     .addNode("supervisor", supervisorChain);
 
   workflow.addEdge(START, "ReflectionAgent");
   workflow.addEdge("ReflectionAgent", "supervisor");
-  members.forEach((member) => {
-    workflow.addEdge("supervisor", member);
-  });
   workflow.addConditionalEdges(
     "supervisor",
     (x: typeof GraphAnnotation.State) => x.nexts,
   );
-  members.forEach((member) => {
-    workflow.addEdge(member, "ValidationAgent")
-  })
+  workflow.addEdge("DecisionsAgent", "ValidationAgent")
   workflow.addConditionalEdges("ValidationAgent", shouldContinue);
   workflow.addEdge("FormattingAgent", END);
 
