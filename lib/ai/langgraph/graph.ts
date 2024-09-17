@@ -1,14 +1,22 @@
 "use server"
-import {ToolNode} from "@langchain/langgraph/prebuilt";
 import {ChatOpenAI} from "@langchain/openai";
-import {Annotation, END, MemorySaver, START, StateGraph} from "@langchain/langgraph";
-import {LawyerPrompt} from "@/lib/ai/langgraph/prompt";
-import {BaseMessage} from "@langchain/core/messages";
+import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
+import {
+  ArticlesAgentPrompt,
+  DecisionsAgentPrompt,
+  DoctrinesAgentPrompt, FormattingPrompt, ReflectionAgentPrompt,
+  SupervisorPrompt, ValidationAgentPrompt
+} from "@/lib/ai/langgraph/prompt";
+import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {getMatchedDecisions} from "@/lib/ai/tools/getMatchedDecisions";
 import {getMatchedArticles} from "@/lib/ai/tools/getMatchedArticles";
 import {getMatchedDoctrines} from "@/lib/ai/tools/getMatchedDoctrines";
 import {getArticleByNumber} from "@/lib/ai/tools/getArticleByNumber";
-import {formatResponse} from "@/lib/ai/tools/formatResponse";
+import {z} from "zod";
+import {ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate} from "@langchain/core/prompts";
+import {JsonOutputToolsParser} from "langchain/output_parsers";
+import {RunnableConfig} from "@langchain/core/runnables";
+import {createReactAgent, ToolNode} from "@langchain/langgraph/prebuilt";
 
 let cachedApp: any = null;
 
@@ -16,56 +24,306 @@ const GraphAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: (state, update) => state.concat(update),
     default: () => [],
-  })
+  }),
+  // The agent node that last performed work
+  nexts: Annotation<string[]>({
+    reducer: (state, update) => update ?? state ?? END,
+    default: () => [END],
+  }),
+  subQuestions: Annotation<string[]>({
+    reducer: (state, update) => update ?? state,
+    default: () => [],
+  }),
 })
 
-const createGraph = () => {
-  const tools = [getMatchedDecisions, getMatchedArticles, getMatchedDoctrines, getArticleByNumber, formatResponse]
-  const toolNode = new ToolNode(tools)
+const createGraph = async () => {
+  const members = ["ArticlesAgent", "DecisionsAgent", "DoctrinesAgent"] as const;
 
-  const model = new ChatOpenAI({
-    temperature: 0, model: "gpt-4o-mini", configuration: {
+  const options = ["FINISH", ...members];
+
+  const routingTool = {
+    name: "route",
+    description: "Select the roles you need to answer to the response.",
+    schema: z.object({
+      nexts: z.array(z.enum(["FINISH", ...members])),
+    }),
+  }
+
+  const prompt = ChatPromptTemplate.fromMessages([
+    ["system", SupervisorPrompt],
+    new MessagesPlaceholder("messages"),
+    [
+      "system",
+      "Given the conversation above, who should act next?" +
+      " Or should we FINISH? Select one of: {options}",
+    ],
+  ]);
+  const formattedPrompt = await prompt.partial({
+    options: options.join(", "),
+    members: members.join(", "),
+  });
+
+  const llm = new ChatOpenAI({
+    temperature: 0,
+    model: "gpt-4o-mini",
+    configuration: {
       apiKey: process.env.OPENAI_API_KEY!,
     }
-  }).bindTools(tools);
+  });
 
-  // Define the function that determines whether to continue or not
-  function shouldContinue(state: typeof GraphAnnotation.State): "tools" | typeof END {
-    const messages = state.messages;
+  console.time("call reflectionAgent");
+  console.time("call doctrinesAgent")
+  console.time("call doctrinesAgent invoke")
+  console.time("call decisionsAgent")
+  console.time("call decisionsAgent invoke")
+  console.time("call articlesAgent")
+  console.time("call articlesAgent invoke")
+  console.time("call formattingAgent")
+  console.time("call supervisor")
+  console.time("call validationAgent")
+  console.time("call validationAgent invoke")
+  console.time("call reflection");
 
-    const lastMessage = messages[messages.length - 1];
+  const reflectionPrompt = ChatPromptTemplate.fromMessages([
+    ["system", ReflectionAgentPrompt],
+    new MessagesPlaceholder("messages"),
+    [
+      "system",
+      "Given the query above, what are the sub questions?"
+    ],
+  ])
+  const subQuestionsTool = {
+    name: "subQuestions",
+    description: "Créer les sous-questions nécessaires pour répondre à la question.",
+    schema: z.object({
+      subQuestions: z.array(z.string()),
+    }),
+  }
 
-    // If the LLM makes a tool call, then we route to the "tools" node
-    if (lastMessage.additional_kwargs.tool_calls) {
-      console.log('shouldContinue: yes because tools have been called')
-      return "tools";
+  const reflectionChain = reflectionPrompt
+    .pipe(llm.bindTools([subQuestionsTool]))
+    .pipe(new JsonOutputToolsParser())
+    .pipe((x) =>  { console.timeEnd("call reflection"); console.log('subQuestions:', JSON.stringify(x));  return (x[0].args) });
+
+
+  // Supervisor
+  const supervisorChain = formattedPrompt
+    .pipe(llm.bindTools(
+      [routingTool],
+      {
+        tool_choice: "route",
+      },
+    ))
+    .pipe(new JsonOutputToolsParser())
+    // select the first one
+    .pipe((x) =>  {  console.timeEnd("call supervisor"); console.log('x:', JSON.stringify(x));  return (x[0].args) });
+
+
+  // ArticlesAgent
+  const articlesAgent = createReactAgent({
+    llm,
+    tools: [getMatchedArticles, getArticleByNumber],
+  })
+  const articlesNode = async (
+    state: typeof GraphAnnotation.State,
+    config?: RunnableConfig,
+  ) => {
+    console.timeEnd("call articlesAgent");
+    // console.log('articlesNode state:', state)
+    const systemMessage = await SystemMessagePromptTemplate
+      .fromTemplate(ArticlesAgentPrompt)
+      .format({
+        subQuestions: state.subQuestions.join("#"),
+      });
+
+    const input = [
+      systemMessage,
+    ];
+    try {
+      const result = await articlesAgent.invoke({messages: input}, config);
+      console.timeEnd("call articlesAgent invoke")
+      const lastMessage = result.messages[result.messages.length - 1];
+      return {
+        messages: [
+          new HumanMessage({ content: lastMessage.content, name: "ArticlesAgent" }),
+        ],
+      };
+    } catch (error) {
+      console.error("error when invoking articles agent:", error);
+      return { messages: [] }
     }
-    // Otherwise, we stop (reply to the user)
-    console.log('should not continue')
-    return END;
+  };
+
+  const decisionsAgent = createReactAgent({
+    llm,
+    tools: [getMatchedDecisions],
+    messageModifier: new SystemMessage(DecisionsAgentPrompt)
+  })
+  // const decisionsModel = llm.bindTools([getMatchedDecisions]);
+  const decisionsNode = async (
+    state: typeof GraphAnnotation.State,
+    config?: RunnableConfig,
+  ) => {
+    console.timeEnd("call decisionsAgent");
+    // console.log('decisionsNode state:', state)
+    const systemMessage = await SystemMessagePromptTemplate
+      .fromTemplate(DecisionsAgentPrompt)
+      .format({
+        subQuestions: state.subQuestions.join("#"),
+      });
+    const input = [
+      systemMessage,
+    ]
+    try {
+      const result = await decisionsAgent.invoke({messages: input}, config);
+      console.timeEnd("call decisionsAgent invoke")
+      const lastMessage = result.messages[result.messages.length - 1];
+      return {
+        messages: [
+          new HumanMessage({ content: lastMessage.content, name: "DecisionsAgent" }),
+        ],
+      };
+    } catch (error) {
+      console.error("error when invoking decisions agent:", error);
+      return { messages: [] }
+    }
+  };
+
+  const doctrinesAgent = createReactAgent({
+    llm,
+    tools: [getMatchedDoctrines],
+    messageModifier: new SystemMessage(DoctrinesAgentPrompt)
+  })
+  const doctrinesNode = async (
+    state: typeof GraphAnnotation.State,
+    config?: RunnableConfig,
+  ) => {
+    console.timeEnd("call doctrinesAgent");
+    const systemMessage = await SystemMessagePromptTemplate
+      .fromTemplate(DoctrinesAgentPrompt)
+      .format({
+        subQuestions: state.subQuestions.join("#"),
+      });
+    const input = [
+      systemMessage,
+    ]
+    try {
+      const result = await doctrinesAgent.invoke({messages: input}, config);
+      console.timeEnd("call doctrinesAgent invoke")
+      const lastMessage = result.messages[result.messages.length - 1];
+      return {
+        messages: [
+          new HumanMessage({ content: lastMessage.content, name: "DoctrinesAgent" }),
+        ],
+      };
+    } catch(error) {
+      console.error("error when invoking doctrines agent:", error);
+      return {
+        messages: [],
+      }
+    }
+  };
+
+  // Formatting node to handle the final formatted response
+  const formattingNode = async (state: typeof GraphAnnotation.State, config?: RunnableConfig) => {
+    console.timeEnd("call formattingAgent");
+    const lastMessage = state.messages[state.messages.length - 1];
+
+    try {
+      const input = [
+        new SystemMessage({ content: FormattingPrompt }),
+        lastMessage
+      ];
+      console.log("formatting input:", input)
+      const result = await llm.withConfig({tags: ["formatting_agent"]}).invoke(input, config);
+      console.timeEnd("formatting invoke")
+      return {
+        messages: [new HumanMessage({ content: result.content, name: "FormattingExpert" })],
+      };
+    } catch (error) {
+      console.error("error when invoking formatting agent", error);
+    }
+
+    return {
+      messages: [new HumanMessage({ content: "Impossible de construire la réponse veuillez reessayer", name: "FormattingExpert" })],
+    };
+  };
+
+  const validationNode = async (
+    state: typeof GraphAnnotation.State,
+    config?: RunnableConfig,
+  ) => {
+    console.timeEnd("call validationAgent");
+    const expertMessages = state.messages
+      .filter((message) =>
+        message.name !== undefined && ['ArticlesAgent', 'DecisionsAgent', 'DoctrinesAgent'].includes(message.name)
+      )
+    const systemMessage = await SystemMessagePromptTemplate
+      .fromTemplate(ValidationAgentPrompt)
+      .format({
+        subQuestions: state.subQuestions.join("#"),
+        userQuestion: state.messages[0].content,
+      });
+
+    const input = [
+      systemMessage,
+      ...expertMessages,
+    ]
+    const result = await llm.invoke(input, config);
+    console.timeEnd("call validationAgent invoke");
+    return {
+      messages: [
+        new HumanMessage({ content: result.content, name: "ValidationAgent" }),
+      ],
+    };
+  };
+
+  const shouldContinue = (state: typeof GraphAnnotation.State) => {
+    const { messages } = state;
+    const lastMessage = messages[messages.length - 1];
+    if (typeof lastMessage.content === "string" && lastMessage.content.includes("FINISH")) {
+      console.log("ValidationAgent FINISH -> Start formatting");
+      return "FormattingAgent";
+    }
+    console.log("message incomplete: retry logic with supervisor")
+    return "supervisor";
   }
 
-  // Define the function that calls the model
-  async function callModel(state: typeof GraphAnnotation.State) {
-    const modelResponse = model.invoke([{role: "system", content: LawyerPrompt},
-      ...state.messages,
-    ]);
-    // We return a list, because this will get added to the existing list
-    return {messages: modelResponse};
-  }
+  // Call directly tools in the expert agent https://langchain-ai.github.io/langgraphjs/how-tos/tool-calling/#define-tools by using subquestions
+  // Problematic: getMatchedArticleByNumber ? Define a state like { article_numbers_extract_from_user_query: [{1492 Code Civil}, {...}] }
+  // In order to avoid ReactAgent to speed up a bit ??
+  //
+  //
 
   const workflow = new StateGraph(GraphAnnotation)
-    .addNode("agent", callModel)
-    .addNode("tools", toolNode)
-    .addEdge(START, "agent")
-    .addConditionalEdges("agent", shouldContinue)
-    .addEdge("tools", "agent");
+    .addNode("ReflectionAgent", reflectionChain)
+    .addNode("ArticlesAgent", articlesNode)
+    .addNode("DecisionsAgent", decisionsNode)
+    .addNode("DoctrinesAgent", doctrinesNode)
+    .addNode("FormattingAgent", formattingNode)
+    .addNode("ValidationAgent", validationNode)
+    .addNode("supervisor", supervisorChain);
+
+  workflow.addEdge(START, "ReflectionAgent");
+  workflow.addEdge("ReflectionAgent", "supervisor");
+  members.forEach((member) => {
+    workflow.addEdge("supervisor", member);
+  });
+  workflow.addConditionalEdges(
+    "supervisor",
+    (x: typeof GraphAnnotation.State) => x.nexts,
+  );
+  members.forEach((member) => {
+    workflow.addEdge(member, "ValidationAgent")
+  })
+  workflow.addConditionalEdges("ValidationAgent", shouldContinue);
+  workflow.addEdge("FormattingAgent", END);
 
   return workflow.compile();
 }
 
 export const getCompiledGraph = async () => {
   if (!cachedApp)
-    cachedApp = createGraph();
+    cachedApp = await createGraph();
   return cachedApp;
 }

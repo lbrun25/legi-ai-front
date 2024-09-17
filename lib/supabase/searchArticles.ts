@@ -78,7 +78,7 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
           return [];
         }
 
-        console.log(`Fetched articles from ${codeTitle} partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+        // console.log(`Fetched articles from ${codeTitle} partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
         console.timeEnd(`call articles from ${codeTitle} partition ${partitionIndex}`);
         return matchedArticles;
       } catch (err) {

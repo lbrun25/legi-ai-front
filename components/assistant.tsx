@@ -40,6 +40,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       setLoadingMessages(true);
       try {
         const messages = await getMessages(threadIdParams);
+        console.log('messages from supabase:', messages);
         setMessages(messages);
       } catch (error) {
         console.error('cannot fetch messages:', error);
