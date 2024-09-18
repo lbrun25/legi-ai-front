@@ -9,6 +9,8 @@ import {VoiceRecordButton} from "@/components/voice-record-button";
 import {ProgressChatBar} from "@/components/progress-chat-bar";
 import {streamingFetch} from "@/lib/utils/fetch";
 import {getMessages, insertMessage} from "@/lib/supabase/message";
+import {AssistantRoleMessage} from "@/components/assistant-role-message";
+import {UserRoleMessage} from "@/components/user-role-message";
 
 interface AssistantProps {
   threadId?: string;
@@ -215,11 +217,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       {messages.map((message, index) => {
         return (
           <div key={index}>
-            <strong>{`${message.role}: `}</strong>
-            <BotMessage
-              content={message.text}
-              isGenerating={isGenerating}
-            />
+            {message.role === "assistant" && <AssistantRoleMessage />}
+            {message.role === "user" && <UserRoleMessage />}
+            <div className="ml-14 mt-4">
+              <BotMessage
+                content={message.text}
+                isGenerating={isGenerating}
+              />
+            </div>
             <br/>
             <br/>
           </div>
