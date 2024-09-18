@@ -13,28 +13,30 @@ export const Header: React.FC = async () => {
   const { data, error } = await supabase.auth.getUser()
 
   return (
-    <header className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent">
-      <div className="flex flex-row items-center">
-        <HistoryContainer location="header" />
-        <Button
-          variant="ghost"
-          size="icon"
-        >
-          <a href="/">
-            <SquarePen className="h-[1.2rem] w-[1.2rem]"/>
-          </a>
-        </Button>
+    <>
+      <div className="w-full flex justify-center mt-2">
+        <span className="text-4xl font-montserrat font-bold">{"mike."}</span>
       </div>
-      <div className="flex gap-0.5">
-        <div className="flex flex-row gap-2">
-          {(!error && data?.user?.app_metadata?.role === "super-admin") && (
-            <SettingsButton/>
-          )}
-          <ModeToggle/>
+      <header className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent top-0">
+        <div className="flex flex-row items-center">
+          <HistoryContainer location="header" />
+          <Button variant="ghost" size="icon">
+            <a href="/">
+              <SquarePen className="h-[1.2rem] w-[1.2rem]" />
+            </a>
+          </Button>
         </div>
-      </div>
-    </header>
-  )
+        <div className="flex gap-0.5">
+          <div className="flex flex-row gap-2">
+            {(!error && data?.user?.app_metadata?.role === "super-admin") && (
+              <SettingsButton />
+            )}
+            <ModeToggle />
+          </div>
+        </div>
+      </header>
+    </>
+  );
 }
 
 export default Header
