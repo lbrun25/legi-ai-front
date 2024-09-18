@@ -12,12 +12,10 @@ const fontSans = FontSans({
   variable: '--font-sans'
 })
 
-const title = 'Legal AI'
-const description =
-  'A fully open-source AI-powered answer engine with a generative UI for lawyers.'
+const title = "Mike";
+const description = "L’IA juridique ultra performante conçue par des experts du droit. Accédez à des millions de sources juridiques fiables en temps réel, sécurisé et optimisé pour simplifier votre pratique juridique.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://morphic.sh'),
   title,
   description,
   openGraph: {
@@ -28,7 +26,6 @@ export const metadata: Metadata = {
     title,
     description,
     card: 'summary_large_image',
-    creator: '@miiura'
   }
 }
 
