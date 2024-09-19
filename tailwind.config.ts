@@ -53,6 +53,28 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        pink: {
+          100: '#ffe5e6',
+          200: '#ffbcbf',
+          300: '#ff9498',
+          400: '#fc7b7f',
+          500: '#fc6469', // Base color
+          600: '#e35358',
+          700: '#cc4448',
+          800: '#b33538',
+          900: '#8c1f22',
+        },
+        purple: {
+          100: '#f2d5f2',
+          200: '#e3a6e3',
+          300: '#d577d5',
+          400: '#c94fc9',
+          500: '#bf3fbf', // Base color
+          600: '#a036a0',
+          700: '#832c83',
+          800: '#662266',
+          900: '#4b194b',
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

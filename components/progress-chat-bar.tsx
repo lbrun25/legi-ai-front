@@ -11,7 +11,7 @@ export const ProgressChatBar = () => {
 
     if (progress < 25) {
       // First phase: 0% to 25% in 2 seconds (quick load, no text)
-      const duration = 2000; // 2 seconds
+      const duration = 4000; // 4 seconds
       const increment = 25 / (duration / 10); // Increment per 10ms to reach 25% in 2 seconds
 
       interval = setInterval(() => {
@@ -33,7 +33,7 @@ export const ProgressChatBar = () => {
       }, 10); // 10ms interval
     } else if (progress >= 50 && progress < 75) {
       // Third phase: 50% to 75% in 4 seconds
-      const duration = 5000; // 6 seconds
+      const duration = 4000; // 4 seconds
       const increment = 25 / (duration / 10); // Increment per 10ms to reach 75% in 4 seconds
 
       interval = setInterval(() => {
@@ -76,7 +76,7 @@ export const ProgressChatBar = () => {
     <div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-blue-600 h-2.5 rounded-full transition-all duration-200"
+          className="bg-gradient-to-br via-pink-400 from-purple-300 to-purple-700 h-2.5 rounded-full transition-all duration-200"
           style={{width: `${progress}%`}}
         />
       </div>
