@@ -217,9 +217,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       {messages.map((message, index) => {
         return (
           <div key={index}>
-            {message.role === "assistant" && <AssistantRoleMessage />}
+            {message.role === "assistant" && <AssistantRoleMessage thinking={(isGenerating && !isStreaming && index === messages.length - 1)} />}
             {message.role === "user" && <UserRoleMessage />}
-            <div className="ml-14 mt-4">
+            <div className="mt-4">
               <BotMessage
                 content={message.text}
                 isGenerating={isGenerating}

@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import Header from '@/components/header'
 import { Toaster } from '@/components/ui/sonner'
 import { AppStateProvider } from "@/lib/context/app-state";
+import { PreloadResources } from "@/app/preload-resources";
 
 const fontSans = FontSans({
   subsets: ['latin'],
@@ -43,6 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <PreloadResources/>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
       <AppStateProvider>
         <ThemeProvider
