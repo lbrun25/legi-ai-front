@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
 import { HistorySkeleton } from './history-skelton'
+import {Tooltip} from "@/components/tooltip";
 
 type HistoryProps = {
   location: 'sidebar' | 'header'
@@ -44,21 +45,23 @@ export function History({ location, children, open: openParams }: HistoryProps) 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn({
-            'rounded-full text-foreground/30': location === 'sidebar'
-          })}
-        >
-          {location === 'header' ? <HistoryIcon className="h-[1.2rem] w-[1.2rem]" /> : <ChevronRight size={16} />}
-        </Button>
+        <Tooltip text="Historique" position="right">
+          <Button
+            variant="sidebarIcon"
+            size="sidebarIcon"
+            className={cn({
+              'rounded-full text-foreground/30': location === 'sidebar'
+            })}
+          >
+            {location === 'header' ? <HistoryIcon className="h-7 w-7" /> : <ChevronRight size={16} />}
+          </Button>
+        </Tooltip>
       </SheetTrigger>
-      <SheetContent className="w-64 rounded-tl-xl rounded-bl-xl" side="left">
+      <SheetContent className="w-72 rounded-tl-xl rounded-bl-xl" side="left">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-1 text-sm font-normal mb-2">
-            <HistoryIcon size={14} />
-            History
+          <SheetTitle className="flex items-center gap-1 text-sm font-medium mb-2">
+            <HistoryIcon size={16} />
+            {"Historique"}
           </SheetTitle>
         </SheetHeader>
         <div className="my-2 h-full pb-12 md:pb-10">
