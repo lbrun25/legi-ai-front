@@ -1,13 +1,15 @@
 "use client"
 import React, {useState} from "react";
+import {Button, ButtonProps} from "@/components/ui/button";
 
 type TooltipProps = {
   text: string;
   children: React.ReactNode;
   position?: 'top' | 'left' | 'right' | 'bottom';
+  buttonProps?: ButtonProps;
 };
 
-export const Tooltip = ({text, children, position = 'top'}: TooltipProps) => {
+export const Tooltip = ({text, children, position = 'top', buttonProps}: TooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
   // Handlers for the trigger element
@@ -53,7 +55,7 @@ export const Tooltip = ({text, children, position = 'top'}: TooltipProps) => {
   return (
     <div className="relative inline-block">
       {/* Trigger Element */}
-      <div
+      <Button
         onMouseEnter={handleMouseEnterTrigger}
         onMouseLeave={handleMouseLeaveTrigger}
         onFocus={handleMouseEnterTrigger}
@@ -61,9 +63,10 @@ export const Tooltip = ({text, children, position = 'top'}: TooltipProps) => {
         aria-describedby="tooltip"
         tabIndex={0} // Makes the div focusable for accessibility
         className="cursor-pointer"
+        {...buttonProps}
       >
         {children}
-      </div>
+      </Button>
 
       {/* Tooltip Content */}
       {isVisible && (

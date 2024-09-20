@@ -8,21 +8,17 @@ import {
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import {ChevronRight} from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
 import { HistorySkeleton } from './history-skelton'
 import {Tooltip} from "@/components/tooltip";
 
 type HistoryProps = {
-  location: 'sidebar' | 'header'
   children?: React.ReactNode
   open: boolean | null;
 }
 
-export function History({ location, children, open: openParams }: HistoryProps) {
+export function History({ children, open: openParams }: HistoryProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = React.useState(false);
@@ -45,16 +41,12 @@ export function History({ location, children, open: openParams }: HistoryProps) 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetTrigger asChild>
-        <Tooltip text="Historique" position="right">
-          <Button
-            variant="sidebarIcon"
-            size="sidebarIcon"
-            className={cn({
-              'rounded-full text-foreground/30': location === 'sidebar'
-            })}
-          >
-            {location === 'header' ? <HistoryIcon className="h-7 w-7" /> : <ChevronRight size={16} />}
-          </Button>
+        <Tooltip text="Historique" position="right" buttonProps={{
+          variant: 'sidebar',
+          size: 'sideBarIcon',
+          onClick: () => setOpen(true)
+        }}>
+          <HistoryIcon className="h-7 w-7" />
         </Tooltip>
       </SheetTrigger>
       <SheetContent className="w-72 rounded-tl-xl rounded-bl-xl" side="left">

@@ -35,8 +35,8 @@ export function ModeToggle() {
   return (
     <Button
       onClick={changeTheme}
-      variant="sidebarIcon"
-      size="sidebarIcon"
+      variant="sidebar"
+      size="sideBarIcon"
       onMouseOver={startSunRotation}
       onMouseLeave={stopSunRotation}
     >
