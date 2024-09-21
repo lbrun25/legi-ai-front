@@ -6,7 +6,7 @@ export const getMatchedDecisions = tool(async (input) => {
   if (!input.query) return "";
   const matchedDecisionsResponse = await searchMatchedDecisions(input.query);
   if (matchedDecisionsResponse.hasTimedOut) return "";
-  return "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Fiche d'arrêt ${decision.number}: ${decision.ficheArret}`).join("#");
+  return "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Décision de la ${decision.juridiction} ${decision.number} du ${decision.date} : ${decision.ficheArret}`).join("#");
 }, {
   name: 'getMatchedDecisions',
   description: "Obtient la position de la jurisprudence sur la question de droit formulée",

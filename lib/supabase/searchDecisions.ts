@@ -7,6 +7,8 @@ export interface MatchedDecision {
   id: bigint;
   ficheArret: string;
   number: string;
+  date: string;
+  juridiction: string;
   similarity: number;
 }
 
@@ -34,7 +36,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     const promise = (async () => {
       try {
         console.time("db decisions partition" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, { 
+        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, {
           query_embedding: embedding,
           match_count: matchCount,
         });
@@ -48,7 +50,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
           return [];
         }
 
-        console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
+        // console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
         console.timeEnd("db decisions partition" + partitionIndex);
         return matchedDecisions;
       } catch (err) {
@@ -82,7 +84,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 };
 
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
-  console.log('Will call match_decisions_by_ids with IDs:', idList);
+  // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
     console.time('call match_decisions_by_ids')
     const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_by_ids`, {
@@ -138,7 +140,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 14;
+  const maxIndex = 24;
   const matchCount = 5;
 
   try {
@@ -151,7 +153,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
     }
     const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
     const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
-    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
+    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, date: m.date, juridiction: m.juridiction, similarity: m.similarity })));
     return {
       decisions: decisionsFromIdsResponse.decisions,
       hasTimedOut: decisionsFromIdsResponse.hasTimedOut
