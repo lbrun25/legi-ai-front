@@ -247,7 +247,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
               />
             </div>
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating)) && (
-              <div className="mt-2">
+              <div className="mt-2 justify-end flex flex-row">
                 <CopyButton contentToCopy={message.text} />
               </div>
             )}
