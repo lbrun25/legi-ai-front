@@ -39,7 +39,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       setMessages([
         {
           role: "assistant",
-          text: `Bonjour ! Je suis Mike, votre assistant juridique intelligent. Connecté à des millions de sources fiables en temps réel, je suis là pour simplifier vos recherches et la rédaction de vos documents juridiques. Comment puis-je vous aider aujourd'hui ?`
+          text: `Comment puis-je vous aider aujourd’hui ?\n\nPour rappel, j’ai accès à des millions de sources juridiques à jour en temps réel et j'évolue tous les jours pour répondre à vos besoins. Plus vous m’utilisez et me fournissez de contexte, plus je peux vous offrir des réponses précises et pertinentes. Posez moi une question pour que je réalise une recherche juridique.`
         }
       ])
     }
