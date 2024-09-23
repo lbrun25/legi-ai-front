@@ -13,7 +13,7 @@ const fontSans = FontSans({
   variable: '--font-sans'
 })
 
-const title = "Mike";
+const title = "mike.";
 const description = "L’IA juridique ultra performante conçue par des experts du droit. Accédez à des millions de sources juridiques fiables en temps réel, sécurisé et optimisé pour simplifier votre pratique juridique.";
 
 export const metadata: Metadata = {
