@@ -7,19 +7,25 @@ type TooltipProps = {
   children: React.ReactNode;
   position?: 'top' | 'left' | 'right' | 'bottom';
   buttonProps?: ButtonProps;
+  hideAfterClicking?: boolean;
 };
 
-export const Tooltip = ({text, children, position = 'top', buttonProps}: TooltipProps) => {
+export const Tooltip = ({ text, children, position = 'top', buttonProps, hideAfterClicking }: TooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [wasClicked, setWasClicked] = useState(false); // New state to handle click behavior
 
-  // Handlers for the trigger element
-  const handleMouseEnterTrigger = () => setIsVisible(true);
-  const handleMouseLeaveTrigger = () => setIsVisible(false);
+  const handleMouseEnterTrigger = () => {
+    // Show tooltip only if it wasn't hidden by a click
+    if (!wasClicked) {
+      setIsVisible(true);
+    }
+  };
 
-  // Handler for the tooltip itself
-  const handleMouseEnterTooltip = () => setIsVisible(false);
+  const handleMouseLeaveTrigger = () => {
+    setIsVisible(false);
+    setWasClicked(false);
+  };
 
-  // Function to get position-based classes for the tooltip
   const getTooltipPositionClasses = () => {
     switch (position) {
       case 'left':
@@ -33,7 +39,6 @@ export const Tooltip = ({text, children, position = 'top', buttonProps}: Tooltip
     }
   };
 
-  // Function to get chevron positioning and orientation
   const getChevronPositionClasses = () => {
     switch (position) {
       case 'left':
@@ -47,10 +52,23 @@ export const Tooltip = ({text, children, position = 'top', buttonProps}: Tooltip
     }
   };
 
-  // Function to get chevron color based on theme
   const getChevronColorClasses = () => {
     return 'border-t-transparent border-l-transparent';
   };
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    console.log('handleClick:', handleClick);
+    if (buttonProps?.onClick) {
+      buttonProps.onClick(event);
+    }
+
+    if (hideAfterClicking) {
+      setIsVisible(false); // Hide the tooltip after clicking
+      setWasClicked(true); // Set flag to prevent tooltip from reappearing
+    }
+  };
+
+  const { onClick, ...restButtonProps } = buttonProps || {};
 
   return (
     <div className="relative inline-block">
@@ -63,7 +81,8 @@ export const Tooltip = ({text, children, position = 'top', buttonProps}: Tooltip
         aria-describedby="tooltip"
         tabIndex={0} // Makes the div focusable for accessibility
         className="cursor-pointer"
-        {...buttonProps}
+        onClick={handleClick}
+        {...restButtonProps}
       >
         {children}
       </Button>
@@ -73,7 +92,7 @@ export const Tooltip = ({text, children, position = 'top', buttonProps}: Tooltip
         <div
           id="tooltip"
           role="tooltip"
-          onMouseEnter={handleMouseEnterTooltip}
+          onMouseEnter={handleMouseLeaveTrigger} // Hide tooltip when mouse hovers over it
           className={`absolute z-10 px-3 py-2 text-sm font-medium text-white bg-gray-900 dark:bg-gray-700 rounded-md shadow-lg ${getTooltipPositionClasses()} transition-opacity duration-300 opacity-100`}
         >
           {text}

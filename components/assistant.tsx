@@ -12,6 +12,7 @@ import {getMessages, insertMessage} from "@/lib/supabase/message";
 import {AssistantRoleMessage} from "@/components/assistant-role-message";
 import {UserRoleMessage} from "@/components/user-role-message";
 import {AssistantState} from "@/lib/types/assistant";
+import {CopyButton} from "@/components/copy-button";
 
 interface AssistantProps {
   threadId?: string;
@@ -245,6 +246,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                 isGenerating={isGenerating}
               />
             </div>
+            {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating)) && (
+              <div className="mt-2">
+                <CopyButton contentToCopy={message.text} />
+              </div>
+            )}
             <br/>
             <br/>
           </div>
