@@ -15,7 +15,7 @@ export const AssistantRoleMessage = ({state}: AssistantRoleMessageProps) => {
       if (state === "thinking")
         videoRef.current.playbackRate = 3.0;
       if (state === "waiting")
-        videoRef.current.playbackRate = 0.5;
+        videoRef.current.playbackRate = 0.8;
     }
   }, [state]);
 
@@ -42,7 +42,10 @@ export const AssistantRoleMessage = ({state}: AssistantRoleMessageProps) => {
         </video>
       )}
       <Image
-        className="absolute left-[-56px]"
+        className={cn(
+          "absolute left-[-56px]",
+          state !== "finished" ? "hidden" : "block"
+        )}
         src="/mike-logo-42.webp"
         alt="mike logo"
         height={42}
