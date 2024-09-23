@@ -13,8 +13,11 @@ export const Header: React.FC = async () => {
 
   return (
     <>
-      <div className="w-full flex justify-center mt-2">
-        <span className="text-4xl font-montserrat font-bold">{"mike."}</span>
+      <div className="w-full flex justify-center items-center mt-2">
+        <span className="text-4xl font-montserrat font-bold">mike.</span>
+        <div className="bg-pink-200 text-gray-900 text-xs font-semibold px-2 py-1 rounded-full ml-4">
+          {"Accès prioritaire"}
+        </div>
       </div>
       <header
         className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent top-0"
@@ -22,8 +25,8 @@ export const Header: React.FC = async () => {
         <div
           className="fixed left-0 top-0 h-screen bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-52">
           <div className="mt-6 flex flex-col w-full">
-            <HistoryContainer />
-            <NewThreadSidebarButton />
+            <HistoryContainer/>
+            <NewThreadSidebarButton/>
           </div>
         </div>
         <div
