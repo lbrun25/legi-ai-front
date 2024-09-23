@@ -2,11 +2,8 @@
 import {Tooltip} from "@/components/tooltip";
 import {SquarePen} from "lucide-react";
 import React from "react";
-import {useRouter} from "next/navigation";
 
 export const NewThreadSidebarButton = () => {
-  const router = useRouter()
-
   return (
     <Tooltip
       text="Nouvelle conversation"
@@ -14,7 +11,7 @@ export const NewThreadSidebarButton = () => {
       buttonProps={{
         variant: "sidebar",
         size: "sideBarIcon",
-        onClick: () => router.push('/')
+        onClick: () => window.location.href = '/'
       }}
     >
       <SquarePen className="h-7 w-7"/>

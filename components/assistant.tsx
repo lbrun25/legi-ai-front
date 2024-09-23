@@ -11,6 +11,7 @@ import {streamingFetch} from "@/lib/utils/fetch";
 import {getMessages, insertMessage} from "@/lib/supabase/message";
 import {AssistantRoleMessage} from "@/components/assistant-role-message";
 import {UserRoleMessage} from "@/components/user-role-message";
+import {AssistantState} from "@/lib/types/assistant";
 
 interface AssistantProps {
   threadId?: string;
@@ -34,6 +35,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
   useEffect(() => {
     scrollToBottom();
+    if (messages.length === 0) {
+      setMessages([
+        {
+          role: "assistant",
+          text: `Bonjour ! Je suis Mike, votre assistant juridique intelligent. Connecté à des millions de sources fiables en temps réel, je suis là pour simplifier vos recherches et la rédaction de vos documents juridiques. Comment puis-je vous aider aujourd'hui ?`
+        }
+      ])
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -80,7 +89,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         console.error("cannot update title for thread:", error);
       }
     }
-    handleTextCreated();
 
     if (abortControllerRef.current)
       abortControllerRef.current.abort("Cancel any ongoing streaming request"); // Cancel any ongoing request before starting a new one
@@ -129,18 +137,19 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     event.preventDefault();
     if (isGenerating) return;
     if (!userInput.trim()) return;
+    const newUserMessage: Message = {role: "user", text: userInput};
+    const currentMessages: Message[] = [...messages, newUserMessage];
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      newUserMessage,
+      {role: "assistant", text: ""}
+    ]);
     setIsGenerating(true);
     let threadId = threadIdParams;
     if (!threadId && !threadIdState) {
       threadId = await createThread();
       setThreadIdState(threadId);
     }
-    const newUserMessage: Message = {role: "user", text: userInput};
-    const currentMessages: Message[] = [...messages, newUserMessage];
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      newUserMessage,
-    ]);
     sendMessage(userInput, threadId ?? threadIdState, currentMessages);
     setUserInput("");
     scrollToBottom();
@@ -183,6 +192,16 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     }
   }
 
+  const getAssistantState = (messageIndex: number): AssistantState => {
+    if (messageIndex !== messages.length - 1)
+      return "finished";
+    if (isGenerating && !isStreaming)
+      return "thinking";
+    if (messageIndex === messages.length - 1)
+      return "waiting";
+    return "finished"
+  }
+
   const retryMessage = () => {
     // Find the index of the last "user" message
     const messageIndex = messages.slice().reverse().findIndex((msg) => msg.role === "user");
@@ -215,9 +234,10 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
       {messages.map((message, index) => {
+        const assistantState = getAssistantState(index)
         return (
           <div key={index}>
-            {message.role === "assistant" && <AssistantRoleMessage thinking={(isGenerating && !isStreaming && index === messages.length - 1)} />}
+            {message.role === "assistant" && <AssistantRoleMessage state={assistantState} />}
             {message.role === "user" && <UserRoleMessage />}
             <div className="mt-4">
               <BotMessage
