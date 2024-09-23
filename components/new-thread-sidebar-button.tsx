@@ -1,20 +1,17 @@
 "use client";
-import {Tooltip} from "@/components/tooltip";
 import {SquarePen} from "lucide-react";
 import React from "react";
+import {Button} from "@/components/ui/button";
 
 export const NewThreadSidebarButton = () => {
   return (
-    <Tooltip
-      text="Nouvelle conversation"
-      position="right"
-      buttonProps={{
-        variant: "sidebar",
-        size: "sideBarIcon",
-        onClick: () => window.location.href = '/'
-      }}
+    <Button
+      variant="sidebar"
+      size="sidebar"
+      onClick={() => window.location.href = '/'}
     >
-      <SquarePen className="h-7 w-7"/>
-    </Tooltip>
+      <SquarePen className="h-5 w-5"/>
+      <span className="font-semibold text-sm">{"Nouvelle discussion"}</span>
+    </Button>
   );
 }

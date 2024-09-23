@@ -10,11 +10,11 @@ export function SettingsButton() {
 
   return (
     <Tooltip text="Paramètres" position="left" buttonProps={{
-      variant: "sidebar",
+      variant: "sideBarIcon",
       size: "sideBarIcon",
       onClick: () => router.push('/settings')
     }}>
-      <Settings className="h-7 w-7"/>
+      <Settings className="h-6 w-6"/>
       <span className="sr-only">Open settings</span>
     </Tooltip>
   )

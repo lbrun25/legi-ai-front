@@ -35,15 +35,15 @@ export function ModeToggle() {
   return (
     <Button
       onClick={changeTheme}
-      variant="sidebar"
+      variant="sideBarIcon"
       size="sideBarIcon"
       onMouseOver={startSunRotation}
       onMouseLeave={stopSunRotation}
     >
       {
         theme == "dark" ?
-          <Sun className={`${sunRotating} h-7 w-7`} /> :
-          <Moon className="h-7 w-7" />
+          <Sun className={`${sunRotating} h-6 w-6`} /> :
+          <Moon className="h-6 w-6" />
       }
       <span className="sr-only">Toggle theme</span>
     </Button>

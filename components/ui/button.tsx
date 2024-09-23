@@ -18,14 +18,16 @@ const buttonVariants = cva(
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
-        sidebar: 'hover:bg-gray-200 dark:hover:bg-gray-800',
+        sidebar: 'hover:bg-gray-200 dark:hover:bg-gray-800 justify-start rounded-none space-x-2',
+        sideBarIcon: 'hover:bg-gray-200 dark:hover:bg-gray-800'
       },
       size: {
         default: 'h-10 px-4 py-2',
         sm: 'h-9 rounded-md px-3',
         lg: 'h-11 rounded-md px-8',
         icon: 'h-10 w-10',
-        sideBarIcon: 'h-16 w-16'
+        sidebar: 'py-4 pl-4 w-full',
+        sideBarIcon: 'h-14 w-14'
       }
     },
     defaultVariants: {

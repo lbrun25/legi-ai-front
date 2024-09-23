@@ -11,7 +11,7 @@ import {
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
 import { HistorySkeleton } from './history-skelton'
-import {Tooltip} from "@/components/tooltip";
+import {Button} from "@/components/ui/button";
 
 type HistoryProps = {
   children?: React.ReactNode
@@ -41,13 +41,10 @@ export function History({ children, open: openParams }: HistoryProps) {
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetTrigger asChild>
-        <Tooltip text="Historique" position="right" buttonProps={{
-          variant: 'sidebar',
-          size: 'sideBarIcon',
-          onClick: () => setOpen(true)
-        }}>
-          <HistoryIcon className="h-7 w-7" />
-        </Tooltip>
+        <Button variant="sidebar" size="sidebar">
+          <HistoryIcon className="h-5 w-5" />
+          <span className="font-semibold text-sm">{"Historique"}</span>
+        </Button>
       </SheetTrigger>
       <SheetContent className="w-72 rounded-tl-xl rounded-bl-xl" side="left">
         <SheetHeader>

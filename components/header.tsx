@@ -20,14 +20,14 @@ export const Header: React.FC = async () => {
         className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent top-0"
       >
         <div
-          className="fixed left-0 top-0 h-screen bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-48">
-          <div className="mt-2 gap-2 px-8 flex flex-col items-center">
+          className="fixed left-0 top-0 h-screen bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-52">
+          <div className="mt-6 flex flex-col w-full">
             <HistoryContainer />
             <NewThreadSidebarButton />
           </div>
         </div>
         <div
-          className="fixed right-0 top-0 h-screen bg-blue-500 bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-48">
+          className="fixed right-0 top-0 h-screen bg-blue-500 bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-52">
           <div className="mt-2 gap-2 px-8 flex flex-col items-center">
             <ModeToggle/>
             {(!error && data?.user?.app_metadata?.role === "super-admin") && (
