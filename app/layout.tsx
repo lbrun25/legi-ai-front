@@ -6,18 +6,17 @@ import { ThemeProvider } from '@/components/theme-provider'
 import Header from '@/components/header'
 import { Toaster } from '@/components/ui/sonner'
 import { AppStateProvider } from "@/lib/context/app-state";
+import { PreloadResources } from "@/app/preload-resources";
 
 const fontSans = FontSans({
   subsets: ['latin'],
   variable: '--font-sans'
 })
 
-const title = 'Legal AI'
-const description =
-  'A fully open-source AI-powered answer engine with a generative UI for lawyers.'
+const title = "mike.";
+const description = "L’IA juridique ultra performante conçue par des experts du droit. Accédez à des millions de sources juridiques fiables en temps réel, sécurisé et optimisé pour simplifier votre pratique juridique.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://morphic.sh'),
   title,
   description,
   openGraph: {
@@ -28,7 +27,6 @@ export const metadata: Metadata = {
     title,
     description,
     card: 'summary_large_image',
-    creator: '@miiura'
   }
 }
 
@@ -46,6 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <PreloadResources/>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
       <AppStateProvider>
         <ThemeProvider

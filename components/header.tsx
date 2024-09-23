@@ -4,8 +4,7 @@ import { ModeToggle } from './mode-toggle'
 import {SettingsButton} from "@/components/settings-button";
 import {createClient} from "@/lib/supabase/client/server";
 import HistoryContainer from "@/components/history-container";
-import {SquarePen} from 'lucide-react'
-import {Button} from "@/components/ui/button";
+import {NewThreadSidebarButton} from "@/components/new-thread-sidebar-button";
 
 export const Header: React.FC = async () => {
   const supabase = createClient()
@@ -13,28 +12,32 @@ export const Header: React.FC = async () => {
   const { data, error } = await supabase.auth.getUser()
 
   return (
-    <header className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent">
-      <div className="flex flex-row items-center">
-        <HistoryContainer location="header" />
-        <Button
-          variant="ghost"
-          size="icon"
-        >
-          <a href="/">
-            <SquarePen className="h-[1.2rem] w-[1.2rem]"/>
-          </a>
-        </Button>
+    <>
+      <div className="w-full flex justify-center mt-2">
+        <span className="text-4xl font-montserrat font-bold">{"mike."}</span>
       </div>
-      <div className="flex gap-0.5">
-        <div className="flex flex-row gap-2">
-          {(!error && data?.user?.app_metadata?.role === "super-admin") && (
-            <SettingsButton/>
-          )}
-          <ModeToggle/>
+      <header
+        className="fixed w-full p-1 md:p-2 flex justify-between items-center z-10 backdrop-blur md:backdrop-blur-none bg-background/80 md:bg-transparent top-0"
+      >
+        <div
+          className="fixed left-0 top-0 h-screen bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-52">
+          <div className="mt-6 flex flex-col w-full">
+            <HistoryContainer />
+            <NewThreadSidebarButton />
+          </div>
         </div>
-      </div>
-    </header>
-  )
+        <div
+          className="fixed right-0 top-0 h-screen bg-blue-500 bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-52">
+          <div className="mt-2 gap-2 px-8 flex flex-col items-center">
+            <ModeToggle/>
+            {(!error && data?.user?.app_metadata?.role === "super-admin") && (
+              <SettingsButton/>
+            )}
+          </div>
+        </div>
+      </header>
+    </>
+  );
 }
 
 export default Header

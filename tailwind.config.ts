@@ -53,6 +53,28 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        pink: {
+          100: '#ffe5e6',
+          200: '#ffbcbf',
+          300: '#ff9498',
+          400: '#fc7b7f',
+          500: '#fc6469', // Base color
+          600: '#e35358',
+          700: '#cc4448',
+          800: '#b33538',
+          900: '#8c1f22',
+        },
+        purple: {
+          100: '#f2d5f2',
+          200: '#e3a6e3',
+          300: '#d577d5',
+          400: '#c94fc9',
+          500: '#bf3fbf', // Base color
+          600: '#a036a0',
+          700: '#832c83',
+          800: '#662266',
+          900: '#4b194b',
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -68,13 +90,19 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        rotation: {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        'sun-rotation': 'rotation 1s infinite'
       },
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
+        montserrat: ['Montserrat', 'sans-serif'],
       },
     },
   },

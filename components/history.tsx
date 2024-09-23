@@ -8,20 +8,17 @@ import {
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import {ChevronRight} from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { History as HistoryIcon } from 'lucide-react'
 import { Suspense } from 'react'
 import { HistorySkeleton } from './history-skelton'
+import {Button} from "@/components/ui/button";
 
 type HistoryProps = {
-  location: 'sidebar' | 'header'
   children?: React.ReactNode
   open: boolean | null;
 }
 
-export function History({ location, children, open: openParams }: HistoryProps) {
+export function History({ children, open: openParams }: HistoryProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = React.useState(false);
@@ -44,21 +41,16 @@ export function History({ location, children, open: openParams }: HistoryProps) 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn({
-            'rounded-full text-foreground/30': location === 'sidebar'
-          })}
-        >
-          {location === 'header' ? <HistoryIcon className="h-[1.2rem] w-[1.2rem]" /> : <ChevronRight size={16} />}
+        <Button variant="sidebar" size="sidebar">
+          <HistoryIcon className="h-5 w-5" />
+          <span className="font-semibold text-sm">{"Historique"}</span>
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-64 rounded-tl-xl rounded-bl-xl" side="left">
+      <SheetContent className="w-72 rounded-tl-xl rounded-bl-xl" side="left">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-1 text-sm font-normal mb-2">
-            <HistoryIcon size={14} />
-            History
+          <SheetTitle className="flex items-center gap-1 text-sm font-medium mb-2">
+            <HistoryIcon size={16} />
+            {"Historique"}
           </SheetTitle>
         </SheetHeader>
         <div className="my-2 h-full pb-12 md:pb-10">
