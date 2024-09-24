@@ -214,10 +214,10 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-screen-sm pb-24 pt-40 mx-auto gap-8">
+    <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         return (
-          <div key={index} className={cn("p-4 pl-16", message.role === "assistant" ? "rounded-3xl bg-gray-50" : "")}>
+          <div key={index} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-100 dark:bg-gray-900 shadow" : "")}>
             {message.role === "assistant" && <AssistantRoleMessage/>}
             {message.role === "user" && <UserRoleMessage/>}
             <div className="mt-4">
