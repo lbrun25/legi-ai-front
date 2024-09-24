@@ -19,7 +19,8 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
         sidebar: 'hover:bg-gray-200 dark:hover:bg-gray-800 justify-start rounded-none space-x-2',
-        sideBarIcon: 'hover:bg-gray-200 dark:hover:bg-gray-800'
+        sideBarIcon: 'hover:bg-gray-200 dark:hover:bg-gray-800',
+        capsule: 'hover:bg-gray-200 hover:text-accent-foreground rounded-full bg-gray-100 shadow-sm',
       },
       size: {
         default: 'h-10 px-4 py-2',
