@@ -10,6 +10,8 @@ type DecisionCache = Map<string, Decision>;
 interface AppState {
   isGenerating: boolean;
   setIsGenerating: (value: boolean) => void;
+  isStreaming: boolean;
+  setIsStreaming: (value: boolean) => void;
   articleCache: ArticleCache;
   getCachedArticle: (articleNumber: string, articleSource: string) => Article | undefined;
   setCachedArticle: (articleNumber: string, articleSource: string, article: Article) => void;
@@ -22,6 +24,7 @@ const AppStateContext = createContext<AppState | undefined>(undefined);
 
 export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const articleCache = useRef(new Map<string, Article>());
   const decisionCache = useRef(new Map<string, Decision>());
 
@@ -48,6 +51,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
       value={{
         isGenerating,
         setIsGenerating,
+        isStreaming,
+        setIsStreaming,
         articleCache: articleCache.current,
         getCachedArticle,
         setCachedArticle,

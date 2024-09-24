@@ -1,3 +1,4 @@
+"use client"
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import React, {FormEvent, useEffect, useRef, useState} from "react";
@@ -11,8 +12,8 @@ import {streamingFetch} from "@/lib/utils/fetch";
 import {getMessages, insertMessage} from "@/lib/supabase/message";
 import {AssistantRoleMessage} from "@/components/assistant-role-message";
 import {UserRoleMessage} from "@/components/user-role-message";
-import {AssistantState} from "@/lib/types/assistant";
 import {CopyButton} from "@/components/copy-button";
+import {useAppState} from "@/lib/context/app-state";
 
 interface AssistantProps {
   threadId?: string;
@@ -20,13 +21,12 @@ interface AssistantProps {
 }
 
 export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
-  const [isGenerating, setIsGenerating] = useState(false);
+  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming} = useAppState();
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [threadIdState, setThreadIdState] = useState("");
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
-  const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // automatically scroll to bottom of chat
@@ -156,13 +156,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     scrollToBottom();
   }
 
-  /* Stream Event Handlers */
-
-  // textCreated - create new assistant message
-  const handleTextCreated = () => {
-    appendMessage("assistant", "");
-  };
-
   /*
     =======================
     === Utility Helpers ===
@@ -181,26 +174,12 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     });
   };
 
-  const appendMessage = (role: MessageRole, text: string) => {
-    setMessages((prevMessages) => [...prevMessages, {role, text}]);
-  };
-
   const stopStreaming = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort("User stopped the streaming"); // Call abort on the AbortController to cancel the request
       setIsStreaming(false);
       setIsGenerating(false);
     }
-  }
-
-  const getAssistantState = (messageIndex: number): AssistantState => {
-    if (messageIndex !== messages.length - 1)
-      return "finished";
-    if (isGenerating && !isStreaming)
-      return "thinking";
-    if (messageIndex === messages.length - 1)
-      return "waiting";
-    return "finished"
   }
 
   const retryMessage = () => {
@@ -233,12 +212,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-prose py-24 mx-auto">
+    <div className="flex flex-col w-full max-w-prose pb-24 pt-40 mx-auto">
       {messages.map((message, index) => {
-        const assistantState = getAssistantState(index)
         return (
           <div key={index}>
-            {message.role === "assistant" && <AssistantRoleMessage state={assistantState} />}
+            {message.role === "assistant" && <AssistantRoleMessage />}
             {message.role === "user" && <UserRoleMessage />}
             <div className="mt-4">
               <BotMessage
