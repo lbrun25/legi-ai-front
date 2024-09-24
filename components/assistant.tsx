@@ -15,6 +15,7 @@ import {UserRoleMessage} from "@/components/user-role-message";
 import {CopyButton} from "@/components/copy-button";
 import {useAppState} from "@/lib/context/app-state";
 import {WelcomingAssistantMessage} from "@/lib/constants/assistant";
+import {cn} from "@/lib/utils";
 
 interface AssistantProps {
   threadId?: string;
@@ -213,12 +214,12 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-prose pb-24 pt-40 mx-auto">
+    <div className="flex flex-col w-full max-w-screen-sm pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         return (
-          <div key={index}>
-            {message.role === "assistant" && <AssistantRoleMessage />}
-            {message.role === "user" && <UserRoleMessage />}
+          <div key={index} className={cn("p-4 pl-16", message.role === "assistant" ? "rounded-3xl bg-gray-50" : "")}>
+            {message.role === "assistant" && <AssistantRoleMessage/>}
+            {message.role === "user" && <UserRoleMessage/>}
             <div className="mt-4">
               <BotMessage
                 content={message.text}
@@ -227,11 +228,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
             </div>
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
               <div className="mt-2 justify-end flex flex-row">
-                <CopyButton contentToCopy={message.text} />
+                <CopyButton contentToCopy={message.text}/>
               </div>
             )}
-            <br/>
-            <br/>
           </div>
         );
       })}
