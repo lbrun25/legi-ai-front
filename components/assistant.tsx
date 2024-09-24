@@ -14,6 +14,7 @@ import {AssistantRoleMessage} from "@/components/assistant-role-message";
 import {UserRoleMessage} from "@/components/user-role-message";
 import {CopyButton} from "@/components/copy-button";
 import {useAppState} from "@/lib/context/app-state";
+import {WelcomingAssistantMessage} from "@/lib/constants/assistant";
 
 interface AssistantProps {
   threadId?: string;
@@ -40,7 +41,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       setMessages([
         {
           role: "assistant",
-          text: `Bonjour Maître,\n\n**Comment puis-je vous aider aujourd’hui ?**\n\nPour rappel, j’ai accès à des **millions de sources juridiques** à jour en temps réel et j'évolue tous les jours pour répondre à vos besoins. Plus vous **m’utilisez et me fournissez de contexte**, plus je peux vous offrir des réponses précises et pertinentes. **Posez moi une question pour que je réalise une recherche juridique.**`
+          text: WelcomingAssistantMessage
         }
       ])
     }
@@ -224,8 +225,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                 isGenerating={isGenerating}
               />
             </div>
-            {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating)) && (
-              <div className="mt-2">
+            {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
+              <div className="mt-2 justify-end flex flex-row">
                 <CopyButton contentToCopy={message.text} />
               </div>
             )}

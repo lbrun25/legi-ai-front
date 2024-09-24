@@ -1,6 +1,6 @@
-import {Tooltip} from "@/components/tooltip";
 import {useState} from "react";
 import {CheckIcon, CopyIcon} from "lucide-react";
+import {Button} from "@/components/ui/button";
 
 interface CopyButtonProps {
   contentToCopy: string;
@@ -19,21 +19,17 @@ export const CopyButton = ({contentToCopy}: CopyButtonProps) => {
   };
 
   return (
-    <Tooltip
-      text="Copier"
-      position="bottom"
-      buttonProps={{
-        variant: 'ghost',
-        size: 'icon',
-        onClick: () => onCopy(contentToCopy),
-      }}
-      hideAfterClicking
-    >
-      {copied ? (
-        <CheckIcon className="h-4 w-4"/>
-      ) : (
-        <CopyIcon className="h-4 w-4"/>
-      )}
-    </Tooltip>
+    <Button variant="capsule" onClick={() => onCopy(contentToCopy)}>
+      <div className="flex flex-row space-x-2 items-center">
+        {copied ? (
+          <CheckIcon className="h-4 w-4"/>
+        ) : (
+          <CopyIcon className="h-4 w-4"/>
+        )}
+        <span className="text-sm font-medium">
+          {"Copier"}
+        </span>
+      </div>
+    </Button>
   );
 };
