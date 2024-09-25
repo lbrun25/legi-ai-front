@@ -13,6 +13,7 @@ export interface MatchedArticle {
 export interface SearchMatchedArticlesResponse {
   articles: MatchedArticle[];
   hasTimedOut: boolean;
+  codeName: string;
 }
 
 interface FetchArticlesResponse {
@@ -172,12 +173,14 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
       return {
         articles: topArticles,
         hasTimedOut: articlesFromPartitionsResponse.hasTimedOut,
+        codeName: codeTitle,
       };
     } catch (error) {
       console.error('Error occurred while fetching articles:', error);
       return {
         articles: [],
-        hasTimedOut: false
+        hasTimedOut: false,
+        codeName: codeTitle,
       };
     }
   }
@@ -185,16 +188,17 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   try {
     const articlesResponse = await fetchArticles(embedding, matchCount, codeTitle);
     const topArticles = articlesResponse.articles.slice(0, matchCount);
-    //console.log("got matched articles:", topArticles);
     return {
       articles: topArticles,
       hasTimedOut: articlesResponse.hasTimedOut,
+      codeName: codeTitle,
     };
   } catch (err) {
     console.error('Error occurred while fetching articles:', err);
     return {
       articles: [],
-      hasTimedOut: false
+      hasTimedOut: false,
+      codeName: codeTitle,
     };
   }
 }

@@ -6,7 +6,11 @@ export const getMatchedDoctrines = tool(async (input) => {
   if (!input.query) return "";
   const matchedDoctrinesResponse = await searchMatchedDoctrines(input.query);
   if (matchedDoctrinesResponse.hasTimedOut) return "";
-  return "#" + matchedDoctrinesResponse.doctrines?.map((doctrine: MatchedDoctrine) => `Doctrine paragraphe ${doctrine.paragrapheNumber}: ${doctrine.paragrapheContent}`).join("#");
+  const domaine = matchedDoctrinesResponse.doctrineDomaine
+  const content = "#" + matchedDoctrinesResponse.doctrines?.map((doctrine: MatchedDoctrine) => `Contenu du paragraphe n°${doctrine.paragrapheNumber} : ${doctrine.paragrapheContent}\n`).join("#");
+  const result = `${domaine}:\n${content}`
+  console.log(result);
+  return `${domaine}:\n${content}`;
 }, {
   name: 'getMatchedDoctrines',
   description: "Obtient les doctrines les plus similaires à la demande de l'utilisateur",
