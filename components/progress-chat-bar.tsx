@@ -80,7 +80,7 @@ export const ProgressChatBar = () => {
           style={{width: `${progress}%`}}
         />
       </div>
-      <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 text-center pb-16">
+      <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 text-center">
         {getProgressText()}
       </div>
     </div>
