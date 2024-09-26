@@ -15,6 +15,7 @@ import {UserRoleMessage} from "@/components/user-role-message";
 import {CopyButton} from "@/components/copy-button";
 import {useAppState} from "@/lib/context/app-state";
 import {WelcomingAssistantMessage} from "@/lib/constants/assistant";
+import {cn} from "@/lib/utils";
 
 interface AssistantProps {
   threadId?: string;
@@ -213,42 +214,46 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-prose pb-24 pt-40 mx-auto">
+    <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         return (
-          <div key={index}>
-            {message.role === "assistant" && <AssistantRoleMessage />}
-            {message.role === "user" && <UserRoleMessage />}
-            <div className="mt-4">
+          <div key={index} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-50 dark:bg-gray-900 shadow" : "")}>
+            {message.role === "assistant" && <AssistantRoleMessage/>}
+            {message.role === "user" && <UserRoleMessage/>}
+            <div className="mt-4 ml-8">
               <BotMessage
                 content={message.text}
                 isGenerating={isGenerating}
               />
+              {index === messages.length - 1 && (
+                <div className="mt-8">
+                  {(isGenerating && !isStreaming) && (
+                    <div className="mb-8">
+                      <ProgressChatBar />
+                    </div>
+                  )}
+                  {(isGenerating && isStreaming) && (
+                    <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
+                  )}
+                  {hasIncomplete && (
+                    <div className="mb-8">
+                      <IncompleteMessage onRetryClicked={retryMessage} />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
-              <div className="mt-2 justify-end flex flex-row">
-                <CopyButton contentToCopy={message.text} />
+              <div className="mt-4 justify-end flex flex-row">
+                <CopyButton contentToCopy={message.text}/>
               </div>
             )}
-            <br/>
-            <br/>
           </div>
         );
       })}
-      {(isGenerating && isStreaming) && (
-        <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
-      )}
-      {(isGenerating && !isStreaming) && (
-        <ProgressChatBar />
-      )}
       {loadingMessages && (
         <div className="flex justify-center items-center">
           <Spinner/>
-        </div>
-      )}
-      {hasIncomplete && (
-        <div className="mb-8">
-          <IncompleteMessage onRetryClicked={retryMessage} />
         </div>
       )}
       <div ref={messagesEndRef}/>
