@@ -32,7 +32,7 @@ export const VideoMike = () => {
       )}
     >
       <source src="/mike.mov" type='video/mp4'/>
-      <source src="/mike.webm" type="video/webm"/>
+      {/*<source src="/mike.webm" type="video/webm"/>*/}
       Votre navigateur ne prend pas en charge la vidéo.
     </video>
   );
