@@ -2,8 +2,8 @@
 import {BotMessage} from "@/components/message";
 import {ChatInput} from "@/components/chat-input";
 import React, {FormEvent, useEffect, useRef, useState} from "react";
-import {Message, MessageRole} from "@/lib/types/message";
-import {updateTitleForThread} from "@/lib/supabase/threads";
+import {Message} from "@/lib/types/message";
+import {getThread, updateTitleForThread} from "@/lib/supabase/threads";
 import {Spinner} from "@/components/ui/spinner";
 import {IncompleteMessage} from "@/components/incomplete-message";
 import {VoiceRecordButton} from "@/components/voice-record-button";
@@ -18,6 +18,7 @@ import {WelcomingAssistantMessage} from "@/lib/constants/assistant";
 import {cn} from "@/lib/utils";
 import {Suggestions} from "@/components/suggestions";
 import {AnswerSuggestions} from "@/components/answer-suggestions";
+import {ToolName} from "@/lib/types/functionTool";
 
 interface AssistantProps {
   threadId?: string;
@@ -25,7 +26,7 @@ interface AssistantProps {
 }
 
 export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
-  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming} = useAppState();
+  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming, setTimeSaved} = useAppState();
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -65,7 +66,18 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         setLoadingMessages(false);
       }
     };
-
+    const fetchTimeSaved = async () => {
+      try {
+        const existingThread = await getThread(threadIdParams);
+        console.log('existingThread:', existingThread);
+        const existingTimeSaved = existingThread?.time_saved;
+        setTimeSaved(existingTimeSaved || 0);
+        console.log('existingTimeSaved:', existingTimeSaved);
+      } catch (error) {
+        console.error("cannot get thread:", error);
+      }
+    }
+    fetchTimeSaved();
     fetchMessages();
   }, [threadIdParams]);
 
@@ -84,6 +96,20 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     stopStreaming();
     setHasIncomplete(true);
     setIsGenerating(false);
+  };
+
+  const updateTimeSaved = async (threadId: string, toolsCalled: ToolName[]) => {
+    console.log('updateTimeSaved toolsCalled:', toolsCalled)
+    console.log('threadIdState ?? threadIdParams:', threadIdState ?? threadIdParams)
+    const res = await fetch(`/api/threads/${threadId}/timeSaved`, {
+      method: "POST",
+      body: JSON.stringify({
+        toolsCalled: toolsCalled
+      })
+    });
+    const data = await res.json();
+    console.log('updateTimeSaved data:', data);
+    setTimeSaved(data.timeSaved);
   };
 
   const sendMessage = async (text: string, threadId: string, messages: Message[]) => {
@@ -121,8 +147,14 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           setIsStreaming(true);
           firstChunkReceived = true;
         }
-        appendToLastMessage(chunk);
-        answer += chunk;
+        if (chunk.includes("Tools called:")) {
+          const toolsCalled = chunk.split(',');
+          updateTimeSaved(threadId, toolsCalled as ToolName[]);
+        } else {
+          // Append normal content chunks to the answer
+          appendToLastMessage(chunk);
+          answer += chunk;
+        }
       }
       insertMessage("user", text, threadId);
       insertMessage("assistant", answer, threadId);

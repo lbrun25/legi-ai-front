@@ -81,6 +81,21 @@ export async function updateTitleForThread(threadId: string, title: string) {
   }
 }
 
+export async function updateTimeSavedForThread(threadId: string, timeSaved: number) {
+  const supabase = createClient();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!authData?.user) throw new Error("Unauthorized");
+  const { error } = await supabase
+    .from('threads')
+    .update({ time_saved: timeSaved })
+    .eq('thread_id', threadId)
+    .single();
+  if (error) {
+    throw error;
+  }
+}
+
 export async function deleteThreads() {
   const supabase = createClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();

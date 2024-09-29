@@ -6,7 +6,7 @@ import {createClient} from "@/lib/supabase/client/server";
 import HistoryContainer from "@/components/history-container";
 import {NewThreadSidebarButton} from "@/components/new-thread-sidebar-button";
 import {VideoMike} from "@/components/video-mike";
-// import {TimeSaved} from "@/components/time-saved";
+import {TimeSaved} from "@/components/time-saved";
 
 export const Header: React.FC = async () => {
   const supabase = createClient()
@@ -39,9 +39,9 @@ export const Header: React.FC = async () => {
             {(!error && data?.user?.app_metadata?.role === "super-admin") && (
               <SettingsButton/>
             )}
-            {/*<div className="mt-8">*/}
-            {/*  <TimeSaved />*/}
-            {/*</div>*/}
+            <div className="mt-8">
+              <TimeSaved />
+            </div>
           </div>
         </div>
       </header>
