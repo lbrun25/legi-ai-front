@@ -9,7 +9,7 @@ export const getMatchedArticles = tool(async (input) => {
   const codeNameMatch = input.query.match(/\[([^\]]+)\]/);
   const codeName = codeNameMatch ? codeNameMatch[1] : matchedArticlesResponse.codeName;
   const formattedArticles = matchedArticlesResponse.articles?.map((article: MatchedArticle) => `\n• Article ${article.number} : "${article.content}"`).join("\n");
-  console.log(`${codeName}:\n${formattedArticles}`)
+  //console.log(`${codeName}:\n${formattedArticles}`)
   return `${codeName}:\n${formattedArticles}`;
 }, {
   name: 'getMatchedArticles',
@@ -19,3 +19,13 @@ export const getMatchedArticles = tool(async (input) => {
   })
 })
 
+export async function getMatchedArticles2(input: any) 
+{
+  if (!input) return "";
+  const matchedArticlesResponse = await searchMatchedArticles(input);
+  if (matchedArticlesResponse.hasTimedOut) return "";
+  const codeNameMatch = input.match(/\[([^\]]+)\]/);
+  const codeName = codeNameMatch ? codeNameMatch[1] : matchedArticlesResponse.codeName;
+  const formattedArticles = matchedArticlesResponse.articles?.map((article: MatchedArticle) => `\n• Article ${article.number} : "${article.content}"`).join("\n");
+  return `${codeName}:\n${formattedArticles}`; 
+}

@@ -7,6 +7,9 @@ export interface MatchedDecision {
   id: bigint;
   ficheArret: string;
   number: string;
+  date: string;
+  juridiction: string;
+  decisionLink: string;
   similarity: number;
 }
 
@@ -33,7 +36,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        console.time("db decisions partition" + partitionIndex);
+        //console.time("db decisions partition" + partitionIndex);
         const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, {
           query_embedding: embedding,
           match_count: matchCount,
@@ -49,7 +52,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
         }
 
         // console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-        console.timeEnd("db decisions partition" + partitionIndex);
+       // console.timeEnd("db decisions partition" + partitionIndex);
         return matchedDecisions;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
@@ -84,14 +87,14 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
-    console.time('call match_decisions_by_ids')
-    const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_by_ids`, {
+    //console.time('call match_decisions_by_ids')
+    const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_by_ids_full_content`, {
       query_embedding: embedding,
       match_threshold: 0.2,
       match_count: matchCount,
       id_list: idList,
     });
-    console.timeEnd('call match_decisions_by_ids');
+    //console.timeEnd('call match_decisions_by_ids');
     if (error) {
       console.error(`Error fetching decisions from indexes:`, error);
       // canceling statement due to statement timeout
@@ -138,11 +141,12 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 29;
-  const matchCount = 5;
+  const maxIndex = 52;
+  const matchCountID = 3; // nombre d'idi a retourner
+  const matchCount = 7; 
 
   try {
-    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCountID);
     if (decisionsFromPartitionsResponse.hasTimedOut) {
       return {
         decisions: [],
@@ -151,7 +155,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
     }
     const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
     const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
-    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
+    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, date: m.date, juridiction: m.juridiction, similarity: m.similarity })));
     return {
       decisions: decisionsFromIdsResponse.decisions,
       hasTimedOut: decisionsFromIdsResponse.hasTimedOut
