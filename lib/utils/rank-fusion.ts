@@ -59,26 +59,16 @@ export function rankFusion(
     idToScore.set(id, 1 / (index + 1));
   });
 
-  const allResults: ScoredRankFusionItem[] = [];
-  const seenIds: Set<number> = new Set();  // Set to track seen ids as numbers
+  const finalResults: ScoredRankFusionItem[] = [];
   let semanticCount = 0;
   let bm25Count = 0;
 
-  // Process all IDs and remove duplicates
-  sortedIds.forEach(id => {
-    const idNumber: any = Number(id);  // Convert id to a number
-
-    // Skip if we've already seen this ID
-    if (seenIds.has(idNumber)) {
-      return;
-    }
-    seenIds.add(idNumber);  // Add the id to the seen set
-
+  sortedIds.slice(0, k).forEach(id => {
     const isFromSemantic = semanticIds.includes(id);
     const isFromBM25 = bm25Ids.includes(id);
 
-    allResults.push({
-      id: idNumber,  // Ensure id is returned as a number
+    finalResults.push({
+      id: id,
       score: idToScore.get(id) || 0,
       fromSemantic: isFromSemantic,
       fromBM25: isFromBM25,
@@ -95,11 +85,7 @@ export function rankFusion(
     }
   });
 
-  // Now apply slice after deduplication to get exactly 'k' unique decisions
-  const finalResults = allResults.slice(0, k);
-
   printResults(finalResults.length, semanticCount, bm25Count);
 
-  return { results: finalResults, semanticCount, bm25Count };
+  return {results: finalResults, semanticCount, bm25Count};
 }
-
