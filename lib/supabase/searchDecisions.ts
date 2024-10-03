@@ -121,7 +121,7 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
   }
 };
 
-export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
+export const searchMatchedDecisions = async (input: string, limit: number = 5): Promise<SearchMatchedDecisionsResponse> => {
   console.log('searchMatchedDecisions:', input);
   const response = await embeddingWithVoyageLawForDecisions(input);
   if (!response) {
@@ -141,10 +141,9 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   const [{embedding: embeddingOpenai}] = result.data;
 
   const maxIndex = 24;
-  const matchCount = 5;
 
   try {
-    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, limit);
     if (decisionsFromPartitionsResponse.hasTimedOut) {
       return {
         decisions: [],
@@ -152,7 +151,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
       }
     }
     const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
-    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
+    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, limit);
     console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, date: m.date, juridiction: m.juridiction, similarity: m.similarity })));
     return {
       decisions: decisionsFromIdsResponse.decisions,
