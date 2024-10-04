@@ -20,3 +20,43 @@ export const getArticleByNumber = tool(async (input) => {
     number: z.string().describe("Le numéro de l'article")
   })
 })
+
+async function extractSource(input: string): Promise<string> {
+  const regex = /source:\s*'([^']+)'/;
+  const match = input.match(regex);
+
+  if (match) {
+      return match[1]; // Retourne le texte extrait entre les guillemets
+  } else {
+      throw new Error("No 'source' found in the input string");
+  }
+}
+
+async function extractNumber(input: string): Promise<string> {
+  const regex = /number:\s*'([^']+)'/;
+  const match = input.match(regex);
+
+  if (match) {
+      return match[1]; // Retourne le texte extrait entre les guillemets
+  } else {
+      throw new Error("No 'number' found in the input string");
+  }
+}
+
+export async function getArticleByNumber2(input: any) 
+{
+  console.log('[getArticleByNumber2] :', input)
+  if (!input) return "";
+  try {
+    const source = await extractSource(input)
+    console.log('source :', source)
+    const number = await extractNumber(input)
+    console.log('number :', number)
+    const articleSource = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
+    const articleResponse = await getArticle(articleSource, number);
+    return `Article ${articleResponse.number}: ${articleResponse.content}`;
+  } catch (error) {
+    console.error(`could not get article: ${error}`);
+    return "";
+  }
+}
