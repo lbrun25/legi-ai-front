@@ -52,6 +52,7 @@
     "next-themes": "^0.3.0",
     "ollama-ai-provider": "^0.7.0",
     "openai": "^4.52.0",
+    "postgres": "^3.4.4",
     "puppeteer": "^23.5.0",
     "react": "^18.3.1",
     "react-dom": "^18",
