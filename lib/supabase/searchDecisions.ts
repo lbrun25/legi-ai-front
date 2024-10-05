@@ -35,35 +35,27 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
-  const formattedEmbedding = `[${embedding.join(',')}]`;  // assuming halfvec is formatted like an array
+  const formattedEmbedding = `[${embedding.join(',')}]`;
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        // Dynamically construct the function name
         const functionName = `match_decisions_test_part_${partitionIndex}_adaptive`;
 
-        // Pass formatted embedding as a halfvec (assuming embedding needs to be passed as a string or formatted vector)
+        // We don't use supabase client because of timeout
         const query = sql.unsafe(`
           SELECT * FROM ${functionName}($1::halfvec, $2::int)
         `, [formattedEmbedding, matchCount]);
 
-        // Execute the query and get the results
         const matchedDecisions = await query;
 
         if (matchedDecisions) {
-          // Assuming matchedDecisions has the structure you expect
           return matchedDecisions;
         } else {
           return [];
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error(`Error fetching decisions from partition ${partitionIndex}:`, err);
-
-        // Handle timeout or other database-related errors
-        if (err.code === "57014") {  // 57014 is a PostgreSQL code for statement timeout
-          hasTimedOut = true;
-        }
         return [];
       }
     })();
@@ -84,9 +76,6 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     });
   } catch (err) {
     console.error('Unexpected error occurred while fetching decisions from partitions:', err);
-  } finally {
-    // Close the connection after all queries are complete
-    // await sql.end();
   }
 
   return {
@@ -98,17 +87,14 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
-    // Convert embedding to the PostgreSQL compatible halfvec format
-    const formattedEmbedding = `[${embedding.join(',')}]`; // Assuming halfvec format
+    const formattedEmbedding = `[${embedding.join(',')}]`;
+    const formattedIdList = `{${idList.join(',')}}`;
 
-    // Execute the query directly
     const query = sql.unsafe(`
       SELECT * FROM search_match_decisions_by_ids_full_content($1, $2, $3, $4)
-    `, [formattedEmbedding, 0.2, matchCount, idList]);
+    `, [formattedEmbedding, 0.2, matchCount, formattedIdList]);
 
-    // Fetch matched decisions
     const matchedDecisions = await query as unknown as MatchedDecision[];
-    console.log('matchedDecisions:', matchedDecisions)
 
     return {
       decisions: matchedDecisions,
