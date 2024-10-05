@@ -2,6 +2,7 @@
 import {supabaseClient} from "./supabaseClient";
 import {OpenAI} from "openai";
 import {Article} from "@/lib/types/article";
+import {sql} from "@/lib/sql/client";
 
 export interface MatchedArticle {
   id: bigint;
@@ -24,25 +25,16 @@ interface FetchArticlesResponse {
 const fetchArticles = async (embedding: number[], matchCount: number, codeTitle: string): Promise<FetchArticlesResponse> => {
     try {
       console.time(`call articles from ${codeTitle}`);
-      const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}_adaptive`, {
-        query_embedding: embedding,
-        match_count: matchCount,
-      });
+      const formattedEmbedding = `[${embedding.join(',')}]`;
+      const functionName = `match_articles_${codeTitle}_adaptive`;
+
+      const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
+
+      const matchedArticles = await query as unknown as MatchedArticle[];
       console.timeEnd(`call articles from ${codeTitle}`);
-      if (error) {
-        console.error(`Error in table ${codeTitle}`, error);
-        // canceling statement due to statement timeout
-        if (error.code === "57014") {
-          return {
-            articles: [],
-            hasTimedOut: true,
-          }
-        }
-        return {
-          articles: [],
-          hasTimedOut: false,
-        }
-      }
+
       return {
         articles: matchedArticles,
         hasTimedOut: false,
@@ -61,27 +53,27 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
   const promises: any[] = [];
   let hasTimedOut = false;
 
+  const formattedEmbedding = `[${embedding.join(',')}]`;
+
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
         console.time(`call articles from ${codeTitle} partition ${partitionIndex}`);
-        const { data: matchedArticles, error } = await supabaseClient.rpc(`match_articles_${codeTitle}_part_${partitionIndex}_adaptive`, {
-          query_embedding: embedding,
-          match_count: matchCount,
-        });
+        const functionName = `match_articles_${codeTitle}_part_${partitionIndex}_adaptive`;
 
-        if (error) {
-          console.error(`Error fetching articles from ${codeTitle} partition ${partitionIndex}:`, error);
-          // canceling statement due to statement timeout
-          if (error.code === "57014") {
-            hasTimedOut = true;
-          }
-          return [];
-        }
+        const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
 
+        const matchedArticles = await query as unknown as MatchedArticle[];
         // console.log(`Fetched articles from ${codeTitle} partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
         console.timeEnd(`call articles from ${codeTitle} partition ${partitionIndex}`);
-        return matchedArticles;
+
+        if (matchedArticles) {
+          return matchedArticles;
+        } else {
+          return [];
+        }
       } catch (err) {
         console.error(`Exception occurred for ${codeTitle} partition ${partitionIndex}:`, err);
         return [];
