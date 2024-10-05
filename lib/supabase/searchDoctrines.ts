@@ -2,6 +2,8 @@
 import {embeddingWithVoyageLaw, embeddingWithVoyageLawForDoctrines} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
+import {sql} from "@/lib/sql/client";
+import {MatchedDecision} from "@/lib/supabase/searchDecisions";
 
 export interface MatchedDoctrine {
   id: bigint;
@@ -32,25 +34,26 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
+  const formattedEmbedding = `[${embedding.join(',')}]`;
+
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_part_${partitionIndex}_adaptive`, {
-          query_embedding: embedding,
-          match_count: matchCount,
-        });
+        const functionName = `match_doctrines_part_${partitionIndex}_adaptive`;
 
-        if (error) {
-          console.error(`Error fetching doctrines from partition ${partitionIndex}:`, error);
-          // canceling statement due to statement timeout
-          if (error.code === "57014") {
-            hasTimedOut = true;
-          }
-          return [];
-        }
+        const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
+
+        const matchedDoctrines = await query as unknown as MatchedDoctrine[];
 
         // console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
-        return matchedDoctrines;
+
+        if (matchedDoctrines) {
+          return matchedDoctrines;
+        } else {
+          return [];
+        }
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
         return [];
@@ -85,27 +88,16 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
   // console.log('Will call match_doctrines_by_ids with IDs:', idList);
   try {
     console.time('call match_doctrines_by_ids')
-    const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_by_ids_2`, {
-      query_embedding: embedding,
-      match_threshold: 0.2,
-      match_count: matchCount,
-      id_list: idList,
-    });
+    const formattedEmbedding = `[${embedding.join(',')}]`;
+    const formattedIdList = `{${idList.join(',')}}`;
+
+    const query = sql.unsafe(`
+      SELECT * FROM match_doctrines_by_ids_2($1, $2, $3, $4)
+    `, [formattedEmbedding, 0.2, matchCount, formattedIdList]);
+
+    const matchedDoctrines = await query as unknown as MatchedDoctrine[];
     console.timeEnd('call match_doctrines_by_ids');
-    if (error) {
-      console.error(`Error fetching doctrines from indexes:`, error);
-      // canceling statement due to statement timeout
-      if (error.code === "57014") {
-        return {
-          doctrines: [],
-          hasTimedOut: true,
-        }
-      }
-      return {
-        doctrines: [],
-        hasTimedOut: false
-      };
-    }
+
     return {
       doctrines: matchedDoctrines,
       hasTimedOut: false,
