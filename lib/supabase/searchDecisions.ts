@@ -2,6 +2,7 @@
 import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
+import postgres from 'postgres';
 
 export interface MatchedDecision {
   id: bigint;
@@ -33,29 +34,43 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
+  // Initialize the postgres client
+  const sql = postgres({
+    host: 'aws-0-eu-central-1.pooler.supabase.com',
+    port: 6543,
+    username: 'postgres.emgtfetkdcnieuwxswet',
+    password: '4pI9VtldkXuVvKP3',
+    database: 'postgres',
+  });
+  const formattedEmbedding = `[${embedding.join(',')}]`;  // assuming halfvec is formatted like an array
+
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        //console.time("db decisions partition" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_search_part_${partitionIndex}_adaptive`, { // match_decisions_test_part_${partitionIndex}_adaptive
-          query_embedding: embedding,
-          match_count: matchCount,
-        });
+        // Dynamically construct the function name
+        const functionName = `match_decisions_search_part_${partitionIndex}_adaptive`;
 
-        if (error) {
-          console.error(`Error fetching decisions from partition ${partitionIndex}:`, error);
-          // canceling statement due to statement timeout
-          if (error.code === "57014") {
-            hasTimedOut = true;
-          }
+        // Pass formatted embedding as a halfvec (assuming embedding needs to be passed as a string or formatted vector)
+        const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
+
+        // Execute the query and get the results
+        const matchedDecisions = await query;
+
+        if (matchedDecisions) {
+          // Assuming matchedDecisions has the structure you expect
+          return matchedDecisions;
+        } else {
           return [];
         }
+      } catch (err: any) {
+        console.error(`Error fetching decisions from partition ${partitionIndex}:`, err);
 
-        // console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-       // console.timeEnd("db decisions partition" + partitionIndex);
-        return matchedDecisions;
-      } catch (err) {
-        console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+        // Handle timeout or other database-related errors
+        if (err.code === "57014") {  // 57014 is a PostgreSQL code for statement timeout
+          hasTimedOut = true;
+        }
         return [];
       }
     })();
@@ -76,6 +91,9 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     });
   } catch (err) {
     console.error('Unexpected error occurred while fetching decisions from partitions:', err);
+  } finally {
+    // Close the connection after all queries are complete
+    await sql.end();
   }
 
   return {
