@@ -3,6 +3,7 @@ import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
 import postgres from 'postgres';
+import {sql} from "@/lib/sql/client";
 
 export interface MatchedDecision {
   id: bigint;
@@ -34,21 +35,13 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
-  // Initialize the postgres client
-  const sql = postgres({
-    host: 'aws-0-eu-central-1.pooler.supabase.com',
-    port: 6543,
-    username: 'postgres.emgtfetkdcnieuwxswet',
-    password: '4pI9VtldkXuVvKP3',
-    database: 'postgres',
-  });
   const formattedEmbedding = `[${embedding.join(',')}]`;  // assuming halfvec is formatted like an array
 
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
         // Dynamically construct the function name
-        const functionName = `match_decisions_search_part_${partitionIndex}_adaptive`;
+        const functionName = `match_decisions_test_part_${partitionIndex}_adaptive`;
 
         // Pass formatted embedding as a halfvec (assuming embedding needs to be passed as a string or formatted vector)
         const query = sql.unsafe(`
@@ -93,7 +86,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
     console.error('Unexpected error occurred while fetching decisions from partitions:', err);
   } finally {
     // Close the connection after all queries are complete
-    await sql.end();
+    // await sql.end();
   }
 
   return {
@@ -105,28 +98,18 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
-    //console.time('call match_decisions_by_ids')
-    const { data: matchedDecisions, error } = await supabaseClient.rpc(`search_match_decisions_by_ids_full_content`, { // match_decisions_by_ids_full_content
-      query_embedding: embedding,
-      match_threshold: 0.2,
-      match_count: matchCount,
-      id_list: idList,
-    });
-    //console.timeEnd('call match_decisions_by_ids');
-    if (error) {
-      console.error(`Error fetching decisions from indexes:`, error);
-      // canceling statement due to statement timeout
-      if (error.code === "57014") {
-        return {
-          decisions: [],
-          hasTimedOut: true,
-        }
-      }
-      return {
-        decisions: [],
-        hasTimedOut: false,
-      }
-    }
+    // Convert embedding to the PostgreSQL compatible halfvec format
+    const formattedEmbedding = `[${embedding.join(',')}]`; // Assuming halfvec format
+
+    // Execute the query directly
+    const query = sql.unsafe(`
+      SELECT * FROM search_match_decisions_by_ids_full_content($1, $2, $3, $4)
+    `, [formattedEmbedding, 0.2, matchCount, idList]);
+
+    // Fetch matched decisions
+    const matchedDecisions = await query as unknown as MatchedDecision[];
+    console.log('matchedDecisions:', matchedDecisions)
+
     return {
       decisions: matchedDecisions,
       hasTimedOut: false,
