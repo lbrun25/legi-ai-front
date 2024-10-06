@@ -160,9 +160,7 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   });
   const [{embedding}] = result.data;
 
-  const maxIndex = 4;
   const matchCount = 5;
-
   const partitionedTablesByCodeTitle = [
     "code_de_commerce",
     "code_de_la_construction_et_de_lhabitation",
@@ -171,10 +169,20 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
     "code_de_la_securite_sociale",
     "code_du_travail"
   ];
+  const maxIndexByCodeTitle: Record<string, number> = {
+    "code_de_commerce": 2,
+    "code_de_la_construction_et_de_lhabitation": 2,
+    "code_monétaire_et_financier": 2,
+    "code_de_procedure_penale": 2,
+    "code_de_la_securite_sociale": 2,
+    "code_du_travail": 4
+  };
+
   const isCodePartitioned = partitionedTablesByCodeTitle.includes(codeTitle);
 
   if (isCodePartitioned) {
     try {
+      const maxIndex = maxIndexByCodeTitle[codeTitle];
       const articlesFromPartitionsResponse = await fetchArticlesFromPartitions(maxIndex, embedding, matchCount, codeTitle);
       const allArticles = articlesFromPartitionsResponse.articles;
       allArticles.sort((a, b) => b.similarity - a.similarity);

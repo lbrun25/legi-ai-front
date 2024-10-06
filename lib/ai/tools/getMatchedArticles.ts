@@ -4,6 +4,7 @@ import {getArticlesByIds, searchMatchedArticles} from "@/lib/supabase/searchArti
 import {ElasticsearchClient} from "@/lib/elasticsearch/client";
 import {rankFusion} from "@/lib/utils/rank-fusion";
 import {rerankWithVoyageAI} from "@/lib/ai/voyage/reRankers";
+import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
 const NUM_RELEVANT_CHUNKS = 150;
 
@@ -17,8 +18,7 @@ export const getMatchedArticlesTool = tool(async (input) => {
   })
 })
 
-export async function getMatchedArticles(input: any)
-{
+export async function getMatchedArticles(input: any) {
   if (!input) return "";
   const semanticResponse = await searchMatchedArticles(input);
   if (semanticResponse.hasTimedOut) return "";
@@ -42,8 +42,7 @@ export async function getMatchedArticles(input: any)
   if (!articlesContentToRank) return "";
   const articlesRanked = await rerankWithVoyageAI(input, articlesContentToRank);
   if (!articlesRanked) {
-    const formattedArticles = articlesToRank.map((article) => `\n• Article ${article.number} : "${article.content}"`).join("\n");
-    return `${codeName}:\n${formattedArticles}`;
+    return convertArticlesToXML(codeName, articlesToRank);
   }
 
   const filteredRankFusionIds = articlesToRank.map((_, i) => {
@@ -53,6 +52,33 @@ export async function getMatchedArticles(input: any)
   const filteredArticlesToRank = articlesToRank.filter(article =>
     filteredRankFusionIds.includes(article.id)
   );
-  const formattedArticles = filteredArticlesToRank.map((article) => `\n• Article ${article.number} : "${article.content}"`).join("\n");
-  return `${codeName}:\n${formattedArticles}`;
+  return convertArticlesToXML(semanticResponse.codeName, filteredArticlesToRank);
+}
+
+function convertArticlesToXML(codeName: string, articles: { number: string, content: string }[]) {
+  const domImplementation = new DOMImplementation();
+  const title = `articles_${codeName}`;
+  const document = domImplementation.createDocument(null, title, null);
+  const rootElement = document.documentElement;
+  if (!rootElement) return "";
+
+  articles.forEach(article => {
+    // Create <article> element
+    const articleElement = document.createElement('article');
+
+    // Create <number> element and set its text content
+    const numberElement = document.createElement('number');
+    numberElement.textContent = article.number;
+    articleElement.appendChild(numberElement);
+
+    // Create <content> element and set its text content
+    const contentElement = document.createElement('content');
+    contentElement.textContent = article.content;
+    articleElement.appendChild(contentElement);
+
+    // Append <article> to the root element
+    rootElement.appendChild(articleElement);
+  });
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(document);
 }
