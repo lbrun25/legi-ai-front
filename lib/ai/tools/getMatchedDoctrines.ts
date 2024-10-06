@@ -4,7 +4,6 @@ import {getDoctrinesByIds, MatchedDoctrine, searchMatchedDoctrines} from "@/lib/
 import {ElasticsearchClient} from "@/lib/elasticsearch/client";
 import {rankFusion} from "@/lib/utils/rank-fusion";
 import {rerankWithVoyageAI} from "@/lib/ai/voyage/reRankers";
-import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
 const NUM_RELEVANT_CHUNKS = 150;
 
@@ -40,7 +39,7 @@ export async function getMatchedDoctrines(input: any): Promise<string> {
   if (!doctrinesContentToRank) return "";
   const doctrinesRanked = await rerankWithVoyageAI(input.query, doctrinesContentToRank);
   if (!doctrinesRanked) {
-    return convertDoctrinesToXML(semanticResponse.doctrines);
+    return "#" + semanticResponse.doctrines?.map((doctrine: MatchedDoctrine) => `Doctrine paragraphe ${doctrine.paragrapheNumber}: ${doctrine.paragrapheContent}`).join("#");
   }
   const filteredRankFusionIds = doctrinesToRank.map((_, i) => {
     const index = doctrinesRanked.data[i].index;
@@ -49,33 +48,5 @@ export async function getMatchedDoctrines(input: any): Promise<string> {
   const filteredDoctrinesToRank = doctrinesToRank.filter(doctrine =>
     filteredRankFusionIds.includes(doctrine.id)
   );
-  return convertDoctrinesToXML(filteredDoctrinesToRank);
-}
-
-// Convert the result to XML format
-function convertDoctrinesToXML(doctrines: { paragrapheNumber: string, paragrapheContent: string }[]): string {
-  const domImplementation = new DOMImplementation();
-  const document = domImplementation.createDocument(null, 'doctrines', null);
-  const rootElement = document.documentElement;
-  if (!rootElement) return "";
-
-  doctrines.forEach((doctrine) => {
-    // Create <doctrine> element
-    const doctrineElement = document.createElement('doctrine');
-
-    // Create <paragrapheNumber> element
-    const numberElement = document.createElement('paragrapheNumber');
-    numberElement.textContent = doctrine.paragrapheNumber.toString();
-    doctrineElement.appendChild(numberElement);
-
-    // Create <paragrapheContent> element
-    const contentElement = document.createElement('paragrapheContent');
-    contentElement.textContent = doctrine.paragrapheContent;
-    doctrineElement.appendChild(contentElement);
-
-    // Append <doctrine> to the root element
-    rootElement.appendChild(doctrineElement);
-  });
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(document);
+  return "#" + filteredDoctrinesToRank.map((doctrine) => `Doctrine paragraphe ${doctrine.paragrapheNumber}: ${doctrine.paragrapheContent}`).join("#");
 }

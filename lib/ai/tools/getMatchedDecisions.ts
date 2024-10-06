@@ -1,6 +1,4 @@
-import {tool} from "@langchain/core/tools";
-import {z} from "zod";
-import {MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
+import {searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
 import * as cheerio from 'cheerio';
 import { CheerioAPI } from 'cheerio';
 import puppeteer from 'puppeteer';
@@ -13,8 +11,8 @@ import {rerankWithVoyageAI} from '../voyage/reRankers'
 const NUM_RELEVANT_CHUNKS = 150;
 
 /* AVEC ELASTICSEARCH */ // J'ai l'inpression qu'on utilise presque jamais la similarity
-export async function getMatchedDecisions1(input : any) { 
-  input = 'Est-ce que porteurs des actions de préférence doivent prendre part au vote sur la modification des droits de ces actions de préférence ?'
+export async function getMatchedDecisions(input : any) {
+  // input = 'Est-ce que porteurs des actions de préférence doivent prendre part au vote sur la modification des droits de ces actions de préférence ?'
   if (!input) return "";
   const semanticResponse = await searchMatchedDecisions(input, 50);
   console.log('Nb semanticResponse:', semanticResponse.decisions.length)
@@ -26,7 +24,7 @@ export async function getMatchedDecisions1(input : any) {
   const semanticIds = semanticResponse.decisions.map((decision) => decision.id);
   const bm25Ids = bm25Results.map((decision: any) => decision.id);
   console.log('Nb bm25Results:', bm25Ids)
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner 
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id); //result => result.score > 0.5
   console.log("RANKFUSION : ", rankFusionIds)
   const decisionInfos = await getDecisionLinks(rankFusionIds);
@@ -114,36 +112,10 @@ async function getDecisionLinks(ids: any[]): Promise<any[]> {
 
 /* DECISIONS COMPLETE */
 
-const extractDecisionLinks = (matchedDecisionsResponse: { decisions?: MatchedDecision[] }): string[] => {
-  // Vérifiez si decisions existe et est un tableau, puis retournez un tableau des liens
-  return matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => decision.decisionLink) || [];
-};
-
-export async function getMatchedDecisions2(input: any) {
-  if (!input) return "";
-  
-  const matchedDecisionsResponse = await searchMatchedDecisions(input);
-  if (matchedDecisionsResponse.hasTimedOut) return "";
-  
-  const links = extractDecisionLinks(matchedDecisionsResponse);
-  //console.log(links)
-  let formattedFiches = "---------\n";
-  
-  // Boucle sur chaque décision
-  for (let i = 0; i < matchedDecisionsResponse.decisions.length; i++) {
-    const decision = matchedDecisionsResponse.decisions[i];
-    const content = await treatDecision(links[i]); // Traite le lien de chaque décision
-    
-    formattedFiches += `Décision de la ${decision.juridiction} ${decision.number} du ${decision.date} : ${content}\n---------\n`;
-  }
-  //console.log(formattedFiches);
-  return formattedFiches;
-}
-
 async function extractDecisionContentFromString(decisionContent: string): Promise<string> {
-  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1 
+  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1 
+      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
@@ -184,9 +156,9 @@ async function extractDecisionContent($: cheerio.CheerioAPI): Promise<string> {
   const elements = $(".decision-element.decision-element--texte-decision p");
   const decisionContent = elements.text().trim();
 
-  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1 
+  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1 
+      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
@@ -217,12 +189,16 @@ export const fetchPageContent = async (url: string) => { // Ajout d'un paramètr
     if (typeof url !== 'string') {
       throw new Error(`Invalid URL: ${JSON.stringify(url)}`);
     }
-    const browser = await puppeteer.launch({ headless: true });
+    console.log('Will scrap')
+    const browser = await puppeteer.launch({ headless: true,
+      defaultViewport: null,
+      executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    });
     const page = await browser.newPage();
-    
+
     // Set a custom User-Agent
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3');
-    
+
     // Navigate to the target URL
     await page.goto(url, { waitUntil: 'networkidle2' }); // Utilisation de l'URL passée en paramètre
 
@@ -231,6 +207,7 @@ export const fetchPageContent = async (url: string) => { // Ajout d'un paramètr
 
     const content = await page.content(); // Get the HTML content
     await browser.close(); // Close the browser
+  console.log('Scraped closed')
     return content; // Renvoie le contenu HTML
 };
 
