@@ -22,6 +22,23 @@ interface FetchArticlesResponse {
   hasTimedOut: boolean;
 }
 
+// Record <Supabase table name, code title returned by the assistant>
+const ARTICLE_TABLE_NAMES: Record<string, string> = {
+  "articles_code_assurances": "articles_code_assurances",
+  "articles_code_civil": "articles_code_civil",
+  "articles_code_commerce": "articles_code_de_commerce",
+  "articles_code_consommation": "articles_code_de_la_consommation",
+  "articles_code_construction_habitation": "articles_code_de_la_construction_et_de_lhabitation",
+  "articles_code_monetaire_financier": "articles_code_monetaire_et_financier",
+  "articles_code_penal": "articles_code_penal",
+  "articles_code_procedure_civile": "articles_code_de_procedure_civile",
+  "articles_code_procedure_civiles_execution": "articles_code_des_procedure_civiles_dexecution",
+  "articles_code_procedure_penale": "articles_code_de_procedure_penale",
+  "articles_code_propriete_intellectuelle": "articles_code_de_la_propriete_intellectuelle",
+  "articles_code_securite_sociale": "articles_code_de_la_securite_sociale",
+  "articles_code_travail": "articles_code_du_travail",
+};
+
 const fetchArticles = async (embedding: number[], matchCount: number, codeTitle: string): Promise<FetchArticlesResponse> => {
     try {
       console.time(`call articles from ${codeTitle}`);
@@ -206,5 +223,22 @@ export const getArticle = async (source: string, number: string): Promise<Articl
     throw new Error(`Error retrieving article from Supabase: ${error}`);
   if (!data)
     throw new Error("no article found");
+  return data;
+}
+
+export async function getArticlesByIds(articleIds: bigint[], codeName: string) {
+  const tableName = Object.keys(ARTICLE_TABLE_NAMES).find(key => ARTICLE_TABLE_NAMES[key] === `articles_${codeName}`);
+  if (!tableName) {
+    console.error(`Corresponding ${codeName} not found`);
+    return null;
+  }
+  const { data, error } = await supabaseClient
+    .from(tableName)
+    .select('id,content,number')
+    .in('id', articleIds);
+  if (error) {
+    console.error('Error fetching articles:', error);
+    return null;
+  }
   return data;
 }

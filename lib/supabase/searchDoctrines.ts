@@ -161,3 +161,15 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
     };
   }
 }
+
+export async function getDoctrinesByIds(ids: bigint[]) {
+  const { data, error } = await supabaseClient
+    .from("LegalDoctrine")
+    .select('id,paragrapheContent,paragrapheNumber')
+    .in('id', ids);
+  if (error) {
+    console.error('Error fetching doctrines:', error);
+    return null;
+  }
+  return data;
+}
