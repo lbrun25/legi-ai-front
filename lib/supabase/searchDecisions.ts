@@ -1,8 +1,6 @@
 "use server"
 import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
-import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
-import postgres from 'postgres';
 import {sql} from "@/lib/sql/client";
 
 export interface MatchedDecision {

@@ -39,6 +39,50 @@ class ElasticsearchClientSingleton {
       console.error("cannot search decisions:", error);
     }
   }
+
+  public async searchArticles(codeName: string, query: string, limit: number): Promise<any> {
+    try {
+      const result = await this.client.search<{ content: string }>({
+        index: `articles_${codeName}`,
+        query: {
+          match: {
+            content: query
+          }
+        },
+        size: limit
+      });
+      return result.hits.hits.map(hit => {
+        return {
+          id: hit._id,
+          content: hit._source?.content
+        };
+      });
+    } catch (error) {
+      console.error("cannot search articles:", error);
+    }
+  }
+
+  public async searchDoctrines(query: string, limit: number): Promise<any> {
+    try {
+      const result = await this.client.search<{ paragrapheContent: string }>({
+        index: 'doctrines',
+        query: {
+          match: {
+            paragrapheContent: query
+          }
+        },
+        size: limit
+      });
+      return result.hits.hits.map(hit => {
+        return {
+          id: hit._id,
+          paragrapheContent: hit._source?.paragrapheContent
+        };
+      });
+    } catch (error) {
+      console.error("cannot search doctrines:", error);
+    }
+  }
 }
 
 export const ElasticsearchClient = ElasticsearchClientSingleton.getInstance();
