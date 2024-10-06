@@ -1,18 +1,19 @@
-import {searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
+import {MatchedDecision, searchDecisionsByIds, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
 import * as cheerio from 'cheerio';
-import { CheerioAPI } from 'cheerio';
+import {CheerioAPI} from 'cheerio';
 import puppeteer from 'puppeteer';
-import { formatSection } from "./decisionPart";
+import {formatSection} from "./decisionPart";
 import {ElasticsearchClient} from "@/lib/elasticsearch/client";
 import {rankFusion} from "@/lib/utils/rank-fusion";
-import { supabaseClient } from "@/lib/supabase/supabaseClient";
+import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {rerankWithVoyageAI} from '../voyage/reRankers'
+import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
+import {BigInt} from "postgres";
 
 const NUM_RELEVANT_CHUNKS = 150;
 
 /* AVEC ELASTICSEARCH */ // J'ai l'inpression qu'on utilise presque jamais la similarity
-export async function getMatchedDecisions(input : any) {
-  // input = 'Est-ce que porteurs des actions de préférence doivent prendre part au vote sur la modification des droits de ces actions de préférence ?'
+export async function getMatchedDecisions(input: any) {
   if (!input) return "";
   const semanticResponse = await searchMatchedDecisions(input, 50);
   console.log('Nb semanticResponse:', semanticResponse.decisions.length)
@@ -32,48 +33,71 @@ export async function getMatchedDecisions(input : any) {
   const decisionsToRank = await getdecisionsToRank(decisionLinks)
   const decisionsRanked: any = await rerankWithVoyageAI(input, decisionsToRank)
   console.log("ReRanked : ", decisionsRanked)
-  let formattedFiches = "---------\n";
+
+  const filteredFullContentDecisions: Record<string, string> = {}; // <id, content>
   for (let i = 0; i < decisionsToRank.length; i++) {
     const index = decisionsRanked.data[i].index;
     const content = decisionsToRank[index];
-    const id: any = rankFusionIds[index]
-
-    const decision: any = await getDecisionDetailsById(id)
-    formattedFiches += `Décision de la ${decision[0].juridiction} ${decision[0].number} du ${decision[0].date} : ${content}\n---------\n`;
+    const id = rankFusionIds[index];
+    filteredFullContentDecisions[id.toString()] = content;
   }
-  return formattedFiches;
+  const decisionIds = Object.keys(filteredFullContentDecisions).map(key => globalThis.BigInt(key));
+  const filteredDecisions = await searchDecisionsByIds(decisionIds);
+  if (!filteredDecisions) return "";
+
+  return convertDecisionsToXML(filteredDecisions, filteredFullContentDecisions);
 }
 
-async function getDecisionDetailsById(id: number) {
-  try {
-    const { data, error } = await supabaseClient
-      .from('legaldecisions_test')  // Remplacez par le nom de votre table
-      .select('juridiction, date, number')
-      .eq('id', id);
+async function convertDecisionsToXML(
+  decisions: { id: string, juridiction: string, date: string, number: string }[],
+  fullContentDecisions: Record<string, string>
+) {
+  const domImplementation = new DOMImplementation();
+  const document = domImplementation.createDocument(null, 'decisions', null);
+  const rootElement = document.documentElement;
+  if (!rootElement) return "";
 
-    if (error) {
-      console.error('Erreur lors de la récupération des données:', error);
-      return null;
-    }
-    return data;
-  } catch (err) {
-    console.error('Erreur:', err);
-    return null;
-  }
+  decisions.forEach(decision => {
+    // Create <decision> element
+    const decisionElement = document.createElement('decision');
+
+    // Create <juridiction> element
+    const juridictionElement = document.createElement('juridiction');
+    juridictionElement.textContent = decision.juridiction;
+    decisionElement.appendChild(juridictionElement);
+
+    // Create <number> element
+    const numberElement = document.createElement('number');
+    numberElement.textContent = decision.number;
+    decisionElement.appendChild(numberElement);
+
+    // Create <date> element
+    const dateElement = document.createElement('date');
+    dateElement.textContent = decision.date;
+    decisionElement.appendChild(dateElement);
+
+    // Create <content> element
+    const contentElement = document.createElement('content');
+    contentElement.textContent = fullContentDecisions[decision.id];
+    decisionElement.appendChild(contentElement);
+
+    // Append <decision> to the root element
+    rootElement.appendChild(decisionElement);
+  });
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(document);
 }
 
 //treatDecision
 async function getdecisionsToRank(links: any[]): Promise<string[]> {
   const content: any = [];
-  for (const link of links)
-  {
+  for (const link of links) {
     try {
       //console.log(link)
       const decisionContent: any = await treatDecision(link)
       const formattedContent = decisionContent.replace(/\n\s*/g, ' ').trim();
       content.push(formattedContent)
-    }
-    catch(error) {
+    } catch (error) {
       console.log('Error in getting getdecisionsToRank', error);
     }
   }
@@ -94,7 +118,7 @@ async function getDecisionLinks(ids: any[]): Promise<any[]> {
     }
 
     // Requête pour récupérer le lien correspondant à l'ID actuel
-    const { data, error } = await supabaseClient
+    const {data, error} = await supabaseClient
       .from('legaldecisions_test') // Remplacez par le nom de votre table
       .select('decisionLink')
       .eq('id', idInt)
@@ -103,7 +127,7 @@ async function getDecisionLinks(ids: any[]): Promise<any[]> {
     if (error) {
       console.error(`Erreur lors de la récupération du lien pour l'ID ${idInt}:`, error);
     } else if (data) {
-      links.push({id : id, link: data.decisionLink});
+      links.push({id: id, link: data.decisionLink});
     }
   }
 
@@ -114,42 +138,42 @@ async function getDecisionLinks(ids: any[]): Promise<any[]> {
 
 async function extractDecisionContentFromString(decisionContent: string): Promise<string> {
   const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
-      ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
+    ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
+    : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
-      ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
-      : decisionContent.indexOf('MOYENS ANNEXES à la présente décision') !== -1
-      ? decisionContent.indexOf('MOYENS ANNEXES à la présente décision')
-      : -1;
+        ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
+        : decisionContent.indexOf('MOYENS ANNEXES à la présente décision') !== -1
+          ? decisionContent.indexOf('MOYENS ANNEXES à la présente décision')
+          : -1;
 
   if (annexeIndex !== -1) {
-      return decisionContent.slice(0, annexeIndex).trim();
+    return decisionContent.slice(0, annexeIndex).trim();
   }
   return decisionContent;
 }
 
 
 async function formatDecisionContent($: cheerio.CheerioAPI) {
-	let formattedText = "";
-	const decisionElement = $(".decision-element.decision-element--texte-decision");
-	const sections = decisionElement.find('div'); // Sélectionner toutes les divs
+  let formattedText = "";
+  const decisionElement = $(".decision-element.decision-element--texte-decision");
+  const sections = decisionElement.find('div'); // Sélectionner toutes les divs
 
-	sections.each((index, element) => {
-		const title = $(element).find('button').text().trim(); // Récupérer le titre du bouton
-		const content = $(element).text().trim(); // Define content variable
-		//console.log(`Titre extrait : ${title}`); // Log pour vérifier le titre extrait
-		const formattedSection = formatSection(title, content); // Format the section
-		formattedText += formattedSection; // Append the formatted section to the formattedText
-	});
+  sections.each((index, element) => {
+    const title = $(element).find('button').text().trim(); // Récupérer le titre du bouton
+    const content = $(element).text().trim(); // Define content variable
+    //console.log(`Titre extrait : ${title}`); // Log pour vérifier le titre extrait
+    const formattedSection = formatSection(title, content); // Format the section
+    formattedText += formattedSection; // Append the formatted section to the formattedText
+  });
 
-	//console.log("Formatage de la décision terminé.");
-	return formattedText.trim();
+  //console.log("Formatage de la décision terminé.");
+  return formattedText.trim();
 }
 
 function isCurrentVersion($: CheerioAPI): boolean {
-	const elements = $("p.decision-accordeon--contenu");
-	return elements.length > 0;
+  const elements = $("p.decision-accordeon--contenu");
+  return elements.length > 0;
 }
 
 async function extractDecisionContent($: cheerio.CheerioAPI): Promise<string> {
@@ -157,80 +181,79 @@ async function extractDecisionContent($: cheerio.CheerioAPI): Promise<string> {
   const decisionContent = elements.text().trim();
 
   const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
-      ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
+    ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
+    : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
-      ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
-      : decisionContent.indexOf('MOYENS ANNEXES à la présente décision') !== -1
-      ? decisionContent.indexOf('MOYENS ANNEXES à la présente décision')
-      : -1;
+        ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
+        : decisionContent.indexOf('MOYENS ANNEXES à la présente décision') !== -1
+          ? decisionContent.indexOf('MOYENS ANNEXES à la présente décision')
+          : -1;
 
   if (annexeIndex !== -1) {
-      return decisionContent.slice(0, annexeIndex).trim();
+    return decisionContent.slice(0, annexeIndex).trim();
   }
   return decisionContent;
 }
 
 export async function scrapingLegalDecisionsWithWebSiteOldFormat(html: string) {
   try {
-      const $ = cheerio.load(html);
-      const decisionContent = await extractDecisionContent($);
-     // console.log(decisionContent)
-      return decisionContent;
+    const $ = cheerio.load(html);
+    const decisionContent = await extractDecisionContent($);
+    // console.log(decisionContent)
+    return decisionContent;
   } catch (error) {
-      console.error(`Error processing old legal decision: ${error}`);
+    console.error(`Error processing old legal decision: ${error}`);
   }
 }
 
 
 export const fetchPageContent = async (url: string) => { // Ajout d'un paramètre url
 
-    if (typeof url !== 'string') {
-      throw new Error(`Invalid URL: ${JSON.stringify(url)}`);
-    }
-    console.log('Will scrap')
-    const browser = await puppeteer.launch({ headless: true,
-      defaultViewport: null,
-      executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    });
-    const page = await browser.newPage();
+  if (typeof url !== 'string') {
+    throw new Error(`Invalid URL: ${JSON.stringify(url)}`);
+  }
+  console.log('Will scrap')
+  const browser = await puppeteer.launch({
+    headless: true,
+    defaultViewport: null,
+    executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  });
+  const page = await browser.newPage();
 
-    // Set a custom User-Agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3');
+  // Set a custom User-Agent
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3');
 
-    // Navigate to the target URL
-    await page.goto(url, { waitUntil: 'networkidle2' }); // Utilisation de l'URL passée en paramètre
+  // Navigate to the target URL
+  await page.goto(url, {waitUntil: 'networkidle2'}); // Utilisation de l'URL passée en paramètre
 
-    // Wait for the content to load
-    await page.waitForSelector('title'); // Adjust selector as needed
+  // Wait for the content to load
+  await page.waitForSelector('title'); // Adjust selector as needed
 
-    const content = await page.content(); // Get the HTML content
-    await browser.close(); // Close the browser
+  const content = await page.content(); // Get the HTML content
+  await browser.close(); // Close the browser
   console.log('Scraped closed')
-    return content; // Renvoie le contenu HTML
+  return content; // Renvoie le contenu HTML
 };
 
 export async function treatDecision(link: string) {
-	try {
-		const html = await fetchPageContent(link);
-		const $ = cheerio.load(html);
-		const currentVersion = isCurrentVersion($); // ou pas de boutons
+  try {
+    const html = await fetchPageContent(link);
+    const $ = cheerio.load(html);
+    const currentVersion = isCurrentVersion($); // ou pas de boutons
 
-		if (!currentVersion) {
-			const decisionContent = await scrapingLegalDecisionsWithWebSiteOldFormat(html); // gère le cas ou le site est dans l'ancien format
+    if (!currentVersion) {
+      const decisionContent = await scrapingLegalDecisionsWithWebSiteOldFormat(html); // gère le cas ou le site est dans l'ancien format
       return decisionContent;
-    }
-		else {
-			try { // Ici ca s'occupe de recuperer les decisions sur la version recente du site et de le mettre dans le json
-				const decisionContent = await formatDecisionContent($);
+    } else {
+      try { // Ici ca s'occupe de recuperer les decisions sur la version recente du site et de le mettre dans le json
+        const decisionContent = await formatDecisionContent($);
         return extractDecisionContentFromString(decisionContent);
+      } catch (error) {
+        console.error(`Failed to process decision from link with new version: ${link}`, error);
       }
-			catch (error) {
-				console.error(`Failed to process decision from link with new version: ${link}`, error);
-			}
-		}
-	} catch (error) {
-		console.error(`Failed to process decision from link: ${link}`, error);
-	}
+    }
+  } catch (error) {
+    console.error(`Failed to process decision from link: ${link}`, error);
+  }
 }

@@ -2,6 +2,7 @@
 import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {OpenAI} from "openai";
 import {sql} from "@/lib/sql/client";
+import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
 export interface MatchedDecision {
   id: bigint;
@@ -151,4 +152,16 @@ export const searchMatchedDecisions = async (input: string, limit: number = 5): 
       hasTimedOut: false
     };
   }
+}
+
+export async function searchDecisionsByIds(ids: bigint[]) {
+  const { data, error } = await supabaseClient
+    .from("legaldecisions_test")
+    .select('id,juridiction,date,number')
+    .in('id', ids);
+  if (error) {
+    console.error('Error fetching decisions:', error);
+    return null;
+  }
+  return data;
 }
