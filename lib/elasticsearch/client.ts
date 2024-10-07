@@ -7,7 +7,10 @@ class ElasticsearchClientSingleton {
 
   private constructor() {
     this.client = new Client({
-      node: process.env.ES_NODE_URL
+      node: process.env.ES_NODE_URL,
+      tls: {
+        rejectUnauthorized: false  // Bypass SSL validation
+      }
     });
   }
 
