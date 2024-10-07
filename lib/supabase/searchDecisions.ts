@@ -1,7 +1,8 @@
 "use server"
 import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
-import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
+import {sql} from "@/lib/sql/client";
+import {supabaseClient} from "@/lib/supabase/supabaseClient";
 
 export interface MatchedDecision {
   id: bigint;
@@ -9,6 +10,7 @@ export interface MatchedDecision {
   number: string;
   date: string;
   juridiction: string;
+  decisionLink: string;
   similarity: number;
 }
 
@@ -32,29 +34,27 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
+  const formattedEmbedding = `[${embedding.join(',')}]`;
+
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        console.time("db decisions partition" + partitionIndex);
-        const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_test_part_${partitionIndex}_adaptive`, {
-          query_embedding: embedding,
-          match_count: matchCount,
-        });
+        const functionName = `match_decisions_test_part_${partitionIndex}_adaptive`;
 
-        if (error) {
-          console.error(`Error fetching decisions from partition ${partitionIndex}:`, error);
-          // canceling statement due to statement timeout
-          if (error.code === "57014") {
-            hasTimedOut = true;
-          }
+        // We don't use supabase client because of timeout
+        const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
+
+        const matchedDecisions = await query;
+
+        if (matchedDecisions) {
+          return matchedDecisions;
+        } else {
           return [];
         }
-
-        // console.log(`Fetched decisions from partition ${partitionIndex}:`, matchedDecisions.map((m: MatchedDecision) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-        console.timeEnd("db decisions partition" + partitionIndex);
-        return matchedDecisions;
       } catch (err) {
-        console.error(`Exception occurred for partition ${partitionIndex}:`, err);
+        console.error(`Error fetching decisions from partition ${partitionIndex}:`, err);
         return [];
       }
     })();
@@ -86,28 +86,15 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
 const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
   // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
-    console.time('call match_decisions_by_ids')
-    const { data: matchedDecisions, error } = await supabaseClient.rpc(`match_decisions_by_ids`, {
-      query_embedding: embedding,
-      match_threshold: 0.2,
-      match_count: matchCount,
-      id_list: idList,
-    });
-    console.timeEnd('call match_decisions_by_ids');
-    if (error) {
-      console.error(`Error fetching decisions from indexes:`, error);
-      // canceling statement due to statement timeout
-      if (error.code === "57014") {
-        return {
-          decisions: [],
-          hasTimedOut: true,
-        }
-      }
-      return {
-        decisions: [],
-        hasTimedOut: false,
-      }
-    }
+    const formattedEmbedding = `[${embedding.join(',')}]`;
+    const formattedIdList = `{${idList.join(',')}}`;
+
+    const query = sql.unsafe(`
+      SELECT * FROM search_match_decisions_by_ids_full_content($1, $2, $3, $4)
+    `, [formattedEmbedding, 0.2, matchCount, formattedIdList]);
+
+    const matchedDecisions = await query as unknown as MatchedDecision[];
+
     return {
       decisions: matchedDecisions,
       hasTimedOut: false,
@@ -121,7 +108,7 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
   }
 };
 
-export const searchMatchedDecisions = async (input: string): Promise<SearchMatchedDecisionsResponse> => {
+export const searchMatchedDecisions = async (input: string, limit: number = 5): Promise<SearchMatchedDecisionsResponse> => {
   console.log('searchMatchedDecisions:', input);
   const response = await embeddingWithVoyageLawForDecisions(input);
   if (!response) {
@@ -140,11 +127,11 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 24;
-  const matchCount = 5;
+  const maxIndex = 9;
+  const matchCountID = 10; // nombre d'idi a retourner
 
   try {
-    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCountID);
     if (decisionsFromPartitionsResponse.hasTimedOut) {
       return {
         decisions: [],
@@ -152,7 +139,7 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
       }
     }
     const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
-    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, matchCount);
+    const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, limit);
     console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, date: m.date, juridiction: m.juridiction, similarity: m.similarity })));
     return {
       decisions: decisionsFromIdsResponse.decisions,
@@ -165,4 +152,16 @@ export const searchMatchedDecisions = async (input: string): Promise<SearchMatch
       hasTimedOut: false
     };
   }
+}
+
+export async function searchDecisionsByIds(ids: bigint[]) {
+  const { data, error } = await supabaseClient
+    .from("legaldecisions_test")
+    .select('id,juridiction,date,number')
+    .in('id', ids);
+  if (error) {
+    console.error('Error fetching decisions:', error);
+    return null;
+  }
+  return data;
 }
