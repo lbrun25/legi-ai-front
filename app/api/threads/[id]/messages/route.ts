@@ -99,15 +99,14 @@ export async function POST(
           controller.close();
         });
 
-        for await (const { event, data } of eventStreamFinalRes) {
+        for await (const { event, tags, data } of eventStreamFinalRes) {
           if (signal.aborted) {
             console.log("Streaming aborted, stopping early.");
             controller.close();
             break;
           }
 
-          if (event === "on_chat_model_stream") {
-            // Intermediate chat model generations will contain tool calls and no content
+          if (event === "on_chat_model_stream" && tags.includes("formatting_agent")) {
             if (!!data.chunk.content) {
               if (!firstCalledChunk) {
                 console.timeEnd("Streaming answer");
