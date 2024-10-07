@@ -13,21 +13,26 @@ import {BigInt} from "postgres";
 const NUM_RELEVANT_CHUNKS = 150;
 
 /* AVEC ELASTICSEARCH */ // J'ai l'inpression qu'on utilise presque jamais la similarity
-export async function getMatchedDecisions(input: any) {
-  if (!input) return "";
+export async function getMatchedDecisions(input: any): Promise<bigint[]> {
+  if (!input) return [];
   const semanticResponse = await searchMatchedDecisions(input, 50);
   console.log('Nb semanticResponse:', semanticResponse.decisions.length)
-  if (semanticResponse.hasTimedOut) return "";
+  if (semanticResponse.hasTimedOut) return [];
   const bm25Results = await ElasticsearchClient.searchDecisions(input, NUM_RELEVANT_CHUNKS);
   if (semanticResponse.decisions.length === 0 || bm25Results.length === 0)
-    return "";
+    return [];
 
   const semanticIds = semanticResponse.decisions.map((decision) => decision.id);
   const bm25Ids = bm25Results.map((decision: any) => decision.id);
   console.log('Nb bm25Results:', bm25Ids)
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 8, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner 
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id); //result => result.score > 0.5
   console.log("RANKFUSION : ", rankFusionIds)
+  return rankFusionIds;
+}
+
+export async function listDecisions(input: string, rankFusionIds: bigint[]) {
+  console.log("finalRankFusionList :", rankFusionIds);
   const decisionInfos = await getDecisionLinks(rankFusionIds);
   const decisionLinks = decisionInfos.map((decisionInfos) => decisionInfos.link);
   const decisionsToRank = await getdecisionsToRank(decisionLinks)
@@ -38,7 +43,7 @@ export async function getMatchedDecisions(input: any) {
   for (let i = 0; i < decisionsToRank.length; i++) {
     const index = decisionsRanked.data[i].index;
     const content = decisionsToRank[index];
-    const id = rankFusionIds[index];
+    const id: any = rankFusionIds[index]
     filteredFullContentDecisions[id.toString()] = content;
   }
   const decisionIds = Object.keys(filteredFullContentDecisions).map(key => globalThis.BigInt(key));
@@ -85,6 +90,7 @@ async function convertDecisionsToXML(
     rootElement.appendChild(decisionElement);
   });
   const serializer = new XMLSerializer();
+  console.log("XML Décisions:", serializer.serializeToString(document));
   return serializer.serializeToString(document);
 }
 
