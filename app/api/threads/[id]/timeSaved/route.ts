@@ -5,13 +5,13 @@ import {z} from "zod";
 
 const getDurationForTool = (toolName: ToolName) => {
   if (toolName === "getArticleByNumber")
-    return 900; // 15 minutes
+    return 60; // 15 minutes
   if (toolName === "getMatchedArticles")
-    return 900; // 15 minutes
+    return 480; // 8 minutes
   if (toolName === "getMatchedDecisions")
-    return 900; // 15 minutes
+    return 1800; // 30 minutes
   if (toolName === "getMatchedDoctrines")
-    return 900; // 15 minutes
+    return 1800; // 30 minutes
   return 0;
 }
 
