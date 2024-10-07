@@ -16,6 +16,8 @@ import {CopyButton} from "@/components/copy-button";
 import {useAppState} from "@/lib/context/app-state";
 import {WelcomingAssistantMessage} from "@/lib/constants/assistant";
 import {cn} from "@/lib/utils";
+import {Suggestions} from "@/components/suggestions";
+import {AnswerSuggestions} from "@/components/answer-suggestions";
 
 interface AssistantProps {
   threadId?: string;
@@ -30,6 +32,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [threadIdState, setThreadIdState] = useState("");
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [welcomingSuggestionsHasClicked, setWelcomingSuggestionsHasClicked] = useState(false);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -136,11 +139,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     }
   };
 
-  const handleOnSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isGenerating) return;
-    if (!userInput.trim()) return;
-    const newUserMessage: Message = {role: "user", text: userInput};
+  const enterInput = async (input: string) => {
+    const newUserMessage: Message = {role: "user", text: input};
     const currentMessages: Message[] = [...messages, newUserMessage];
     setMessages((prevMessages) => [
       ...prevMessages,
@@ -153,9 +153,18 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       threadId = await createThread();
       setThreadIdState(threadId);
     }
-    sendMessage(userInput, threadId ?? threadIdState, currentMessages);
+    sendMessage(input, threadId ?? threadIdState, currentMessages);
     setUserInput("");
     scrollToBottom();
+  }
+
+  const handleOnSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isGenerating) return;
+    // empty or contains only whitespace
+    if (!userInput.trim()) return;
+    setWelcomingSuggestionsHasClicked(false);
+    await enterInput(userInput);
   }
 
   /*
@@ -213,6 +222,11 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     sendMessage(updatedMessages[lastIndex].text, threadId, updatedMessages);
   };
 
+  const onWelcomingSuggestionsClicked = (text: string) => {
+    setWelcomingSuggestionsHasClicked(true);
+    enterInput(text);
+  }
+
   return (
     <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
@@ -251,13 +265,26 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           </div>
         );
       })}
+      {messages.length < 2 && (
+        <Suggestions onSuggestionClicked={onWelcomingSuggestionsClicked} />
+      )}
       {loadingMessages && (
         <div className="flex justify-center items-center">
           <Spinner/>
         </div>
       )}
+      {(messages.length > 1 && !welcomingSuggestionsHasClicked) && (
+        <div className="mt-8 mx-auto">
+          <AnswerSuggestions
+            answer={messages[messages.length - 1].text}
+            isGenerating={isGenerating}
+            onSuggestionClicked={(text) => enterInput(text)}
+          />
+        </div>
+      )}
       <div ref={messagesEndRef}/>
-      <div className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
+      <div
+        className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
         <div className="flex flex-row items-center justify-center w-full">
           <VoiceRecordButton
             isGenerating={isGenerating}

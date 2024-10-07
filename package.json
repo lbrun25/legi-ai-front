@@ -37,6 +37,7 @@
     "@supabase/supabase-js": "^2.43.5",
     "@tailwindcss/typography": "^0.5.12",
     "@upstash/redis": "^1.30.0",
+    "@xmldom/xmldom": "^0.9.3",
     "ai": "^3.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
