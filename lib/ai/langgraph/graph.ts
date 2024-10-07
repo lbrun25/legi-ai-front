@@ -22,7 +22,7 @@ import { ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate } 
 import { JsonOutputToolsParser } from "langchain/output_parsers";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { getMatchedDecisions } from "@/lib/ai/tools/getMatchedDecisions";
+import { getMatchedDecisions, listDecisions } from "@/lib/ai/tools/getMatchedDecisions";
 import { getMatchedArticles } from "@/lib/ai/tools/getMatchedArticles";
 import { getMatchedDoctrinesTool } from "@/lib/ai/tools/getMatchedDoctrines";
 import { getArticleByNumber, getArticleByNumber2 } from "@/lib/ai/tools/getArticleByNumber";
@@ -204,25 +204,67 @@ const articlesChain = articlesPrompt
     config?: RunnableConfig,
   ) => {
     console.timeEnd("call ThinkingAgent");
-
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
+      // Utilisation d'un Set pour éliminer les doublons
+      const uniqueNumbers = new Set(numbers);
+  
+      // Conversion du Set en tableau
+      return Array.from(uniqueNumbers);
+  }
 
     async function getExpertMessages() {
       const expertMessages: string[] = [];
-
-      for (let i = 0; i < state.queriesDecisionsList.length; i++) { // mettre i = 0
-        let message = await getMatchedDecisions(state.queriesDecisionsList[i]);
-
-        // Si la réponse est vide, on tente de la récupérer à nouveau
-        if (!message) {
-          await delay(3500); //jsp pas si utile
-          message = await getMatchedDecisions(state.queriesDecisionsList[i]);
+/*
+      //Partie Articles
+      console.log('Query', state.queries)
+      for (let i = 0; i < state.queries.length; i++) {
+  
+        if (state.queries[i].includes("getArticleByNumber")) {
+  
+          let message = await getArticleByNumber2(state.queries[i]);
+          // Si la réponse est vide, on tente de la récupérer à nouveau
+          if (!message) {
+            await delay(1000); //jsp pas si utile
+            message = await getArticleByNumber2(state.queries[i]);
+          }
+          // Convertir le message en string et l'ajouter à expertMessages
+          const messageStringified = JSON.stringify(message);
+          expertMessages.push(messageStringified);
+        } 
+        else {
+          let message = await getMatchedArticles2(state.queries[i]);
+                // Si la réponse est vide, on tente de la récupérer à nouveau
+          if (!message) {
+            await delay(1000); //jsp pas si utile
+            message = await getMatchedArticles2(state.queries[i]);
+          }
+  
+          // Convertir le message en string et l'ajouter à expertMessages
+          const messageStringified = JSON.stringify(message);
+          expertMessages.push(messageStringified);
         }
-        // Convertir le message en string et l'ajouter à expertMessages
-        const messageStringified = JSON.stringify(message);
-        expertMessages.push(messageStringified);
-      }
+      }*/
 
+      // Partie décisions
+      let rankFusionIds: bigint[] = [];
+      for (let i = 0; i < state.queriesDecisionsList.length; i++) { // mettre i = 0
+        let rankFusionIdsTemp = await getMatchedDecisions(state.queriesDecisionsList[i]); //state.queriesDecisionsList[i]
+        
+        // Si la réponse est vide, on tente de la récupérer à nouveau
+        if (!rankFusionIdsTemp) {
+          await delay(500); //jsp pas si utile
+          rankFusionIdsTemp = await getMatchedDecisions(state.queriesDecisionsList[i]);
+        }
+      
+        // Ajouter les ids récupérés à rankFusionIds
+        rankFusionIds.push(...rankFusionIdsTemp);
+      }
+      // Supprimer les doublons dans rankFusionIds
+      const listIds = await removeDuplicates(rankFusionIds);
+      const message = await listDecisions(state.summary, listIds)
+      expertMessages.push(message);
       return expertMessages;
     }
 
@@ -424,12 +466,12 @@ const doctrinesChain = doctrinesPrompt
     );
 
     // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
-    if (!articlesThinkingAgentMessage || !decisionsThinkingAgentMessage) { //|| !doctrineThinkingAgentMessage) { //ENLEVER DOC
+    if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) { //|| !doctrineThinkingAgentMessage) // 
       console.log("[ValidationNODE] : Un ou plusieurs agents n'ont pas encore répondu.");
       return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
     }
-
-    const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage];
+    
+    const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage]; //, articlesThinkingAgentMessage
     console.log("[ValidationNODE] Message des experts:\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
@@ -523,9 +565,9 @@ const formattingNode = async (
     .addNode("Supervisor", supervisorChain)
     .addNode("DecisionsAgent", decisionsChain)
     .addNode("ArticlesAgent", articlesChain)
-    .addNode("DoctrinesAgent", doctrinesChain)
+    //.addNode("DoctrinesAgent", doctrinesChain)
     .addNode("ArticlesThinkingAgent", articlesThinkingNode)
-    .addNode("DoctrinesIntermediaryAgent", doctrinesIntermediaryNode)
+    //.addNode("DoctrinesIntermediaryAgent", doctrinesIntermediaryNode)
     .addNode("DecisionsThinkingAgent", decisionsThinkingNode)
     .addNode("ValidationAgent", validationNode)
     .addNode("FormattingAgent", formattingNode);
@@ -537,15 +579,15 @@ const formattingNode = async (
   // Connexions du Supervisor aux agents
   workflow.addEdge("Supervisor", "ArticlesAgent");
   workflow.addEdge("Supervisor", "DecisionsAgent");
-  workflow.addEdge("Supervisor", "DoctrinesAgent");
+  //workflow.addEdge("Supervisor", "DoctrinesAgent");
 
   // Connexion des Agent aux IntermediaryAgent
   workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
   workflow.addEdge("ArticlesAgent", "ArticlesThinkingAgent");
-  workflow.addEdge("DoctrinesAgent", "DoctrinesIntermediaryAgent");
+  //workflow.addEdge("DoctrinesAgent", "DoctrinesIntermediaryAgent");
 
   // Connexion des agents spécialisés au ValidationAgent
-  workflow.addEdge("DoctrinesIntermediaryAgent", "ValidationAgent");
+  //workflow.addEdge("DoctrinesIntermediaryAgent", "ValidationAgent");
   workflow.addEdge("ArticlesThinkingAgent", "ValidationAgent");
   workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");
   // Connexion du ValidationAgent au FormattingAgent
