@@ -101,7 +101,7 @@ export async function POST(
           controller.close();
         });
 
-        for await (const { event, data } of eventStreamFinalRes) {
+        for await (const { event, data, tags } of eventStreamFinalRes) {
           // Logs to debug
           if (event !== "on_chat_model_stream") {
             // console.log('event:', event)
@@ -123,8 +123,7 @@ export async function POST(
             break;
           }
 
-          if (event === "on_chat_model_stream") {
-            // Intermediate chat model generations will contain tool calls and no content
+          if (event === "on_chat_model_stream" && tags.includes("formatting_agent")) {
             if (!!data.chunk.content) {
               if (!firstCalledChunk) {
                 console.timeEnd("Streaming answer");
