@@ -20,6 +20,8 @@ interface AppState {
   setCachedDecision: (decisionNumber: string, decision: Decision) => void;
   timeSaved: number;
   setTimeSaved: (timeSaved: number) => void;
+  onSignup: () => void;
+  hasJustSignUp: boolean;
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -30,6 +32,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const articleCache = useRef(new Map<string, Article>());
   const decisionCache = useRef(new Map<string, Decision>());
   const [timeSaved, setTimeSaved] = useState<number>(0);
+  const [hasJustSignUp, setHasJustSignUp] = useState(false);
 
   const getCachedArticle = (articleNumber: string, articleSource: string): Article | undefined => {
     const cacheKey = `${articleNumber}_${articleSource}`;
@@ -49,6 +52,10 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     decisionCache.current.set(decisionNumber, decision);
   };
 
+  const onSignup = () => {
+    setHasJustSignUp(true);
+  };
+
   return (
     <AppStateContext.Provider
       value={{
@@ -63,7 +70,9 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         getCachedDecision,
         setCachedDecision,
         timeSaved,
-        setTimeSaved
+        setTimeSaved,
+        onSignup,
+        hasJustSignUp,
       }}
     >
       {children}
