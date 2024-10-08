@@ -22,7 +22,7 @@ export const Suggestions = ({onSuggestionClicked}: SuggestionsProps) => {
   ];
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="space-y-4 place-self-center">
       <span className="text-gray-500 text-xs font-medium text-center">{"Commencez par un exemple ci-dessous"}</span>
       <div className="grid grid-cols-3 gap-4 max-w-xl place-self-center">
         {suggestions.map((suggestion, index) => (
