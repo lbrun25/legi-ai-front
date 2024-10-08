@@ -305,7 +305,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           <Spinner/>
         </div>
       )}
-      {(messages.length > 1 && !welcomingSuggestionsHasClicked) && (
+      {(messages.length > 1 && !welcomingSuggestionsHasClicked && !isGenerating) && (
         <div className="mt-8 mx-auto">
           <AnswerSuggestions
             answer={messages[messages.length - 1].text}
