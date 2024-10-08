@@ -19,6 +19,7 @@ import {cn} from "@/lib/utils";
 import {Suggestions} from "@/components/suggestions";
 import {AnswerSuggestions} from "@/components/answer-suggestions";
 import {ToolName} from "@/lib/types/functionTool";
+import {VoteButtons} from "@/components/vote-buttons";
 
 interface AssistantProps {
   threadId?: string;
@@ -263,7 +264,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         return (
-          <div key={index} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-50 dark:bg-gray-900 shadow" : "")}>
+          <div key={message.id} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-50 dark:bg-gray-900 shadow" : "")}>
             {message.role === "assistant" && <AssistantRoleMessage/>}
             {message.role === "user" && <UserRoleMessage/>}
             <div className="mt-4 ml-8">
@@ -290,15 +291,21 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
               )}
             </div>
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
-              <div className="mt-4 justify-end flex flex-row">
-                <CopyButton contentToCopy={message.text}/>
+              <div className="mt-4 flex flex-row justify-between">
+                <div className="flex flex-row">
+                  {(message.id && message.thread_id) &&
+                    <VoteButtons messageId={message.id} threadId={message.thread_id}/>}
+                </div>
+                <div>
+                  <CopyButton contentToCopy={message.text}/>
+                </div>
               </div>
             )}
           </div>
         );
       })}
       {messages.length < 2 && (
-        <Suggestions onSuggestionClicked={onWelcomingSuggestionsClicked} />
+        <Suggestions onSuggestionClicked={onWelcomingSuggestionsClicked}/>
       )}
       {loadingMessages && (
         <div className="flex justify-center items-center">
