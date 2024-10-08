@@ -261,7 +261,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   }
 
   return (
-    <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
+    <div className="flex flex-col w-full max-w-[850px] pb-32 pt-32 mx-auto gap-4">
       {messages.map((message, index) => {
         return (
           <div key={message.id} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-50 dark:bg-gray-900 shadow" : "")}>
@@ -273,21 +273,21 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                 isGenerating={isGenerating}
               />
               {index === messages.length - 1 && (
-                <div className="mt-8">
+                <>
                   {(isGenerating && !isStreaming) && (
-                    <div className="mb-8">
+                    <div className="mt-8 mb-8">
                       <ProgressChatBar />
                     </div>
                   )}
                   {(isGenerating && isStreaming) && (
-                    <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
+                    <div className="mt-8 h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
                   )}
                   {hasIncomplete && (
-                    <div className="mb-8">
+                    <div className="mt-8 mb-8">
                       <IncompleteMessage onRetryClicked={retryMessage} />
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
