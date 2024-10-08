@@ -26,3 +26,5 @@ export interface ToolOutput {
   toolOutput: RunSubmitToolOutputsParams.ToolOutput;
   hasTimedOut?: boolean;
 }
+
+export type ToolName = "getArticleByNumber" | "getMatchedArticles" | "getMatchedDecisions" | "getMatchedDoctrines";

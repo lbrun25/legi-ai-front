@@ -14,8 +14,7 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
   const [isReported, setIsReported] = useState(false);
 
   const handleReport = () => {
-    // Ici, vous pouvez ajouter la logique pour envoyer le signalement
-    // Par exemple, appeler une API
+    // TODO: add report API
     setIsReported(true);
   };
 
@@ -28,8 +27,8 @@ export const DecisionDialogContent: React.FC<DecisionDialogContentProps> = ({dec
         ) : error ? (
           <div>
             <DialogDescription className="text-sm mb-4">
-              {isReported 
-                ? "Signalement envoyé, merci ! 🙂" 
+              {isReported
+                ? "Signalement envoyé, merci ! 🙂"
                 : "La visualisation de cette décision n'est pas encore possible car la juridiction limite son partage. 😢 \nNous faisons tout notre possible pour corriger cela. \n"}
             </DialogDescription>
             {!isReported && (

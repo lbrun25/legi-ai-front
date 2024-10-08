@@ -18,6 +18,8 @@ interface AppState {
   decisionCache: DecisionCache;
   getCachedDecision: (decisionNumber: string) => Decision | undefined;
   setCachedDecision: (decisionNumber: string, decision: Decision) => void;
+  timeSaved: number;
+  setTimeSaved: (timeSaved: number) => void;
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -27,6 +29,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const articleCache = useRef(new Map<string, Article>());
   const decisionCache = useRef(new Map<string, Decision>());
+  const [timeSaved, setTimeSaved] = useState<number>(0);
 
   const getCachedArticle = (articleNumber: string, articleSource: string): Article | undefined => {
     const cacheKey = `${articleNumber}_${articleSource}`;
@@ -59,6 +62,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         decisionCache: decisionCache.current,
         getCachedDecision,
         setCachedDecision,
+        timeSaved,
+        setTimeSaved
       }}
     >
       {children}

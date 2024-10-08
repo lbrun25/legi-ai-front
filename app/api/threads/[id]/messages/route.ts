@@ -90,6 +90,8 @@ export async function POST(
 
     let firstCalledChunk = false;
 
+    const toolsCalled = new Map<string, boolean>();
+
     const textEncoder = new TextEncoder();
     const transformStream = new ReadableStream({
       async start(controller) {
@@ -100,6 +102,21 @@ export async function POST(
         });
 
         for await (const { event, data } of eventStreamFinalRes) {
+          // Logs to debug
+          if (event !== "on_chat_model_stream") {
+            // console.log('event:', event)
+            // console.log('data:', data)
+          }
+          if (event === "on_chain_end") {
+            const messages = data.output.messages;
+            if (Array.isArray(messages)) {
+              messages?.map((message: any) => {
+                const toolName = message.name;
+                if (toolName)
+                  toolsCalled.set(toolName, true);
+              });
+            }
+          }
           if (signal.aborted) {
             console.log("Streaming aborted, stopping early.");
             controller.close();
@@ -117,6 +134,9 @@ export async function POST(
             }
           }
         }
+        const toolsCalledMessage = `Tools called: ${Array.from(toolsCalled.keys()).join(',')}`;
+        console.log('will enqueue toolsCalledMessage:', toolsCalledMessage);
+        controller.enqueue(textEncoder.encode(toolsCalledMessage));
         controller.close();
       },
     });
