@@ -31,8 +31,8 @@ export const VideoMike = () => {
         (isGenerating && !isStreaming) ? "w-[80px] h-[80px]" : "w-[42px] h-[42px]"
       )}
     >
-      <source src="/mike.mov" type='video/mp4'/>
-      {/*<source src="/mike.webm" type="video/webm"/>*/}
+      <source src="/mike.mp4" type='video/mp4;codecs=hvc1'/>
+      <source src="/mike.webm" type="video/webm"/>
       Votre navigateur ne prend pas en charge la vidéo.
     </video>
   );
