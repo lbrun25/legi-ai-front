@@ -180,7 +180,7 @@ const articlesChain = articlesPrompt
   ]);
 
   const queryDecisionsListTool = {
-    name: "queries_decisons_list",
+    name: "queryDecisionsListTool",
     description: "Établit une liste de requêtes basée sur la demande de l'utilisateur",
     schema: z.object({
       queriesDecisionsList: z.array(z.string()),
@@ -209,62 +209,41 @@ const articlesChain = articlesPrompt
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
       // Utilisation d'un Set pour éliminer les doublons
       const uniqueNumbers = new Set(numbers);
-  
+    
       // Conversion du Set en tableau
       return Array.from(uniqueNumbers);
-  }
-
+    }
+    
     async function getExpertMessages() {
       const expertMessages: string[] = [];
-/*
-      //Partie Articles
-      console.log('Query', state.queries)
-      for (let i = 0; i < state.queries.length; i++) {
-  
-        if (state.queries[i].includes("getArticleByNumber")) {
-  
-          let message = await getArticleByNumber2(state.queries[i]);
-          // Si la réponse est vide, on tente de la récupérer à nouveau
-          if (!message) {
-            await delay(1000); //jsp pas si utile
-            message = await getArticleByNumber2(state.queries[i]);
-          }
-          // Convertir le message en string et l'ajouter à expertMessages
-          const messageStringified = JSON.stringify(message);
-          expertMessages.push(messageStringified);
-        } 
-        else {
-          let message = await getMatchedArticles2(state.queries[i]);
-                // Si la réponse est vide, on tente de la récupérer à nouveau
-          if (!message) {
-            await delay(1000); //jsp pas si utile
-            message = await getMatchedArticles2(state.queries[i]);
-          }
-  
-          // Convertir le message en string et l'ajouter à expertMessages
-          const messageStringified = JSON.stringify(message);
-          expertMessages.push(messageStringified);
-        }
-      }*/
-
-      // Partie décisions
       let rankFusionIds: bigint[] = [];
-      for (let i = 0; i < state.queriesDecisionsList.length; i++) { // mettre i = 0
-        let rankFusionIdsTemp = await getMatchedDecisions(state.queriesDecisionsList[i]); //state.queriesDecisionsList[i]
-        
+    
+      // Utilisation de Promise.all pour exécuter les requêtes en parallèle
+      const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
+        let rankFusionIdsTemp = await getMatchedDecisions(query);
+    
         // Si la réponse est vide, on tente de la récupérer à nouveau
         if (!rankFusionIdsTemp) {
-          await delay(500); //jsp pas si utile
-          rankFusionIdsTemp = await getMatchedDecisions(state.queriesDecisionsList[i]);
+          await delay(100); // Attente, mais cela peut ne pas être nécessaire
+          rankFusionIdsTemp = await getMatchedDecisions(query);
         }
-      
-        // Ajouter les ids récupérés à rankFusionIds
-        rankFusionIds.push(...rankFusionIdsTemp);
-      }
-      // Supprimer les doublons dans rankFusionIds
+        
+        return rankFusionIdsTemp;
+      });
+    
+      // Attente que toutes les promesses soient terminées
+      const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
+    
+      // Regroupement de tous les résultats dans un seul tableau
+      rankFusionIdsResults.forEach(result => rankFusionIds.push(...result));
+    
+      // Suppression des doublons
       const listIds = await removeDuplicates(rankFusionIds);
-      const message = await listDecisions(state.summary, listIds)
+    
+      // Création du message expert
+      const message = await listDecisions(state.summary, listIds);
       expertMessages.push(message);
+    
       return expertMessages;
     }
 
@@ -315,41 +294,36 @@ const articlesChain = articlesPrompt
       while(querieSize[i + 1] !=)
 
     }*/
-    async function getArticlesExpertMessages() {
-      const expertMessages: string[] = [];
-
-      //const numberOfCall = querieSize(state.queries)
-      console.log('Query', state.queries)
-      for (let i = 0; i < state.queries.length; i++) {
-
-        if (state.queries[i].includes("getArticleByNumber")) {
-
-          let message = await getArticleByNumber2(state.queries[i]);
-          // Si la réponse est vide, on tente de la récupérer à nouveau
-          if (!message) {
-            await delay(1000); //jsp pas si utile
-            message = await getArticleByNumber2(state.queries[i]);
+      async function getArticlesExpertMessages() {
+        const expertMessages: string[] = [];
+      
+        // Convertir les appels à getArticleByNumber2 et getMatchedArticles en promises pour un traitement parallèle
+        const promises = state.queries.map(async (query) => {
+          let message;
+      
+          if (query.includes("getArticleByNumber")) {
+            message = await getArticleByNumber2(query);
+            if (!message) {
+              await delay(100); // Attente avant de réessayer si nécessaire
+              message = await getArticleByNumber2(query);
+            }
+          } else {
+            message = await getMatchedArticles(query);
+            if (!message) {
+              await delay(1000); // Attente avant de réessayer si nécessaire
+              message = await getMatchedArticles(query);
+            }
           }
-          // Convertir le message en string et l'ajouter à expertMessages
-          const messageStringified = JSON.stringify(message);
-          expertMessages.push(messageStringified);
-        }
-        else {
-          let message = await getMatchedArticles(state.queries[i]);
-                // Si la réponse est vide, on tente de la récupérer à nouveau
-          if (!message) {
-            await delay(1000); //jsp pas si utile
-            message = await getMatchedArticles(state.queries[i]);
-          }
-
-          // Convertir le message en string et l'ajouter à expertMessages
-          const messageStringified = JSON.stringify(message);
-          expertMessages.push(messageStringified);
-        }
+          return JSON.stringify(message);
+        });
+      
+        const results = await Promise.all(promises);
+      
+        expertMessages.push(...results);
+      
+        return expertMessages;
       }
-
-      return expertMessages;
-    }
+      
 
     const expertMessages = await getArticlesExpertMessages();
     //console.log("[EXPERTS] :\n", expertMessages);
@@ -371,7 +345,7 @@ const articlesChain = articlesPrompt
       console.log("[ArticlesThinkingNode] input :", input)
       console.timeEnd("call ArticlesThinkingAgent invoke");
       const lastMessage = result.content
-     // console.log("ArticlesThinkingAgent Content :", lastMessage)
+      console.log("ArticlesThinkingAgent Content :", lastMessage)
       return {
         messages: [
           new HumanMessage({ content: result.content, name: "ArticlesThinkingAgent" }),
@@ -487,6 +461,7 @@ const doctrinesChain = doctrinesPrompt
 
     try {
       const result = await llm.invoke(input, config);
+      console.log("Validation Agent response :", result.content)
       console.timeEnd("call validationAgent invoke");
       return {
         messages: [
@@ -582,8 +557,8 @@ const formattingNode = async (
   //workflow.addEdge("Supervisor", "DoctrinesAgent");
 
   // Connexion des Agent aux IntermediaryAgent
-  workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
   workflow.addEdge("ArticlesAgent", "ArticlesThinkingAgent");
+  workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
   //workflow.addEdge("DoctrinesAgent", "DoctrinesIntermediaryAgent");
 
   // Connexion des agents spécialisés au ValidationAgent
