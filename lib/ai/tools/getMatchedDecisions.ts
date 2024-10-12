@@ -1,6 +1,6 @@
 import {tool} from "@langchain/core/tools";
 import {z} from "zod";
-import {MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
+import {getFullDecisionsByIds, MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
 import * as cheerio from 'cheerio';
 import { CheerioAPI } from 'cheerio';
 import puppeteer from 'puppeteer';
@@ -18,7 +18,7 @@ interface DecisionPrecision {
 }
 
 /* AVEC ELASTICSEARCH */ // J'ai l'inpression qu'on utilise presque jamais la similarity
-export async function getMatchedDecisions(input : any): Promise<bigint[]> { 
+export async function getMatchedDecisions(input : any): Promise<bigint[]> {
   console.log("input :", input)
   //input = "Est-ce que porteurs des actions de préférence doivent prendre part au vote sur la modification des droits de ces actions de préférence ?";
   if (!input) return [];
@@ -32,7 +32,7 @@ export async function getMatchedDecisions(input : any): Promise<bigint[]> {
   const semanticIds = semanticResponse.decisions.map((decision) => decision.id);
   const bm25Ids = bm25Results.map((decision: any) => decision.id);
   //console.log('Nb bm25Results:', bm25Ids)
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner 
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id); //result => result.score > 0.5
   console.log("RANKFUSION : ", rankFusionIds)
   return rankFusionIds;
@@ -42,7 +42,7 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
   console.log("finalRankFusionList :", rankFusionIds);
   //const decisionInfos = await getDecisionLinks(rankFusionIds);
   //const decisionLinks = decisionInfos.map((decisionInfos) => decisionInfos.link);
-  const decisionsToRank = await getdecisionsToRank(rankFusionIds)
+  const decisionsToRank = await getDecisionsToRank(rankFusionIds)
   const decisionsRanked: any = await rerankWithVoyageAI(input, decisionsToRank)
   const filteredDecisions: any = decisionsRanked.data.filter((decision: DecisionPrecision) => decision.relevance_score >= 0.5);
   console.log("filteredDecisions : ", filteredDecisions)
@@ -79,33 +79,15 @@ async function getDecisionDetailsById(id: number) {
 }
 
 //treatDecision
-async function getdecisionsToRank(ids: bigint[]): Promise<string[]> {
-  const content: string[] = [];
-  for (const id of ids) {
-    try {
-      console.log(`Fetching decision content for ID: ${id}`);
-      
-      // Requête Supabase pour récupérer l'élément de la colonne 'decisionContent' pour chaque ID
-      const { data, error } = await supabaseClient
-        .from('legaldecisions_test') // Remplace 'your_table_name' par le nom de ta table
-        .select('decisionContent')
-        .eq('id', id)
-        .single(); // On s'attend à récupérer une seule ligne par ID
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        const formattedContent = data.decisionContent.replace(/\n\s*/g, ' ').trim();
-        content.push(formattedContent);
-      }
-      
-    } catch (error) {
-      console.log('Error in getting decision content from Supabase for ID:', id, error);
-    }
+async function getDecisionsToRank(ids: bigint[]): Promise<string[]> {
+  try {
+    const decisions = await getFullDecisionsByIds(ids);
+    if (!decisions) return [];
+    return decisions.map((decision) => decision.decisionContent.replace(/\n\s*/g, ' ').trim());
+  } catch (error) {
+    console.error("cannot get full decisions by IDs:", error);
   }
-  return content;
+  return [];
 }
 
 async function getDecisionLinks(ids: any[]): Promise<any[]> {
@@ -147,19 +129,19 @@ const extractDecisionLinks = (matchedDecisionsResponse: { decisions?: MatchedDec
 
 export async function getMatchedDecisions2(input: any) {
   if (!input) return "";
-  
+
   const matchedDecisionsResponse = await searchMatchedDecisions(input);
   if (matchedDecisionsResponse.hasTimedOut) return "";
-  
+
   const links = extractDecisionLinks(matchedDecisionsResponse);
   //console.log(links)
   let formattedFiches = "---------\n";
-  
+
   // Boucle sur chaque décision
   for (let i = 0; i < matchedDecisionsResponse.decisions.length; i++) {
     const decision = matchedDecisionsResponse.decisions[i];
     const content = await treatDecision(links[i]); // Traite le lien de chaque décision
-    
+
     formattedFiches += `Décision de la ${decision.juridiction} ${decision.number} du ${decision.date} : ${content}\n---------\n`;
   }
   //console.log(formattedFiches);
@@ -167,9 +149,9 @@ export async function getMatchedDecisions2(input: any) {
 }
 
 async function extractDecisionContentFromString(decisionContent: string): Promise<string> {
-  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1 
+  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1 
+      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
@@ -210,9 +192,9 @@ async function extractDecisionContent($: cheerio.CheerioAPI): Promise<string> {
   const elements = $(".decision-element.decision-element--texte-decision p");
   const decisionContent = elements.text().trim();
 
-  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1 
+  const annexeIndex = decisionContent.indexOf('MOYEN ANNEXE au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE au présent arrêt')
-      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1 
+      : decisionContent.indexOf('MOYENS ANNEXES au présent arrêt') !== -1
       ? decisionContent.indexOf('MOYENS ANNEXES au présent arrêt')
       : decisionContent.indexOf('MOYEN ANNEXE à la présente décision') !== -1
       ? decisionContent.indexOf('MOYEN ANNEXE à la présente décision')
@@ -245,10 +227,10 @@ export const fetchPageContent = async (url: string) => { // Ajout d'un paramètr
     }
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
-    
+
     // Set a custom User-Agent
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3');
-    
+
     // Navigate to the target URL
     await page.goto(url, { waitUntil: 'networkidle2' }); // Utilisation de l'URL passée en paramètre
 
