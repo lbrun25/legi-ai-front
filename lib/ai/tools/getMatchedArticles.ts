@@ -8,6 +8,11 @@ import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
 const NUM_RELEVANT_CHUNKS = 150;
 
+interface ArticlePrecision {
+  relevance_score: number;
+  index: number;
+}
+
 export const getMatchedArticlesTool = tool(async (input) => {
   return getMatchedArticles(input);
 }, {
@@ -31,16 +36,17 @@ export async function getMatchedArticles(input: any) {
 
   const semanticIds = semanticResponse.articles.map((article) => article.id);
   const bm25Ids = bm25Results.map((article: any) => article.id);
-  console.log('Nb bm25Results articles:', bm25Ids);
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35);
+  //console.log('Nb bm25Results articles:', bm25Ids);
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 15, 0.65, 0.35);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
-  console.log("RANKFUSION articles: ", rankFusionIds);
-
+  //console.log("RANKFUSION articles: ", rankFusionIds);
   const articlesToRank = await getArticlesByIds(rankFusionIds, semanticResponse.codeName);
   if (!articlesToRank) return "";
   const articlesContentToRank = articlesToRank?.map((article) => article.content as string);
   if (!articlesContentToRank) return "";
-  const articlesRanked = await rerankWithVoyageAI(input, articlesContentToRank);
+  const articlesRanked: any = await rerankWithVoyageAI(input, articlesContentToRank);
+  const filteredArticles: any = articlesRanked.data.filter((Article: ArticlePrecision) => Article.relevance_score >= 0.5);
+  console.log('RerankerArticles :', filteredArticles)
   if (!articlesRanked) {
     return convertArticlesToXML(codeName, articlesToRank);
   }

@@ -39,7 +39,7 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        const functionName = `match_decisions_test_part_${partitionIndex}_adaptive`;
+        const functionName = `match_decisions_test_part_${partitionIndex}_adaptive`; // match_decisions_test_part_ *** match_decisions_search_part_
 
         // We don't use supabase client because of timeout
         const query = sql.unsafe(`
@@ -83,17 +83,18 @@ const fetchDecisionsFromPartitions = async (maxIndex: number, embedding: number[
   };
 };
 
-const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => {
+const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDecisionsFromIdsResponse> => { //search_match_decisions_by_ids_full_content *** match_decisions_by_ids_full_content
   // console.log('Will call match_decisions_by_ids with IDs:', idList);
   try {
     const formattedEmbedding = `[${embedding.join(',')}]`;
     const formattedIdList = `{${idList.join(',')}}`;
 
     const query = sql.unsafe(`
-      SELECT * FROM search_match_decisions_by_ids_full_content($1, $2, $3, $4)
+      SELECT * FROM match_decisions_by_ids_full_content($1, $2, $3, $4)
     `, [formattedEmbedding, 0.2, matchCount, formattedIdList]);
 
     const matchedDecisions = await query as unknown as MatchedDecision[];
+    //console.log('matchedDecisions:', matchedDecisions)
 
     return {
       decisions: matchedDecisions,
@@ -109,7 +110,7 @@ const fetchDecisionsFromIds = async (embedding: number[], idList: bigint[], matc
 };
 
 export const searchMatchedDecisions = async (input: string, limit: number = 5): Promise<SearchMatchedDecisionsResponse> => {
-  console.log('searchMatchedDecisions:', input);
+  //console.log('searchMatchedDecisions:', input);
   const response = await embeddingWithVoyageLawForDecisions(input);
   if (!response) {
     return {
@@ -127,8 +128,8 @@ export const searchMatchedDecisions = async (input: string, limit: number = 5): 
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 9;
-  const matchCountID = 10; // nombre d'idi a retourner
+  const maxIndex = 79;
+  const matchCountID = 5; // nombre d'idi a retourner
 
   try {
     const decisionsFromPartitionsResponse = await fetchDecisionsFromPartitions(maxIndex, embeddingOpenai, matchCountID);
@@ -140,7 +141,7 @@ export const searchMatchedDecisions = async (input: string, limit: number = 5): 
     }
     const decisionIds: bigint[] = decisionsFromPartitionsResponse.decisions.map((decision) => decision.id);
     const decisionsFromIdsResponse = await fetchDecisionsFromIds(embedding_Voyage, decisionIds, limit);
-    console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, date: m.date, juridiction: m.juridiction, similarity: m.similarity })));
+   // console.log(`topDecisions:`, decisionsFromIdsResponse.decisions.map((m: MatchedDecision) => JSON.stringify({ id: m.id, number: m.number, similarity: m.similarity })));
     return {
       decisions: decisionsFromIdsResponse.decisions,
       hasTimedOut: decisionsFromIdsResponse.hasTimedOut
