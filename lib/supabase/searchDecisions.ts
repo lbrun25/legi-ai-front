@@ -166,3 +166,15 @@ export async function searchDecisionsByIds(ids: bigint[]) {
   }
   return data;
 }
+
+export async function getFullDecisionsByIds(ids: bigint[]) {
+  const { data, error } = await supabaseClient
+    .from('legaldecisions_test')
+    .select('decisionContent')
+    .in('id', ids);
+  if (error) {
+    console.error('Error fetching articles:', error);
+    return null;
+  }
+  return data;
+}
