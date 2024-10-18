@@ -101,12 +101,13 @@ export async function POST(
           controller.close();
         });
 
-        for await (const { event, data, tags } of eventStreamFinalRes) {
+        for await (const { event, tags, data } of eventStreamFinalRes) {
           // Logs to debug
           if (event !== "on_chat_model_stream") {
             // console.log('event:', event)
             // console.log('data:', data)
           }
+          // for time saved
           if (event === "on_chain_end") {
             const messages = data.output.messages;
             if (Array.isArray(messages)) {

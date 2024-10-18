@@ -92,7 +92,7 @@ export const embeddingWithVoyageLawForDecisions = async (input: string): Promise
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  console.log('embeddingWithVoyageLaw input:', input)
+  //console.log('embeddingWithVoyageLaw input:', input)
   const body = {
     input: input,
     model: 'voyage-law-2'

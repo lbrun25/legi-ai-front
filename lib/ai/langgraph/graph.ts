@@ -14,7 +14,8 @@ import {
   ReflectionAgentPrompt,
   DecisionsThinkingAgent,
   SupervisorPrompt,
-  ValidationAgentPrompt
+  ValidationAgentPrompt,
+  CriticalAgentPrompt
 } from "@/lib/ai/langgraph/prompt";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
@@ -23,9 +24,10 @@ import { JsonOutputToolsParser } from "langchain/output_parsers";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getMatchedDecisions, listDecisions } from "@/lib/ai/tools/getMatchedDecisions";
-import { getMatchedArticles } from "@/lib/ai/tools/getMatchedArticles";
+import { getMatchedArticles, articlesCleaned } from "@/lib/ai/tools/getMatchedArticles";
 import { getMatchedDoctrinesTool } from "@/lib/ai/tools/getMatchedDoctrines";
 import { getArticleByNumber, getArticleByNumber2 } from "@/lib/ai/tools/getArticleByNumber";
+import { mergeResults } from '../../utils/mergeResults'
 
 let cachedApp: any = null;
 
@@ -54,11 +56,17 @@ const GraphAnnotation = Annotation.Root({
     reducer: (state, update) => state.concat(update),
     default: () => [],
   }),
+  summaryToolCall: Annotation<boolean>({
+    reducer: (update) => update, // Remplace simplement le booléen
+    default: () => true, // Valeur par défaut à 'true'
+  }),
+  
 });
 
 const createGraph = async () => {
-  const members = ["ArticlesAgent", "DecisionsAgent", "DoctrinesAgent"] as const;
 
+  
+  const members = ["ArticlesAgent", "DecisionsAgent", "DoctrinesAgent"] as const;
   const options = ["FINISH", ...members];
 
   const routingTool = {
@@ -94,6 +102,8 @@ const createGraph = async () => {
   console.time("call reflectionAgent");
   console.time("call supervisor");
   console.time("call decisionsAgent");
+  console.time("call ArticlesThinkingAgent");
+  console.time("call ArticlesThinkingAgent invoke");
   console.time("call decisionsAgent invoke");
   console.time("call decisionsIntermediaryAgent");
   console.time("call decisionsIntermediaryAgent invoke");
@@ -107,8 +117,13 @@ const createGraph = async () => {
   console.time("call formattingAgent");
   console.time("call formatting invoke");
   console.time("call reflection");
-  console.time("call ThinkingAgent");
+  console.time("call DecisionsThinkingAgent");
   console.time("input send to ThinkingAgent");
+  console.time("[DecisionsThinking] : Data Ready, send to LLM");
+  console.time("[ArticlesThinking] : Data Ready, send to LLM");
+  console.timeEnd("Start calling for décisions");
+  console.timeEnd("Done calling for décisions")
+
 
   // ReflectionAgent
   const reflectionPrompt = ChatPromptTemplate.fromMessages([
@@ -124,15 +139,42 @@ const createGraph = async () => {
   }
 
   const reflectionChain = reflectionPrompt
-    .pipe(llm.bindTools([summaryTool]))
-    .pipe(new JsonOutputToolsParser())
-    .pipe((x) => {
-      console.timeEnd("call reflection");
-      console.log('Sommaire:', JSON.stringify(x));
-      return (x[0].args);
-    });
+  .pipe(llm.bindTools([summaryTool]))
+  .pipe((x) => {
+    console.timeEnd("call reflection");
+    const appel = JSON.stringify(x, null, 2)
+    //console.log("Structure de x:", appel);     
+    const xParsed = JSON.parse(appel);
+    if (xParsed.kwargs.tool_call_chunks.length === 0) {
+      console.log("tool_call_chunks est vide."); // Summary pas appelé
+      console.log("x:", x.content); // => Contenu message agent
+      const message = "[IMPRIMER]" + x.content
+      return (x)
+    } else {
+      if (xParsed.kwargs.tool_calls.length > 0) {
+        const summary = xParsed.kwargs.tool_calls[0].args.summary; // Contient le sommaire fait par l'agent
+        console.log("Le summary est :", summary);
+        
+        return {summary: summary}
+      } else {
+        console.log("tool_calls est vide.");
+        return (x);
+      }
+    }
+  });
 
-  // Supervisor
+      // Define the function that determines whether to continue or not
+  function shouldContinue(state: typeof GraphAnnotation.State): "Supervisor" | typeof END {
+    const summary = state.summary;
+    // Vérifie si le tableau de messages est vide
+    if (summary === "") {
+      console.log('[ShouldContinue] No messages, stopping the chain.');
+      return END;
+    }
+    return "Supervisor";
+  }
+
+  /* Supervisor */
   const supervisorChain = formattedPrompt
     .pipe(llm.bindTools(
       [routingTool],
@@ -203,7 +245,7 @@ const articlesChain = articlesPrompt
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call ThinkingAgent");
+    console.timeEnd("call DecisionsThinkingAgent");
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
@@ -247,7 +289,9 @@ const articlesChain = articlesPrompt
       return expertMessages;
     }
 
+    console.timeEnd("Start calling for décisions");
     const expertMessages = await getExpertMessages();
+    console.timeEnd("Done calling for décisions")
     //console.log("[EXPERTS] :\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
@@ -262,8 +306,7 @@ const articlesChain = articlesPrompt
     ];
 
     try {
-      console.timeEnd("input send to ThinkingAgent");
-      console.log("[DecisionsThinkingNode] input :", input)
+      console.timeEnd("[DecisionsThinking] : Data Ready, send to LLM");
       const result = await llm.invoke(input, config);
       console.timeEnd("call DecisionsThinkingAgent invoke");
       const lastMessage = result.content
@@ -285,15 +328,8 @@ const articlesChain = articlesPrompt
     config?: RunnableConfig,
   ) => {
     console.timeEnd("call ArticlesThinkingAgent");
-  // ICI FAUT QUE JE VOIS POUR GERER LES INPUT CAR SI CONV ÇA PREND PAS EN COMPTE JE CROIS !!!!!!!!!!!!!!!!!!!!! + VOIR SI JE LAISSE STRINGLIGY + voir si ici besoin que je vide le state des querylist (pour gerer si nvx message user
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    /*async function querieSize(queriesArticles: string[]) {
-      let i = 0;
-
-      while(querieSize[i + 1] !=)
-
-    }*/
       async function getArticlesExpertMessages() {
         const expertMessages: string[] = [];
       
@@ -307,20 +343,31 @@ const articlesChain = articlesPrompt
               await delay(100); // Attente avant de réessayer si nécessaire
               message = await getArticleByNumber2(query);
             }
+            // Ajouter directement le message à expertMessages
+            if (message) {
+              expertMessages.push(message);
+            }
+            return null; // Retourne null pour ne pas inclure ce message dans results
           } else {
             message = await getMatchedArticles(query);
             if (!message) {
               await delay(1000); // Attente avant de réessayer si nécessaire
               message = await getMatchedArticles(query);
             }
+            return message;
           }
-          return JSON.stringify(message);
         });
-      
-        const results = await Promise.all(promises);
-      
-        expertMessages.push(...results);
-      
+        const results = (await Promise.all(promises)).filter((res) => res !== null);
+        //console.log("result :", results)
+        const mergedResults = await mergeResults(results) // merge les ids des memes codes sans les doublons
+        //console.log("merged : ", mergedResults)
+        for (const result of mergedResults) {
+          const { codeName, listIDs } = result;
+          const cleanedResult = await articlesCleaned(codeName, listIDs);
+          if (cleanedResult) {
+            expertMessages.push(cleanedResult);
+          }
+        }      
         return expertMessages;
       }
       
@@ -330,17 +377,18 @@ const articlesChain = articlesPrompt
 
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(ArticlesThinkingAgent)
-      .format({
-        summary: state.summary,
-      });
+      .format({});
+
+    const summary = state.summary;
 
     const input: any = [
       systemMessage,
+      summary,
       ...expertMessages
     ];
 
     try {
-      console.timeEnd("input send to ThinkingAgent");
+      console.timeEnd("[ArticlesThinking] : Data Ready, send to LLM");
       const result = await llm.invoke(input, config);
       console.log("[ArticlesThinkingNode] input :", input)
       console.timeEnd("call ArticlesThinkingAgent invoke");
@@ -450,12 +498,13 @@ const doctrinesChain = doctrinesPrompt
 
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(ValidationAgentPrompt)
-      .format({
-        summary: state.summary,
-      });
+      .format({});
+
+    const summary = state.summary;
 
     const input: any = [
       systemMessage,
+      summary,
       ...expertMessages,
     ];
 
@@ -473,7 +522,6 @@ const doctrinesChain = doctrinesPrompt
       return { messages: [] }
     }
   };
-
 
 // FormattingAgent
 const formattingNode = async (
@@ -549,7 +597,8 @@ const formattingNode = async (
 
   // Définir les connexions dans le graphe
   workflow.addEdge(START, "ReflectionAgent");
-  workflow.addEdge("ReflectionAgent", "Supervisor"); // ReflectionAgent envoie au Supervisor
+  workflow.addConditionalEdges("ReflectionAgent", shouldContinue);
+  //workflow.addEdge("ReflectionAgent", "Supervisor"); // ReflectionAgent envoie au Supervisor
 
   // Connexions du Supervisor aux agents
   workflow.addEdge("Supervisor", "ArticlesAgent");
