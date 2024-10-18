@@ -35,30 +35,59 @@ export async function getMatchedArticles(input: any) {
     return "";
 
   const semanticIds = semanticResponse.articles.map((article) => article.id);
+  //console.log('Nb semantic articles:', semanticIds);
   const bm25Ids = bm25Results.map((article: any) => article.id);
   //console.log('Nb bm25Results articles:', bm25Ids);
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 15, 0.65, 0.35);
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 80, 0.58, 0.42);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
-  //console.log("RANKFUSION articles: ", rankFusionIds);
+  const listIDs = rankFusionIds.slice(0, 10);
+  console.log("Article list ID for one call", listIDs)
+  /*
   const articlesToRank = await getArticlesByIds(rankFusionIds, semanticResponse.codeName);
   if (!articlesToRank) return "";
   const articlesContentToRank = articlesToRank?.map((article) => article.content as string);
   if (!articlesContentToRank) return "";
   const articlesRanked: any = await rerankWithVoyageAI(input, articlesContentToRank);
+  //console.log('ReRank articles :', articlesRanked)
   const filteredArticles: any = articlesRanked.data.filter((Article: ArticlePrecision) => Article.relevance_score >= 0.5);
-  console.log('RerankerArticles :', filteredArticles)
   if (!articlesRanked) {
     return convertArticlesToXML(codeName, articlesToRank);
   }
-
-  const filteredRankFusionIds = articlesToRank.map((_, i) => {
+  const filteredRankFusionIds: bigint[] = []; // Correct type for an array of bigints
+  for (let i = 0; i < filteredArticles.length; i++) {
     const index = articlesRanked.data[i].index;
-    return rankFusionIds[index];
-  });
+    const id: any = rankFusionIds[index]; // Assurez-vous que `rankFusionIds[index]` est bien convertible en bigint
+    filteredRankFusionIds.push(id);
+  }  */
+  //console.log('RerankerArticles :', filteredArticles)
+  //console.log('filteredRankFusionIds :', filteredRankFusionIds)
+  return {codeName, listIDs}
+}
+
+function getCodeName(input: string): string {
+  if (!input) {
+    console.warn('Error: no title of Code found in the query.');
+    return '';
+  }
+
+  return input
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/'/g, '');
+}
+
+export async function articlesCleaned(code: string, rankFusionIds: bigint[]) {
+  if (!code) return ""
+  console.log(`For ${code}, list ids : ${rankFusionIds}`)
+  const codeName = getCodeName(code)
+  const articlesToRank = await getArticlesByIds(rankFusionIds, codeName);
+  if (!articlesToRank) return "";
   const filteredArticlesToRank = articlesToRank.filter(article =>
-    filteredRankFusionIds.includes(article.id)
+    rankFusionIds.includes(article.id)
   );
-  return convertArticlesToXML(semanticResponse.codeName, filteredArticlesToRank);
+  return convertArticlesToXML(codeName, filteredArticlesToRank);
 }
 
 function convertArticlesToXML(codeName: string, articles: { number: string, content: string }[]) {
