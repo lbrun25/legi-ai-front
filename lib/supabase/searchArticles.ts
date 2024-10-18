@@ -160,7 +160,7 @@ export const searchMatchedArticles = async (input: string): Promise<SearchMatche
   });
   const [{embedding}] = result.data;
 
-  const matchCount = 5;
+  const matchCount = 150;
   const partitionedTablesByCodeTitle = [
     "code_de_commerce",
     "code_de_la_construction_et_de_lhabitation",
@@ -236,6 +236,7 @@ export const getArticle = async (source: string, number: string): Promise<Articl
 
 export async function getArticlesByIds(articleIds: bigint[], codeName: string) {
   const tableName = Object.keys(ARTICLE_TABLE_NAMES).find(key => ARTICLE_TABLE_NAMES[key] === `articles_${codeName}`);
+  //console.log("tableName", tableName)
   if (!tableName) {
     console.error(`Corresponding ${codeName} not found`);
     return null;
