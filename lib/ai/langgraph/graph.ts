@@ -60,12 +60,12 @@ const GraphAnnotation = Annotation.Root({
     reducer: (update) => update, // Remplace simplement le booléen
     default: () => true, // Valeur par défaut à 'true'
   }),
-  
+
 });
 
 const createGraph = async () => {
 
-  
+
   const members = ["ArticlesAgent", "DecisionsAgent", "DoctrinesAgent"] as const;
   const options = ["FINISH", ...members];
 
@@ -143,20 +143,19 @@ const createGraph = async () => {
   .pipe((x) => {
     console.timeEnd("call reflection");
     const appel = JSON.stringify(x, null, 2)
-    //console.log("Structure de x:", appel);     
     const xParsed = JSON.parse(appel);
     if (xParsed.kwargs.tool_call_chunks.length === 0) {
       console.log("tool_call_chunks est vide."); // Summary pas appelé
       console.log("x:", x.content); // => Contenu message agent
-      const message = "[IMPRIMER]" + x.content
+      x.content = "[IMPRIMER]" + x.content;
       return (x)
     } else {
       if (xParsed.kwargs.tool_calls.length > 0) {
         const summary = xParsed.kwargs.tool_calls[0].args.summary; // Contient le sommaire fait par l'agent
         console.log("Le summary est :", summary);
-        
         return {summary: summary}
       } else {
+        x.content = "[IMPRIMER]" + x.content;
         console.log("tool_calls est vide.");
         return (x);
       }
@@ -251,41 +250,41 @@ const articlesChain = articlesPrompt
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
       // Utilisation d'un Set pour éliminer les doublons
       const uniqueNumbers = new Set(numbers);
-    
+
       // Conversion du Set en tableau
       return Array.from(uniqueNumbers);
     }
-    
+
     async function getExpertMessages() {
       const expertMessages: string[] = [];
       let rankFusionIds: bigint[] = [];
-    
+
       // Utilisation de Promise.all pour exécuter les requêtes en parallèle
       const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
         let rankFusionIdsTemp = await getMatchedDecisions(query);
-    
+
         // Si la réponse est vide, on tente de la récupérer à nouveau
         if (!rankFusionIdsTemp) {
           await delay(100); // Attente, mais cela peut ne pas être nécessaire
           rankFusionIdsTemp = await getMatchedDecisions(query);
         }
-        
+
         return rankFusionIdsTemp;
       });
-    
+
       // Attente que toutes les promesses soient terminées
       const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
-    
+
       // Regroupement de tous les résultats dans un seul tableau
       rankFusionIdsResults.forEach(result => rankFusionIds.push(...result));
-    
+
       // Suppression des doublons
       const listIds = await removeDuplicates(rankFusionIds);
-    
+
       // Création du message expert
       const message = await listDecisions(state.summary, listIds);
       expertMessages.push(message);
-    
+
       return expertMessages;
     }
 
@@ -332,11 +331,11 @@ const articlesChain = articlesPrompt
 
       async function getArticlesExpertMessages() {
         const expertMessages: string[] = [];
-      
+
         // Convertir les appels à getArticleByNumber2 et getMatchedArticles en promises pour un traitement parallèle
         const promises = state.queries.map(async (query) => {
           let message;
-      
+
           if (query.includes("getArticleByNumber")) {
             message = await getArticleByNumber2(query);
             if (!message) {
@@ -367,10 +366,10 @@ const articlesChain = articlesPrompt
           if (cleanedResult) {
             expertMessages.push(cleanedResult);
           }
-        }      
+        }
         return expertMessages;
       }
-      
+
 
     const expertMessages = await getArticlesExpertMessages();
     //console.log("[EXPERTS] :\n", expertMessages);
@@ -488,11 +487,11 @@ const doctrinesChain = doctrinesPrompt
     );
 
     // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
-    if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) { //|| !doctrineThinkingAgentMessage) // 
+    if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) { //|| !doctrineThinkingAgentMessage) //
       console.log("[ValidationNODE] : Un ou plusieurs agents n'ont pas encore répondu.");
       return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
     }
-    
+
     const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage]; //, articlesThinkingAgentMessage
     console.log("[ValidationNODE] Message des experts:\n", expertMessages);
 
