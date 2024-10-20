@@ -7,6 +7,7 @@ export async function insertMessage(role: string, text: string, threadId: string
   const { data, error } = await supabase
     .from('messages')
     .insert([{role, text, thread_id: threadId}])
+    .select()
     .single();
   if (error) {
     console.error('Error inserting message:', error);

@@ -158,7 +158,23 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         }
       }
       insertMessage("user", text, threadId);
-      insertMessage("assistant", answer, threadId);
+      const insertedAssistantMessage = await insertMessage("assistant", answer, threadId);
+      // Update the id of the last assistant message
+      if (insertedAssistantMessage) {
+        setMessages((prevMessages) => {
+          const updatedMessages = [...prevMessages];
+          if (updatedMessages.length > 0) {
+            const lastIndex = updatedMessages.length - 1;
+            if (updatedMessages[lastIndex].role === "assistant") {
+              updatedMessages[lastIndex] = {
+                ...updatedMessages[lastIndex],
+                id: insertedAssistantMessage.id,
+              };
+            }
+          }
+          return updatedMessages;
+        });
+      }
     } catch (error) {
       if (error === "User stopped the streaming") {
         console.log("Streaming request was aborted");
@@ -263,6 +279,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   return (
     <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
+        const threadId = message.thread_id ?? threadIdState ?? threadIdParams;
         return (
           <div key={message.id} className={cn("px-8 py-6", message.role === "assistant" ? "rounded-3xl bg-gray-50 dark:bg-gray-900 shadow" : "")}>
             {message.role === "assistant" && <AssistantRoleMessage/>}
@@ -293,8 +310,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
             {(message.role === "assistant" && messages.length > 1 && (index !== messages.length - 1 || !isGenerating) && message.text !== WelcomingAssistantMessage) && (
               <div className="mt-4 flex flex-row justify-between">
                 <div className="flex flex-row">
-                  {(message.id && message.thread_id) &&
-                    <VoteButtons messageId={message.id} threadId={message.thread_id}/>}
+                  {(message.id && threadId) &&
+                    <VoteButtons messageId={message.id} threadId={threadId} />
+                  }
                 </div>
                 <div>
                   <CopyButton contentToCopy={message.text}/>
