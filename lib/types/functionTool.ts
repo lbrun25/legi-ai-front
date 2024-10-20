@@ -27,4 +27,4 @@ export interface ToolOutput {
   hasTimedOut?: boolean;
 }
 
-export type ToolName = "getArticleByNumber" | "getMatchedArticles" | "getMatchedDecisions" | "getMatchedDoctrines";
+export type ToolName = "ArticlesThinkingAgent" | "DecisionsThinkingAgent" | "DoctrinesIntermediaryAgent";
