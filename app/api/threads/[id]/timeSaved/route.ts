@@ -4,13 +4,11 @@ import {ToolName} from "@/lib/types/functionTool";
 import {z} from "zod";
 
 const getDurationForTool = (toolName: ToolName) => {
-  if (toolName === "getArticleByNumber")
-    return 60; // 15 minutes
-  if (toolName === "getMatchedArticles")
+  if (toolName === "ArticlesThinkingAgent")
     return 480; // 8 minutes
-  if (toolName === "getMatchedDecisions")
+  if (toolName === "DecisionsThinkingAgent")
     return 1800; // 30 minutes
-  if (toolName === "getMatchedDoctrines")
+  if (toolName === "DoctrinesIntermediaryAgent")
     return 1800; // 30 minutes
   return 0;
 }
