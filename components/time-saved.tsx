@@ -18,14 +18,9 @@ export const TimeSaved = () => {
   const formattedTime = formatTimeSaved(timeSaved);
 
   const description = `
-Grâce à Mike, vous gagnez un temps précieux dans vos recherches juridiques. Voici une estimation du temps économisé pour chaque type de tâche :
+⏳ **Estimation de gain de temps** pour réaliser des recherches juridiques ou rédiger des documents avec l’aide de mike en comparant le temps que cette tâche aurait pris sans l'aide de mike pour le même résultat.
 
-- **Recherche d'articles par numéro** : environ 1 minute.
-- **Recherche d'articles correspondants pour des questions simples** : environ 8 minutes.
-- **Recherche de décisions correspondantes sur des questions simples** : environ 45 minutes.
-- **Recherche d'articles, doctrines et décisions correspondantes sur des questions simples** : environ 90 minutes.
-
-Grâce à Mike, vous économisez un temps précieux sur chaque tâche juridique, optimisant ainsi votre productivité.
+Cette estimation est fondée sur les **principales études publiées** ([1,2](https://legi-ai-front.vercel.app/)) sur le sujet et sur des **données empiriques** collectées de façon anonyme auprès de nos utilisateurs. mike intègre dans son calcul des facteurs tels que la **complexité de la tâche en elle-même**, les diverses **sources consultée** et les **étapes nécessaires** pour réaliser la tâche.
 `;
 
   return (
@@ -46,7 +41,7 @@ Grâce à Mike, vous économisez un temps précieux sur chaque tâche juridique,
           <DialogTitle className="mb-4">{"Comment le temps économisé est-il calculé ?"}</DialogTitle>
           <DialogDescription className="text-gray-800 dark:text-gray-200">
             <ReactMarkdown
-              className="prose-sm xl:prose-base prose-li:list-disc pr-2"
+              className="prose-sm xl:prose-base prose-li:list-disc pr-2 prose-a:underline prose-a:text-blue-500 prose-a:font-medium"
             >
               {description}
             </ReactMarkdown>
