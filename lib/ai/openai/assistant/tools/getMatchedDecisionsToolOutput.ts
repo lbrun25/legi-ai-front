@@ -28,7 +28,7 @@ export const getMatchedDecisionsToolOutput = async (params: string, toolCall: Ch
     };
   }
   console.log('params:', params)
-  const matchedDecisionsResponse = await searchMatchedDecisions(input);
+  const matchedDecisionsResponse = await searchMatchedDecisions(input, 5, []);
   console.log('matchedDecisionsResponse:', matchedDecisionsResponse);
   const decisions = "#" + matchedDecisionsResponse.decisions?.map((decision: MatchedDecision) => `Fiche d'arrêt ${decision.number}: ${decision.ficheArret}`).join("#");
   console.log('formatted decisions for the assistant:', decisions);
