@@ -41,7 +41,7 @@ export async function getMatchedArticles(input: any) {
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 80, 0.58, 0.42);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
   const listIDs = rankFusionIds.slice(0, 10);
-  console.log("Article list ID for one call", listIDs)
+  //console.log("Article list ID for one call", listIDs)
   /*
   const articlesToRank = await getArticlesByIds(rankFusionIds, semanticResponse.codeName);
   if (!articlesToRank) return "";
@@ -80,7 +80,7 @@ function getCodeName(input: string): string {
 
 export async function articlesCleaned(code: string, rankFusionIds: bigint[]) {
   if (!code) return ""
-  console.log(`For ${code}, list ids : ${rankFusionIds}`)
+  //console.log(`For ${code}, list ids : ${rankFusionIds}`)
   const codeName = getCodeName(code)
   const articlesToRank = await getArticlesByIds(rankFusionIds, codeName);
   if (!articlesToRank) return "";

@@ -111,7 +111,7 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
   }
 };
 
-export const searchMatchedDoctrines = async (input: string): Promise<SearchMatchedDoctrinesResponse> => {
+export const searchMatchedDoctrines = async (input: string, limit: number = 5): Promise<SearchMatchedDoctrinesResponse> => {
   console.log('searchMatchedDoctrines:', input);
   const response = await embeddingWithVoyageLawForDoctrines(input)
   if (!response) {
@@ -132,7 +132,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   const [{embedding: embeddingOpenai}] = result.data;
 
   const maxIndex = 2;
-  const matchCount = 5;
+  const matchCount = 10;
 
   try {
     const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
@@ -144,9 +144,9 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
       }
     }
     const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);
-    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, matchCount);
+    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, limit);
     const domaine = fetchDoctrinesFromIdsResponse.doctrines[0]?.bookTitle;
-    console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, bookTitle: m.bookTitle, paragrapheNumber:m.paragrapheNumber, similarity: m.similarity})));
+    //console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, bookTitle: m.bookTitle, paragrapheNumber:m.paragrapheNumber, similarity: m.similarity})));
     return {
       doctrines: fetchDoctrinesFromIdsResponse.doctrines,
       hasTimedOut: fetchDoctrinesFromIdsResponse.hasTimedOut,
@@ -165,7 +165,7 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
 export async function getDoctrinesByIds(ids: bigint[]) {
   const { data, error } = await supabaseClient
     .from("LegalDoctrine")
-    .select('id,paragrapheContent,paragrapheNumber')
+    .select('id,paragrapheContent,paragrapheNumber, bookTitle')
     .in('id', ids);
   if (error) {
     console.error('Error fetching doctrines:', error);
