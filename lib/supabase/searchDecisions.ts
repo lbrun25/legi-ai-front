@@ -34,8 +34,8 @@ const fetchDecisionsFromIds = async (
     const matchCount: number = 40;
 
     // Divisez la liste d'ID en 30 parties
-    const partLength = Math.ceil(idList.length / 30);
-    const idLists = Array.from({ length: 30 }, (_, index) =>
+    const partLength = Math.ceil(idList.length / 50);
+    const idLists = Array.from({ length: 50 }, (_, index) =>
       idList.slice(index * partLength, (index + 1) * partLength)
     );
 

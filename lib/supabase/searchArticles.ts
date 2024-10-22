@@ -41,7 +41,7 @@ const ARTICLE_TABLE_NAMES: Record<string, string> = {
 
 const fetchArticles = async (embedding: number[], matchCount: number, codeTitle: string): Promise<FetchArticlesResponse> => {
     try {
-      console.time(`call articles from ${codeTitle}`);
+      //console.time(`call articles from ${codeTitle}`);
       const formattedEmbedding = `[${embedding.join(',')}]`;
       const functionName = `match_articles_${codeTitle}_adaptive`;
 
@@ -50,7 +50,7 @@ const fetchArticles = async (embedding: number[], matchCount: number, codeTitle:
         `, [formattedEmbedding, matchCount]);
 
       const matchedArticles = await query as unknown as MatchedArticle[];
-      console.timeEnd(`call articles from ${codeTitle}`);
+      //console.timeEnd(`call articles from ${codeTitle}`);
 
       return {
         articles: matchedArticles,
@@ -143,14 +143,14 @@ async function cleanInput(input: string) {
 }
 
 export const searchMatchedArticles = async (input: string): Promise<SearchMatchedArticlesResponse> => {
-  console.log('searchMatchedArticles:', input);
+  //console.log('searchMatchedArticles:', input);
   const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
   // OpenAI recommends replacing newlines with spaces for best results
   input = input.replace(/\n/g, ' ');
   const codeTitle = await getCodeTitle(input);
-  console.log('Code :', codeTitle);
+  //console.log('Code :', codeTitle);
   input = await cleanInput(input);
   //console.log('searchMatchedArticles:', input);
 

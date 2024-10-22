@@ -25,7 +25,7 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getMatchedDecisions, listDecisions } from "@/lib/ai/tools/getMatchedDecisions";
 import { getMatchedArticles, articlesCleaned } from "@/lib/ai/tools/getMatchedArticles";
-import { getMatchedDoctrinesTool } from "@/lib/ai/tools/getMatchedDoctrines";
+import { getMatchedDoctrines, listDoctrines } from "@/lib/ai/tools/getMatchedDoctrines";
 import { getArticleByNumber, getArticleByNumber2 } from "@/lib/ai/tools/getArticleByNumber";
 import { mergeResults } from '../../utils/mergeResults'
 
@@ -101,6 +101,30 @@ const createGraph = async () => {
 
   console.time("call reflectionAgent");
   console.time("call supervisor");
+  console.time("call output articlesChain");
+  console.time("call output doctrinesChain");
+  console.time("call output decisionsChain");
+  console.time("call DecisionsThinkingAgent");
+  console.time("[DecisionsThinking] : Start searching decisions in DB.");
+  console.time("[DecisionsThinking] : Done searching decisions in DB.");
+  console.time("[DecisionsThinking] : Data Ready, send to LLM");
+  console.time("[DecisionsThinking] : invoke");
+  console.time("Call ArticlesThinkingAgent");
+  console.time("[ArticlesThinkingAgent] : Start searching articles in DB.");
+  console.time("[ArticlesThinkingAgent] : Done searching articles in DB.");
+  console.time("[ArticlesThinkingAgent] : Data Ready, send to LLM");      
+  console.time("[ArticlesThinkingAgent] : invoke");
+  console.time("Call doctrinesThinkingAgent");
+  console.time("[DoctrinesThinkingAgent] : Start searching doctrines in DB.");
+  console.time("[DoctrinesThinkingAgent] : Done searching doctrines in DB.");
+  console.time("[DoctrinesThinking] : Data Ready, send to LLM");
+  console.time("[DoctrinesThinking] : invoke")
+  console.time("call validationAgent");
+  console.time("[ValidationAgent] : Data ready, send to LLM.");
+  console.time("[ValidationAgent] : invoke");
+  console.time("call formattingAgent");
+
+  /*
   console.time("call decisionsAgent");
   console.time("call ArticlesThinkingAgent");
   console.time("call ArticlesThinkingAgent invoke");
@@ -122,7 +146,9 @@ const createGraph = async () => {
   console.time("[DecisionsThinking] : Data Ready, send to LLM");
   console.time("[ArticlesThinking] : Data Ready, send to LLM");
   console.timeEnd("Start calling for décisions");
-  console.timeEnd("Done calling for décisions")
+  console.timeEnd("Done calling for décisions")*/
+
+
 
 
   // ReflectionAgent
@@ -141,7 +167,7 @@ const createGraph = async () => {
   const reflectionChain = reflectionPrompt
   .pipe(llm.bindTools([summaryTool]))
   .pipe((x) => {
-    console.timeEnd("call reflection");
+    console.timeEnd("call reflectionAgent");
     const appel = JSON.stringify(x, null, 2)
     const xParsed = JSON.parse(appel);
     if (xParsed.kwargs.tool_call_chunks.length === 0) {
@@ -184,7 +210,7 @@ const createGraph = async () => {
     .pipe(new JsonOutputToolsParser())
     .pipe((x) => {
       console.timeEnd("call supervisor");
-      console.log('Supervisor décision:', JSON.stringify(x));
+      //console.log('Supervisor décision:', JSON.stringify(x));
       return (x[0].args);
     });
 
@@ -208,11 +234,36 @@ const articlesChain = articlesPrompt
   .pipe(llm.bindTools([queryListTool]))
   .pipe(new JsonOutputToolsParser())
   .pipe((output) => {
-    console.timeEnd("call articles");
-    console.log('Liste des requêtes:', JSON.stringify(output));
+    console.timeEnd("call output articlesChain");
+    //console.log('Liste des requêtes:', JSON.stringify(output));
     return output[0].args; // Retourne les requêtes générées
   });
 
+          // Définition du Prompt pour ArticlesAgent
+  const doctrinesPrompt = ChatPromptTemplate.fromMessages([
+    ["system", DoctrinesAgentPrompt], // Votre prompt spécifique pour ArticlesAgent
+    new MessagesPlaceholder("messages"),
+  ]);
+
+  // Définition de l'outil pour ArticlesAgent
+  const doctrineRequestListTool = {
+    name: "doctrineRequestListTool",
+    description: "Établit une liste de requêtes basée sur la demande de l'utilisateur",
+    schema: z.object({
+      requestDoctrines: z.array(z.string()),
+    }),
+  };
+
+
+  // Création de la chaîne de traitement pour ArticlesAgent
+  const doctrinesChain = doctrinesPrompt
+  .pipe(llm.bindTools([doctrineRequestListTool]))
+  .pipe(new JsonOutputToolsParser())
+  .pipe((output) => {
+    console.timeEnd("call output doctrinesChain");
+    //console.log('Liste des requêtes en matièere de doctrine :', JSON.stringify(output));
+    return output[0].args; // Retourne les requêtes générées
+  });
   /* decisions agents */
 
   const decisionsPrompt = ChatPromptTemplate.fromMessages([
@@ -233,8 +284,8 @@ const articlesChain = articlesPrompt
     .pipe(llm.bindTools([queryDecisionsListTool]))
     .pipe(new JsonOutputToolsParser())
     .pipe((output) => {
-      console.timeEnd("call decisions");
-      console.log('Liste des requêtes:', JSON.stringify(output));
+      console.timeEnd("call output decisionsChain");
+      //console.log('Liste des requêtes:', JSON.stringify(output));
       return output[0].args; // Retourne les requêtes générées
     });
 
@@ -259,22 +310,28 @@ const articlesChain = articlesPrompt
       const expertMessages: string[] = [];
       let rankFusionIds: bigint[] = [];
 
+      //console.time("[DecisionsThinking] : calling GetExpertMessage")
       // Utilisation de Promise.all pour exécuter les requêtes en parallèle
       const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
         let rankFusionIdsTemp = await getMatchedDecisions(query);
-
-        // Si la réponse est vide, on tente de la récupérer à nouveau
-        if (!rankFusionIdsTemp) {
-          await delay(100); // Attente, mais cela peut ne pas être nécessaire
-          rankFusionIdsTemp = await getMatchedDecisions(query);
+        // Si la réponse est vide, on tente de la récupérer à nouveau avec une limite de tentatives
+        let retries = 0;
+        const maxRetries = 2; // On peut ajuster cette valeur selon les besoins
+        while (!rankFusionIdsTemp && retries < maxRetries) {
+            await delay(100); // Attente, ajuster si nécessaire
+            rankFusionIdsTemp = await getMatchedDecisions(query);
+            retries++;
         }
 
+        if (!rankFusionIdsTemp) {
+            console.error(`Failed to retrieve decisions for query: ${query}`);
+            return []; // ou gérer différemment selon le besoin
+        }
         return rankFusionIdsTemp;
-      });
+    });
 
-      // Attente que toutes les promesses soient terminées
       const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
-
+      //console.timeEnd("[DecisionsThinking] : calling GetExpertMessage")
       // Regroupement de tous les résultats dans un seul tableau
       rankFusionIdsResults.forEach(result => rankFusionIds.push(...result));
 
@@ -282,15 +339,14 @@ const articlesChain = articlesPrompt
       const listIds = await removeDuplicates(rankFusionIds);
 
       // Création du message expert
-      const message = await listDecisions(state.summary, listIds);
+      const message: any = await listDecisions(state.summary, listIds);
       expertMessages.push(message);
-
       return expertMessages;
     }
 
-    console.timeEnd("Start calling for décisions");
+    //console.timeEnd("[DecisionsThinking] : Start searching decisions in DB.");
     const expertMessages = await getExpertMessages();
-    console.timeEnd("Done calling for décisions")
+    //console.timeEnd("[DecisionsThinking] : Done searching decisions in DB.");
     //console.log("[EXPERTS] :\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
@@ -307,7 +363,7 @@ const articlesChain = articlesPrompt
     try {
       console.timeEnd("[DecisionsThinking] : Data Ready, send to LLM");
       const result = await llm.invoke(input, config);
-      console.timeEnd("call DecisionsThinkingAgent invoke");
+      console.timeEnd("[DecisionsThinking] : invoke");
       const lastMessage = result.content
       console.log("decisionsThinkingAgent Content :", lastMessage)
       return {
@@ -326,7 +382,7 @@ const articlesChain = articlesPrompt
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call ArticlesThinkingAgent");
+    console.timeEnd("Call ArticlesThinkingAgent");
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       async function getArticlesExpertMessages() {
@@ -371,7 +427,9 @@ const articlesChain = articlesPrompt
       }
 
 
+    console.timeEnd("[ArticlesThinkingAgent] : Start searching articles in DB.");
     const expertMessages = await getArticlesExpertMessages();
+    console.timeEnd("[ArticlesThinkingAgent] : Done searching articles in DB.");
     //console.log("[EXPERTS] :\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
@@ -387,10 +445,10 @@ const articlesChain = articlesPrompt
     ];
 
     try {
-      console.timeEnd("[ArticlesThinking] : Data Ready, send to LLM");
+      console.timeEnd("[ArticlesThinkingAgent] : Data Ready, send to LLM");
       const result = await llm.invoke(input, config);
-      console.log("[ArticlesThinkingNode] input :", input)
-      console.timeEnd("call ArticlesThinkingAgent invoke");
+      //console.log("[ArticlesThinkingNode] input :", input)
+      console.timeEnd("[ArticlesThinkingAgent] : invoke");
       const lastMessage = result.content
       console.log("ArticlesThinkingAgent Content :", lastMessage)
       return {
@@ -405,59 +463,85 @@ const articlesChain = articlesPrompt
   };
 /* DOCTRINE */
 
-      // Définition du Prompt pour ArticlesAgent
-const doctrinesPrompt = ChatPromptTemplate.fromMessages([
-  ["system", DoctrinesAgentPrompt], // Votre prompt spécifique pour ArticlesAgent
-  new MessagesPlaceholder("messages"),
-]);
 
-// Définition de l'outil pour ArticlesAgent
-const doctrineRequestListTool = {
-  name: "doctrineRequestListTool",
-  description: "Établit une liste de requêtes basée sur la demande de l'utilisateur",
-  schema: z.object({
-    requestDoctrines: z.array(z.string()),
-  }),
-};
 
-// Création de la chaîne de traitement pour ArticlesAgent
-const doctrinesChain = doctrinesPrompt
-  .pipe(llm.bindTools([doctrineRequestListTool]))
-  .pipe(new JsonOutputToolsParser())
-  .pipe((output) => {
-    console.timeEnd("call doctrineChain");
-    console.log('Liste des requêtes en matièere de doctrine :', JSON.stringify(output));
-    return output[0].args; // Retourne les requêtes générées
-  });
-
+/*
   //Doctrine Agent Intermédiaire
   const doctrinesIntermediaryAgent = createReactAgent({
     llm,
     tools: [getMatchedDoctrinesTool],
     messageModifier: new SystemMessage(DoctrinesIntermediaryPrompt)
-  })
+  })*/
+
+  
   const doctrinesIntermediaryNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call doctrinesAgent");
+    console.timeEnd("Call doctrinesThinkingAgent");
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
+      const uniqueNumbers = new Set(numbers);
+      return Array.from(uniqueNumbers);
+    }
+
+    async function getDoctrineExpertMessages() {
+      const doctrineExpertMessages: string[] = [];
+      let rankFusionIdsDoctrine: bigint[] = [];
+
+      // Utilisation de Promise.all pour exécuter les requêtes en parallèle
+      const rankFusionIdsPromises = state.requestDoctrines.map(async (query) => {
+        let rankFusionIdsTemp = await getMatchedDoctrines(query);
+        if (!rankFusionIdsTemp) {
+          await delay(100);
+          rankFusionIdsTemp = await getMatchedDoctrines(query);
+        }
+
+        return rankFusionIdsTemp;
+      });
+
+      // Attente que toutes les promesses soient terminées
+      const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
+      // Regroupement de tous les résultats dans un seul tableau
+      rankFusionIdsResults.forEach(result => rankFusionIdsDoctrine.push(...result));
+      // Suppression des doublons
+      const doctrineListIds = await removeDuplicates(rankFusionIdsDoctrine);
+      //console.log("After doctrines dupplicates removed :", doctrineListIds)
+      const message = await listDoctrines(state.summary, doctrineListIds);
+      doctrineExpertMessages.push(message);
+
+      return doctrineExpertMessages;
+    }
+
+    const summary = state.summary
+
+    console.timeEnd("[DoctrinesThinkingAgent] : Start searching doctrines in DB.");
+    const expertDoctrinesMessages = await getDoctrineExpertMessages();
+    console.timeEnd("[DoctrinesThinkingAgent] : Done searching doctrines in DB.");
+
+    //console.log("[DOCTRINES EXPERTS] :\n", expertMessages);
+
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(DoctrinesIntermediaryPrompt)
       .format({
-        requestDoctrines: state.requestDoctrines,
+        summary: state.summary,
       });
-    const input = [
-      systemMessage,
-    ]
-    try {
 
-      const result = await doctrinesIntermediaryAgent.invoke({messages: input}, config);
-      console.timeEnd("call doctrinesIntermediaryAgent invoke")
-      const lastMessage = result.messages[result.messages.length - 1];
-      //console.log("DoctrinesIntermediaryNode Content :", lastMessage.content);
+    const inputs = [
+      systemMessage,
+      ...expertDoctrinesMessages
+    ]
+
+    try {
+      console.timeEnd("[DoctrinesThinking] : Data Ready, send to LLM");
+      //console.log("[DoctrinesThinkingAgents] inputs : ", inputs)
+      const result = await llm.invoke(inputs, config);
+      console.timeEnd("[DoctrinesThinking] : invoke")
+      const lastMessage = result.content
+      console.log("[DoctrinesThinkingAgents] Content :", lastMessage);
       return {
         messages: [
-          new HumanMessage({ content: lastMessage.content, name: "DoctrinesIntermediaryAgent" }),
+          new HumanMessage({ content: result.content, name: "DoctrinesThinkingAgent" }),
         ],
       };
     } catch(error) {
@@ -482,18 +566,19 @@ const doctrinesChain = doctrinesPrompt
     const decisionsThinkingAgentMessage = state.messages.find(
       (msg) => msg.name === "DecisionsThinkingAgent"
     );
-    const doctrineThinkingAgentMessage = state.messages.find(
-      (msg) => msg.name === "doctrineThinkingAgent"
-    );
+    /*const doctrineThinkingAgentMessage = state.messages.find(
+      (msg) => msg.name === "DoctrinesThinkingAgent"
+    );*/
 
     // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
-    if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) { //|| !doctrineThinkingAgentMessage) //
+    if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) //
+    {
       console.log("[ValidationNODE] : Un ou plusieurs agents n'ont pas encore répondu.");
       return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
     }
 
-    const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage]; //, articlesThinkingAgentMessage
-    console.log("[ValidationNODE] Message des experts:\n", expertMessages);
+    const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
+    //console.log("[ValidationNODE] Message des experts:\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(ValidationAgentPrompt)
@@ -508,9 +593,10 @@ const doctrinesChain = doctrinesPrompt
     ];
 
     try {
+      console.timeEnd("[ValidationAgent] : Data ready, send to LLM.");
       const result = await llm.invoke(input, config);
       console.log("Validation Agent response :", result.content)
-      console.timeEnd("call validationAgent invoke");
+      console.timeEnd("[ValidationAgent] : invoke");
       return {
         messages: [
           new HumanMessage({ content: result.content, name: "ValidationAgent" }),
@@ -522,6 +608,57 @@ const doctrinesChain = doctrinesPrompt
     }
   };
 
+    // ValidationAgent
+    const criticalNode = async (
+      state: typeof GraphAnnotation.State,
+      config?: RunnableConfig,
+    ) => {
+      console.timeEnd("call critical Node");
+  
+      // Vérifier que toutes les réponses des agents sont présentes avant de lancer la validation
+      const validationMessage = state.messages.find(
+        (msg) => msg.name === "ValidationAgent"
+      );
+      const doctrineThinkingAgentMessage = state.messages.find(
+        (msg) => msg.name === "DoctrinesThinkingAgent"
+      );
+  
+      // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
+      if (!validationMessage || !doctrineThinkingAgentMessage)
+      {
+        console.log("[ValidationNODE] : Un ou plusieurs agents n'ont pas encore répondu.");
+        return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
+      }
+  
+      const expertMessages = [validationMessage, doctrineThinkingAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
+      console.log("[Critical Node] Message des experts:\n", expertMessages);
+  
+      const systemMessage = await SystemMessagePromptTemplate
+        .fromTemplate(CriticalAgentPrompt)
+        .format({});
+  
+      const summary = state.summary;
+  
+      const input: any = [
+        systemMessage,
+        summary,
+        ...expertMessages,
+      ];
+  
+      try {
+        const result = await llm.invoke(input, config);
+        console.log("Critical Agent response :", result.content)
+        console.timeEnd("call criticalagent invoke");
+        return {
+          messages: [
+            new HumanMessage({ content: result.content, name: "CriticalAgent" }),
+          ],
+        };
+      } catch (error) {
+        console.error("error when invoking validation agent:", error);
+        return { messages: [] }
+      }
+    };
 // FormattingAgent
 const formattingNode = async (
   state: typeof GraphAnnotation.State,
@@ -533,13 +670,17 @@ const formattingNode = async (
   const summary = state.summary;
 
   // Trouver le message du Validation Agent
-  const validationMessage = state.messages.find(
+ const validationMessage = state.messages.find(
     (msg) => msg.name === "ValidationAgent"
+  );
+
+  const criticalMessage = state.messages.find(
+    (msg) => msg.name === "CriticalAgent"
   );
 
   // Si validationMessage est vide, ne rien faire
   if (!validationMessage) {
-    console.log("Aucune réponse de ValidationAgent, le formattingNode ne fait rien.");
+    console.log("Aucune réponse de criticalMessage, le formattingNode ne fait rien.");
     return { messages: [] };  // Renvoyer un état vide pour indiquer qu'aucune action n'a été prise
   }
 
@@ -550,7 +691,7 @@ const formattingNode = async (
       new HumanMessage({ content: validationMessage.content, name: "ValidationAgent" }), // validationMessage
     ];
 
-    console.log("formatting input:", input);
+    //console.log("formatting input:", input);
 
     // Appeler le modèle LLM avec l'entrée modifiée
     const result = await llm
@@ -589,32 +730,43 @@ const formattingNode = async (
     .addNode("ArticlesAgent", articlesChain)
     //.addNode("DoctrinesAgent", doctrinesChain)
     .addNode("ArticlesThinkingAgent", articlesThinkingNode)
-    //.addNode("DoctrinesIntermediaryAgent", doctrinesIntermediaryNode)
+    //.addNode("DoctrinesThinkingAgent", doctrinesIntermediaryNode)
     .addNode("DecisionsThinkingAgent", decisionsThinkingNode)
     .addNode("ValidationAgent", validationNode)
+    //.addNode("CriticalAgent", criticalNode)
     .addNode("FormattingAgent", formattingNode);
 
   // Définir les connexions dans le graphe
+  // Définir les connexions dans le graphe
   workflow.addEdge(START, "ReflectionAgent");
   workflow.addConditionalEdges("ReflectionAgent", shouldContinue);
-  //workflow.addEdge("ReflectionAgent", "Supervisor"); // ReflectionAgent envoie au Supervisor
 
-  // Connexions du Supervisor aux agents
-  workflow.addEdge("Supervisor", "ArticlesAgent");
+  /* TEST UNITAIRE 
   workflow.addEdge("Supervisor", "DecisionsAgent");
-  //workflow.addEdge("Supervisor", "DoctrinesAgent");
+  workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
+  workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");*/
+
+
+  // Boucle Supervisor aux agents
+  workflow.addConditionalEdges(
+    "Supervisor",
+    () => ["DecisionsAgent", "ArticlesAgent"] // Retourne les agents à appeler en parallèle
+  );
 
   // Connexion des Agent aux IntermediaryAgent
-  workflow.addEdge("ArticlesAgent", "ArticlesThinkingAgent");
   workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
-  //workflow.addEdge("DoctrinesAgent", "DoctrinesIntermediaryAgent");
+  workflow.addEdge("ArticlesAgent", "ArticlesThinkingAgent");
+  //workflow.addEdge("DoctrinesAgent", "DoctrinesThinkingAgent");
 
   // Connexion des agents spécialisés au ValidationAgent
-  //workflow.addEdge("DoctrinesIntermediaryAgent", "ValidationAgent");
+  //workflow.addEdge("DoctrinesThinkingAgent", "ValidationAgent");
   workflow.addEdge("ArticlesThinkingAgent", "ValidationAgent");
   workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");
+
   // Connexion du ValidationAgent au FormattingAgent
+  //workflow.addEdge("ValidationAgent", "FormattingAgent");
   workflow.addEdge("ValidationAgent", "FormattingAgent");
+  //workflow.addEdge("CriticalAgent", "FormattingAgent");
   workflow.addEdge("FormattingAgent", END);
 
   return workflow.compile();
