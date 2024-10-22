@@ -14,6 +14,7 @@
   "dependencies": {
     "@ai-sdk/google": "^0.0.22",
     "@ai-sdk/openai": "^0.0.31",
+    "@elastic/elasticsearch": "^8.15.0",
     "@langchain/community": "^0.2.31",
     "@langchain/core": "^0.2.31",
     "@langchain/langgraph": "^0.2.0",
@@ -39,6 +40,7 @@
     "@upstash/redis": "^1.30.0",
     "@xmldom/xmldom": "^0.9.3",
     "ai": "^3.2.1",
+    "cheerio": "^1.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "common-tags": "^1.8.2",
@@ -52,6 +54,8 @@
     "next-themes": "^0.3.0",
     "ollama-ai-provider": "^0.7.0",
     "openai": "^4.52.0",
+    "postgres": "^3.4.4",
+    "puppeteer": "^23.5.0",
     "react": "^18.3.1",
     "react-dom": "^18",
     "react-icons": "^5.0.1",
@@ -65,7 +69,8 @@
     "sonner": "^1.4.41",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.3"
   },
   "devDependencies": {
     "@types/common-tags": "^1.8.4",
