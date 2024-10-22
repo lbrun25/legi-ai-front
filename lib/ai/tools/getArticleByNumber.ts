@@ -50,9 +50,9 @@ export async function getArticleByNumber2(input: any)
     return "";
   try {
     const source = await extractSource(input)
-    console.log('source :', source)
+    //console.log('source :', source)
     const number = await extractNumber(input)
-    console.log('number :', number)
+    //console.log('number :', number)
     const articleSource = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
     const articleResponse = await getArticle(articleSource, number);
     return `<${articleSource}><article><number> ${articleResponse.number}</number><content>${articleResponse.content}</content><article></${articleSource}>`;

@@ -8,6 +8,11 @@ import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
 const NUM_RELEVANT_CHUNKS = 150;
 
+interface DoctrinesPrecision {
+  relevance_score: number;
+  index: number;
+}
+
 export const getMatchedDoctrinesTool = tool(async (input) => {
   return getMatchedDoctrines(input);
 }, {
@@ -18,38 +23,52 @@ export const getMatchedDoctrinesTool = tool(async (input) => {
   })
 })
 
-export async function getMatchedDoctrines(input: any): Promise<string> {
-  if (!input.query) return "";
-  const semanticResponse = await searchMatchedDoctrines(input.query);
-  if (semanticResponse.hasTimedOut) return "";
-
+export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
+  //console.log("input :", input)
+  //console.time("getMatchedDoctrines")
+  if (!input) return [];
   const bm25Results = await ElasticsearchClient.searchDoctrines(input, NUM_RELEVANT_CHUNKS);
+  if (bm25Results.length === 0)
+    return [];
+  //const bm25IdsForSemantic = bm25Results.map((decision: any) => decision.id);
+  //const bm25Ids = bm25IdsForSemantic.slice(0, 150);
+  //console.log('Nb bm25Results doctrines:', bm25Ids);
+  const semanticResponse = await searchMatchedDoctrines(input, 40);
+  if (semanticResponse.hasTimedOut) return [];
   if (semanticResponse.doctrines.length === 0 || bm25Results.length === 0)
-    return "";
-
+    return [];
   const semanticIds = semanticResponse.doctrines.map((doctrine) => doctrine.id);
+  //console.log("Semantic doctrines ids :", semanticIds);
   const bm25Ids = bm25Results.map((doctrine: any) => doctrine.id);
-  console.log('Nb bm25Results doctrines:', bm25Ids);
+  //console.log('Nb bm25Results doctrines:', bm25Ids);
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
-  console.log("RANKFUSION doctrines: ", rankFusionIds);
+  //console.log("RANKFUSION doctrines: ", rankFusionIds);
+  return rankFusionIds;
+}
 
+export async function listDoctrines(input: string, rankFusionIds: bigint[]):Promise <string>
+{
+  //console.log("In list doctrines for :", input)
+  console.log("doctrine ids :", rankFusionIds)
   const doctrinesToRank = await getDoctrinesByIds(rankFusionIds);
   if (!doctrinesToRank) return "";
   const doctrinesContentToRank = doctrinesToRank?.map((doctrine) => doctrine.paragrapheContent as string);
   if (!doctrinesContentToRank) return "";
-  const doctrinesRanked = await rerankWithVoyageAI(input.query, doctrinesContentToRank);
-  if (!doctrinesRanked) {
-    return convertDoctrinesToXML(semanticResponse.doctrines);
-  }
-  const filteredRankFusionIds = doctrinesToRank.map((_, i) => {
+  const doctrinesRanked: any = await rerankWithVoyageAI(input, doctrinesContentToRank);
+  const filteredDoctrines: any = doctrinesRanked.data.filter((doctrine: DoctrinesPrecision) => doctrine.relevance_score >= 0.5);
+  //console.log("filteredDoctrines : ", filteredDoctrines)
+  let doctrinesFormatted = "";
+  for (let i = 0; i < filteredDoctrines.length && i < 20; i++) { // Faire passer les 10 dec à un agent qui refait un résumé et ensuite à cette agent
     const index = doctrinesRanked.data[i].index;
-    return rankFusionIds[index];
-  });
-  const filteredDoctrinesToRank = doctrinesToRank.filter(doctrine =>
-    filteredRankFusionIds.includes(doctrine.id)
-  );
-  return convertDoctrinesToXML(filteredDoctrinesToRank);
+    //const content = doctrinesToRank[index];
+    const doctrine: any = doctrinesToRank[index];
+   //console.log("ParagrapheNB :", doctrine.paragrapheNumber)
+    //console.log(`${doctrine.bookTitle} : ${doctrine.paragrapheContent}`)
+    doctrinesFormatted += `<doctrines><doctrine_domaine>${doctrine.bookTitle}</doctrine_domaine><content>${doctrine.paragrapheContent}</content></doctrines>\n`;
+  }
+  //console.log(formattedFiches)
+  return doctrinesFormatted;
 }
 
 // Convert the result to XML format
