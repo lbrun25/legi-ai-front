@@ -14,7 +14,8 @@ interface DoctrinesPrecision {
 }
 
 export const getMatchedDoctrinesTool = tool(async (input) => {
-  return getMatchedDoctrines(input);
+  console.log("Doctrines :", input)
+  return getMatchedDoctrines(input.query);
 }, {
   name: 'getMatchedDoctrines',
   description: "Obtient les doctrines les plus similaires à la demande de l'utilisateur",
@@ -41,7 +42,7 @@ export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
   //console.log("Semantic doctrines ids :", semanticIds);
   const bm25Ids = bm25Results.map((doctrine: any) => doctrine.id);
   //console.log('Nb bm25Results doctrines:', bm25Ids);
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 20, 0.65, 0.35);
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 50, 0.65, 0.35);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
   //console.log("RANKFUSION doctrines: ", rankFusionIds);
   return rankFusionIds;
@@ -57,7 +58,7 @@ export async function listDoctrines(input: string, rankFusionIds: bigint[]):Prom
   if (!doctrinesContentToRank) return "";
   const doctrinesRanked: any = await rerankWithVoyageAI(input, doctrinesContentToRank);
   const filteredDoctrines: any = doctrinesRanked.data.filter((doctrine: DoctrinesPrecision) => doctrine.relevance_score >= 0.5);
-  //console.log("filteredDoctrines : ", filteredDoctrines)
+  console.log("filteredDoctrines : ", filteredDoctrines)
   let doctrinesFormatted = "";
   for (let i = 0; i < filteredDoctrines.length && i < 20; i++) { // Faire passer les 10 dec à un agent qui refait un résumé et ensuite à cette agent
     const index = doctrinesRanked.data[i].index;

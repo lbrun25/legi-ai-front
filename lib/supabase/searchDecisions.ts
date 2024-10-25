@@ -3,6 +3,7 @@ import {embeddingWithVoyageLawForDecisions} from "@/lib/ai/voyage/embedding";
 import {OpenAI} from "openai";
 import {sql} from "@/lib/sql/client";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
+import postgres from "postgres";
 
 export interface MatchedDecision {
   id: bigint;
@@ -34,11 +35,18 @@ const fetchDecisionsFromIds = async (
     const matchCount: number = 40;
 
     // Divisez la liste d'ID en 30 parties
-    const partLength = Math.ceil(idList.length / 50);
-    const idLists = Array.from({ length: 50 }, (_, index) =>
+    const partLength = Math.ceil(idList.length / 5);
+    const idLists = Array.from({ length: 5 }, (_, index) =>
       idList.slice(index * partLength, (index + 1) * partLength)
     );
 
+    /*      const sql = postgres({
+        host: 'aws-0-eu-central-1.pooler.supabase.com',
+        port: 6543,
+        username: 'postgres.emgtfetkdcnieuwxswet',
+        password: '4pI9VtldkXuVvKP3',
+        database: 'postgres',
+      });*/
     // Créez un tableau de promesses pour chaque partie
     const promises = idLists.map((ids, index) => {
       const formattedEmbedding = `[${embedding.join(',')}]`;

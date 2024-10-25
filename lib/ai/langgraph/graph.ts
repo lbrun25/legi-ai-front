@@ -7,7 +7,6 @@ import {
   //DecisionsAnalystAgent,
   FormattingPrompt,
   ArticlesAgentPrompt,
-  ArticlesIntermediaryAgent,
   ArticlesThinkingAgent,
   DoctrinesAgentPrompt,
   DoctrinesIntermediaryPrompt,
@@ -235,7 +234,7 @@ const articlesChain = articlesPrompt
   .pipe(new JsonOutputToolsParser())
   .pipe((output) => {
     console.timeEnd("call output articlesChain");
-    //console.log('Liste des requêtes:', JSON.stringify(output));
+    console.log('[articlesChain] Liste des requêtes:', JSON.stringify(output));
     return output[0].args; // Retourne les requêtes générées
   });
 
@@ -285,7 +284,7 @@ const articlesChain = articlesPrompt
     .pipe(new JsonOutputToolsParser())
     .pipe((output) => {
       console.timeEnd("call output decisionsChain");
-      //console.log('Liste des requêtes:', JSON.stringify(output));
+      //console.log('[decisionsChain] Liste des requêtes:', JSON.stringify(output));
       return output[0].args; // Retourne les requêtes générées
     });
 
@@ -299,10 +298,7 @@ const articlesChain = articlesPrompt
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
-      // Utilisation d'un Set pour éliminer les doublons
       const uniqueNumbers = new Set(numbers);
-
-      // Conversion du Set en tableau
       return Array.from(uniqueNumbers);
     }
 
@@ -310,11 +306,10 @@ const articlesChain = articlesPrompt
       const expertMessages: string[] = [];
       let rankFusionIds: bigint[] = [];
 
-      //console.time("[DecisionsThinking] : calling GetExpertMessage")
-      // Utilisation de Promise.all pour exécuter les requêtes en parallèle
+      console.timeEnd("[DecisionsThinking] : Start searching decisions in DB.");
+      
       const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
         let rankFusionIdsTemp = await getMatchedDecisions(query);
-        // Si la réponse est vide, on tente de la récupérer à nouveau avec une limite de tentatives
         let retries = 0;
         const maxRetries = 2; // On peut ajuster cette valeur selon les besoins
         while (!rankFusionIdsTemp && retries < maxRetries) {
@@ -329,26 +324,18 @@ const articlesChain = articlesPrompt
         }
         return rankFusionIdsTemp;
     });
-
+    console.timeEnd("[DecisionsThinking] : Done searching decisions in DB.");
       const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
-      //console.timeEnd("[DecisionsThinking] : calling GetExpertMessage")
-      // Regroupement de tous les résultats dans un seul tableau
       rankFusionIdsResults.forEach(result => rankFusionIds.push(...result));
-
-      // Suppression des doublons
+      console.time("[DecisionsThinking] : Cleaning decisions.");
       const listIds = await removeDuplicates(rankFusionIds);
-
-      // Création du message expert
       const message: any = await listDecisions(state.summary, listIds);
+      console.timeEnd("[DecisionsThinking] : Cleaning decisions.");
       expertMessages.push(message);
       return expertMessages;
     }
 
-    //console.timeEnd("[DecisionsThinking] : Start searching decisions in DB.");
     const expertMessages = await getExpertMessages();
-    //console.timeEnd("[DecisionsThinking] : Done searching decisions in DB.");
-    //console.log("[EXPERTS] :\n", expertMessages);
-
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(DecisionsThinkingAgent)
       .format({
@@ -385,13 +372,19 @@ const articlesChain = articlesPrompt
     console.timeEnd("Call ArticlesThinkingAgent");
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+    const doctrineThinkingAgentMessage = state.messages.find(
+      (msg) => msg.name === "DoctrinesThinkingAgent"
+    );
+    
       async function getArticlesExpertMessages() {
         const expertMessages: string[] = [];
+        console.timeEnd("[ArticlesThinkingAgent] : Start searching articles in DB.");
 
         // Convertir les appels à getArticleByNumber2 et getMatchedArticles en promises pour un traitement parallèle
         const promises = state.queries.map(async (query) => {
           let message;
 
+          
           if (query.includes("getArticleByNumber")) {
             message = await getArticleByNumber2(query);
             if (!message) {
@@ -412,13 +405,14 @@ const articlesChain = articlesPrompt
             return message;
           }
         });
+
         const results = (await Promise.all(promises)).filter((res) => res !== null);
-        //console.log("result :", results)
         const mergedResults = await mergeResults(results) // merge les ids des memes codes sans les doublons
-        //console.log("merged : ", mergedResults)
+        console.timeEnd("[ArticlesThinkingAgent] : Done searching articles in DB.");
+
         for (const result of mergedResults) {
           const { codeName, listIDs } = result;
-          const cleanedResult = await articlesCleaned(codeName, listIDs);
+          const cleanedResult = await articlesCleaned(codeName, listIDs, state.summary);
           if (cleanedResult) {
             expertMessages.push(cleanedResult);
           }
@@ -427,10 +421,7 @@ const articlesChain = articlesPrompt
       }
 
 
-    console.timeEnd("[ArticlesThinkingAgent] : Start searching articles in DB.");
     const expertMessages = await getArticlesExpertMessages();
-    console.timeEnd("[ArticlesThinkingAgent] : Done searching articles in DB.");
-    //console.log("[EXPERTS] :\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(ArticlesThinkingAgent)
@@ -479,6 +470,7 @@ const articlesChain = articlesPrompt
     config?: RunnableConfig,
   ) => {
     console.timeEnd("Call doctrinesThinkingAgent");
+    
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
       const uniqueNumbers = new Set(numbers);
@@ -513,7 +505,7 @@ const articlesChain = articlesPrompt
       return doctrineExpertMessages;
     }
 
-    const summary = state.summary
+    //const summary = state.summary
 
     console.timeEnd("[DoctrinesThinkingAgent] : Start searching doctrines in DB.");
     const expertDoctrinesMessages = await getDoctrineExpertMessages();
@@ -566,9 +558,9 @@ const articlesChain = articlesPrompt
     const decisionsThinkingAgentMessage = state.messages.find(
       (msg) => msg.name === "DecisionsThinkingAgent"
     );
-    /*const doctrineThinkingAgentMessage = state.messages.find(
+    const doctrineThinkingAgentMessage = state.messages.find(
       (msg) => msg.name === "DoctrinesThinkingAgent"
-    );*/
+    );
 
     // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
     if (!decisionsThinkingAgentMessage || !articlesThinkingAgentMessage) //
@@ -577,7 +569,7 @@ const articlesChain = articlesPrompt
       return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
     }
 
-    const expertMessages = [decisionsThinkingAgentMessage, articlesThinkingAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
+    const expertMessages = [articlesThinkingAgentMessage, decisionsThinkingAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
     //console.log("[ValidationNODE] Message des experts:\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate
@@ -728,9 +720,9 @@ const formattingNode = async (
     .addNode("Supervisor", supervisorChain)
     .addNode("DecisionsAgent", decisionsChain)
     .addNode("ArticlesAgent", articlesChain)
-    //.addNode("DoctrinesAgent", doctrinesChain)
+    .addNode("DoctrinesAgent", doctrinesChain)
     .addNode("ArticlesThinkingAgent", articlesThinkingNode)
-    //.addNode("DoctrinesThinkingAgent", doctrinesIntermediaryNode)
+    .addNode("DoctrinesThinkingAgent", doctrinesIntermediaryNode)
     .addNode("DecisionsThinkingAgent", decisionsThinkingNode)
     .addNode("ValidationAgent", validationNode)
     //.addNode("CriticalAgent", criticalNode)
@@ -750,7 +742,7 @@ const formattingNode = async (
   // Boucle Supervisor aux agents
   workflow.addConditionalEdges(
     "Supervisor",
-    () => ["DecisionsAgent", "ArticlesAgent"] // Retourne les agents à appeler en parallèle
+    () => ["ArticlesAgent", "DecisionsAgent"] // Retourne les agents à appeler en parallèle
   );
 
   // Connexion des Agent aux IntermediaryAgent
@@ -760,8 +752,8 @@ const formattingNode = async (
 
   // Connexion des agents spécialisés au ValidationAgent
   //workflow.addEdge("DoctrinesThinkingAgent", "ValidationAgent");
-  workflow.addEdge("ArticlesThinkingAgent", "ValidationAgent");
   workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");
+  workflow.addEdge("ArticlesThinkingAgent", "ValidationAgent");
 
   // Connexion du ValidationAgent au FormattingAgent
   //workflow.addEdge("ValidationAgent", "FormattingAgent");
@@ -777,3 +769,41 @@ export const getCompiledGraph = async () => {
     cachedApp = await createGraph();
   return cachedApp;
 }
+
+/*
+const decisionsAgent = createReactAgent({
+    llm,
+    tools: [getMatchedDecisions],
+    messageModifier: new SystemMessage(DecisionsAgentPrompt)
+  })
+  // const decisionsModel = llm.bindTools([getMatchedDecisions]);
+  const decisionsNode = async (
+    state: typeof GraphAnnotation.State,
+    config?: RunnableConfig,
+  ) => {
+    console.timeEnd("call decisionsAgent");
+    // console.log('decisionsNode state:', state)
+    const systemMessage = await SystemMessagePromptTemplate
+      .fromTemplate(DecisionsAgentPrompt)
+      .format({
+        subQuestions: state.subQuestions.join("#"),
+      });
+    const input = [
+      systemMessage,
+    ]
+    try {
+      const result = await decisionsAgent.invoke({messages: input}, config);
+      console.log('decisionsAgent result:', result.messages)
+      console.timeEnd("call decisionsAgent invoke")
+      const lastMessage = result.messages[result.messages.length - 1];
+      return {
+        messages: [
+          new HumanMessage({ content: lastMessage.content, name: "DecisionsAgent" }),
+        ],
+      };
+    } catch (error) {
+      console.error("error when invoking decisions agent:", error);
+      return { messages: [] }
+    }
+  };
+*/

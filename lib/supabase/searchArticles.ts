@@ -75,7 +75,7 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        console.time(`call articles from ${codeTitle} partition ${partitionIndex}`);
+        //console.time(`call articles from ${codeTitle} partition ${partitionIndex}`);
         const functionName = `match_articles_${codeTitle}_part_${partitionIndex}_adaptive`;
 
         const query = sql.unsafe(`
@@ -84,7 +84,7 @@ const fetchArticlesFromPartitions = async (maxIndex: number, embedding: number[]
 
         const matchedArticles = await query as unknown as MatchedArticle[];
         // console.log(`Fetched articles from ${codeTitle} partition ${partitionIndex}:`, matchedArticles.map((m: MatchedArticle) => JSON.stringify({ number: m.number, similarity: m.similarity })));
-        console.timeEnd(`call articles from ${codeTitle} partition ${partitionIndex}`);
+        //console.timeEnd(`call articles from ${codeTitle} partition ${partitionIndex}`);
 
         if (matchedArticles) {
           return matchedArticles;

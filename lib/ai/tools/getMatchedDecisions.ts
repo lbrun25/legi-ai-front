@@ -19,7 +19,7 @@ interface DecisionPrecision {
 
 export const getMatchedDecisionsTool = tool(async (input) => {
   if (!input.query) return "";
-  return getMatchedDecisions(input)
+  return getMatchedDecisions(input.query)
 }, {
   name: 'getMatchedDecisions',
   description: "Obtient la position de la jurisprudence sur la question de droit formulée",
