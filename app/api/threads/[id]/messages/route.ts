@@ -5,6 +5,9 @@ import OpenAI from "openai";
 import {AIMessage, HumanMessage} from "@langchain/core/messages";
 import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
 import {Message} from "@/lib/types/message";
+import {PubSub} from "@google-cloud/pubsub";
+import {pubSubClient} from "@/lib/google/pubSubClient";
+import {StateSnapshot} from "@langchain/langgraph";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -66,7 +69,7 @@ export async function POST(
     const {params} = routeContextSchema.parse(context);
     const threadId = params.id;
 
-    const app = await getCompiledGraph();
+    const graph = await getCompiledGraph();
 
     // Start timing the second phase (invoke response)
     console.time("Streaming answer");
@@ -83,10 +86,11 @@ export async function POST(
 
     console.log('inputs', inputs);
 
-    const eventStreamFinalRes = app.streamEvents(inputs, {
+    const config = {
       version: "v2",
       configurable: { thread_id: threadId },
-    });
+    };
+    const eventStreamFinalRes = graph.streamEvents(inputs, config);
 
     let firstCalledChunk = false;
     let response = "";
@@ -104,6 +108,81 @@ export async function POST(
         });
 
         for await (const { event, tags, data } of eventStreamFinalRes) {
+          // Redaction graph is waiting for some inputs (Human-in-the-loop)
+          if (data?.input?.awaitingUserInput) {
+            console.log("Graph is paused, awaiting user input...");
+            const contentToSend = data?.input?.placeholders;
+            if (!contentToSend) {
+              console.error('no placeholders while awaiting user inputs. Continue.');
+              continue;
+            }
+            console.log('placeholders to send via Pub/Sub:', contentToSend);
+            // Publish a message to Pub/Sub requesting user input
+            try {
+              const topic = pubSubClient.topic("input-requests");
+              await topic.publishMessage({
+                json: { threadId, content: contentToSend },
+              });
+
+              console.log(`Published message for thread ${threadId} requesting user input`);
+
+              // Wait for the user's response from Pub/Sub
+              const subscriber = pubSubClient.subscription("input-responses-sub");
+
+              // Create subscription if it does not exist
+              const [subscription] = await subscriber.get({ autoCreate: true });
+
+              const userInputs = await new Promise<Record<string, string>>((resolve, reject) => {
+                const messageHandler = (message: any) => {
+                  const parsedData: { threadId: string, userInputs: Record<string, string> } = JSON.parse(message.data.toString());
+                  if (parsedData.threadId === threadId) {
+                    console.log('Received user inputs from Pub/Sub:', parsedData.userInputs);
+                    resolve(parsedData.userInputs);
+                    message.ack();
+                    subscription.removeListener('message', messageHandler);
+                  }
+                };
+
+                // Set up message listener for the subscription
+                subscription.on('message', messageHandler);
+
+                // Handle cancellation
+                req.signal.addEventListener('abort', () => {
+                  subscription.removeListener('message', messageHandler);
+                  reject('Request aborted');
+                });
+              });
+
+              // Get the previous state before resuming
+              let parentGraphStateBeforeSubgraph;
+              const histories = await graph.getStateHistory(config);
+              for await (const historyEntry of histories) {
+                if (historyEntry.next[0] === "RedactionGraph") {
+                  parentGraphStateBeforeSubgraph = historyEntry;
+                }
+              }
+              let subgraphStateBeforeUserInput;
+              const subgraphHistories = await graph.getStateHistory(parentGraphStateBeforeSubgraph.tasks[0].state);
+              for await (const subgraphHistoryEntry of subgraphHistories) {
+                if (subgraphHistoryEntry.next[0] === "UserInputAgent") {
+                  subgraphStateBeforeUserInput = subgraphHistoryEntry;
+                }
+              }
+              const topicAgentInputResponses = pubSubClient.topic("agent-input-responses");
+              console.log('will send userInputs with threadId:', threadId)
+              await topicAgentInputResponses.publishMessage({
+                json: { threadId, userInputs },
+              });
+              await graph.stream(null, {
+                ...subgraphStateBeforeUserInput.config,
+                streamMode: "updates",
+                subgraphs: true,
+              });
+            } catch (error) {
+              console.error('Error handling user input via Pub/Sub:', error);
+              controller.error('Error handling user input');
+            }
+          }
           // Logs to debug
           if (event !== "on_chat_model_stream") {
             // console.log('event:', event)

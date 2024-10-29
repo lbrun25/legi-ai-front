@@ -20,6 +20,7 @@ import {Suggestions} from "@/components/suggestions";
 import {AnswerSuggestions} from "@/components/answer-suggestions";
 import {ToolName} from "@/lib/types/functionTool";
 import {VoteButtons} from "@/components/vote-buttons";
+import {RedactionInputs} from "@/components/redaction-inputs";
 
 interface AssistantProps {
   threadId?: string;
@@ -35,6 +36,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [welcomingSuggestionsHasClicked, setWelcomingSuggestionsHasClicked] = useState(false);
+  const [awaitingUserInputs, setAwaitingUserInputs] = useState<string[]>([]);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +54,31 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       ])
     }
   }, [messages]);
+
+  useEffect(() => {
+    const threadId = threadIdState ? threadIdState : threadIdParams;
+    if (!threadId) return;
+    const subscribe = async () => {
+      abortControllerRef.current = new AbortController();
+      const {signal} = abortControllerRef.current;
+      const stream = streamingFetch(`/api/threads/${threadId}/subscribeInputs`, {
+        method: "GET",
+        signal
+      });
+      for await (let chunk of stream) {
+        const data = JSON.parse(chunk);
+        console.log('input-requests-sub received:', data);
+        if (data.threadId && data.content) {
+          setAwaitingUserInputs(data.content);
+        }
+      }
+    }
+    try {
+      subscribe();
+    } catch (error) {
+      console.error("Error subscribing to input-requests-sub:", error);
+    }
+  }, [threadIdState, threadIdParams]);
 
   useEffect(() => {
     if (!threadIdParams) return;
@@ -100,8 +127,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   const updateTimeSaved = async (threadId: string, toolsCalled: ToolName[]) => {
-    console.log('updateTimeSaved toolsCalled:', toolsCalled)
-    console.log('threadIdState ?? threadIdParams:', threadIdState ?? threadIdParams)
     const res = await fetch(`/api/threads/${threadId}/timeSaved`, {
       method: "POST",
       body: JSON.stringify({
@@ -260,6 +285,23 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     enterInput(text);
   }
 
+  const handleUserInputs = async (inputs: Record<string, string>) => {
+    const threadId = threadIdState ? threadIdState : threadIdParams;
+    if (!threadId) return;
+    try {
+      await fetch(`/api/threads/${threadId}/publishInputs`, {
+        method: "POST",
+        body: JSON.stringify({
+          userInputs: inputs
+        })
+      });
+    } catch (error) {
+      console.error("cannot publish user inputs:", error);
+    } finally {
+      setAwaitingUserInputs([]);
+    }
+  }
+
   return (
     <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
@@ -278,6 +320,12 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                     <div className="mb-8">
                       <ProgressChatBar />
                     </div>
+                  )}
+                  {awaitingUserInputs.length > 0 && (
+                    <RedactionInputs
+                      fields={awaitingUserInputs}
+                      onSubmit={handleUserInputs}
+                    />
                   )}
                   {(isGenerating && isStreaming) && (
                     <div className="h-8 w-full max-w-md p-2 mb-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse"/>
