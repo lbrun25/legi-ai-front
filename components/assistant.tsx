@@ -20,6 +20,10 @@ import {Suggestions} from "@/components/suggestions";
 import {AnswerSuggestions} from "@/components/answer-suggestions";
 import {ToolName} from "@/lib/types/functionTool";
 import {VoteButtons} from "@/components/vote-buttons";
+import {UploadFilesButton} from "@/components/upload-files-button";
+import UploadedFilesList from "@/components/uploaded-files-list";
+import {toast} from "sonner";
+import {SelectMode} from "@/components/select-mode";
 
 interface AssistantProps {
   threadId?: string;
@@ -27,7 +31,7 @@ interface AssistantProps {
 }
 
 export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
-  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming, setTimeSaved} = useAppState();
+  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming, setTimeSaved, selectedMode} = useAppState();
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -35,6 +39,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [hasIncomplete, setHasIncomplete] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [welcomingSuggestionsHasClicked, setWelcomingSuggestionsHasClicked] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [filesUploading, setFilesUploading] = useState(false);
+  const [fileIds, setFileIds] = useState<string[]>([]);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +145,9 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         body: JSON.stringify({
           content: text,
           isFormattingAssistant: false,
-          messages: messages
+          messages: messages,
+          fileIds,
+          selectedMode
         }),
         signal
       });
@@ -276,8 +285,39 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     enterInput(text);
   }
 
+  const handleDeleteFile = (fileToDelete: File) => {
+    setFiles((prevFiles) => prevFiles.filter((file) => file !== fileToDelete));
+  };
+
+  const handleFileUpload = async (selectedFiles: File[]) => {
+    setFiles(selectedFiles);
+    setFilesUploading(true);
+    const uploadedFileIds: string[] = [];
+    // TODO: make a record of states (loading,error) for each file and show on the uploaded files box
+    for (const file of selectedFiles) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/assistant/files/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        if (response.ok) {
+          uploadedFileIds.push(result.id);
+        } else {
+          toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
+        }
+      } catch (error) {
+        toast.error(`Échec du téléchargement de "${file.name}".`);
+      }
+    }
+    setFileIds(uploadedFileIds);
+    setFilesUploading(false);
+  };
+
   return (
-    <div className="flex flex-col w-full max-w-[850px] pb-24 pt-40 mx-auto gap-8">
+    <div className="flex flex-col w-full max-w-[850px] pb-80 pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         const threadId = message.thread_id ?? threadIdState ?? threadIdParams;
         return (
@@ -343,17 +383,41 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       <div
         className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
         <div className="flex flex-row items-center justify-center w-full">
-          <VoiceRecordButton
-            isGenerating={isGenerating}
-            onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}`: text)}
-          />
-          <ChatInput
-            onChange={(e) => setUserInput(e.target.value)}
-            isGenerating={isGenerating}
-            input={userInput}
-            onSubmit={handleOnSubmit}
-            onStopClicked={stopStreaming}
-          />
+          <div className="max-w-4xl w-full px-4 space-y-6">
+            {(files.length > 0 && selectedMode === "analysis") && (
+              <UploadedFilesList
+                files={files}
+                onDeleteFile={handleDeleteFile}
+                uploading={filesUploading}
+              />
+            )}
+            <SelectMode />
+            <div className="flex flex-row items-center space-x-4">
+              <div className="flex flex-row space-x-4">
+                <div className="flex flex-row space-x-4 items-center flex-shrink-0">
+                  <VoiceRecordButton
+                    isGenerating={isGenerating}
+                    onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}` : text)}
+                  />
+                  {selectedMode === "analysis" && (
+                    <UploadFilesButton
+                      isGenerating={isGenerating}
+                      onAcceptedFiles={handleFileUpload}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="flex-grow">
+                <ChatInput
+                  onChange={(e) => setUserInput(e.target.value)}
+                  isGenerating={isGenerating}
+                  input={userInput}
+                  onSubmit={handleOnSubmit}
+                  onStopClicked={stopStreaming}
+                />
+              </div>
+            </div>
+          </div>
         </div>
         <div className="text-xs text-gray-500 mb-[-20px] mt-2">
           {"Vos données sont sécurisées et restent confidentielles. Attention, Mike peut faire des erreurs."}

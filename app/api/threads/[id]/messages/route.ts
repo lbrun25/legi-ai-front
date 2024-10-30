@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import {AIMessage, HumanMessage} from "@langchain/core/messages";
 import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
 import {Message} from "@/lib/types/message";
+import {MikeMode} from "@/lib/types/mode";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -59,12 +60,102 @@ export async function POST(
   const input: {
     content: string;
     isFormattingAssistant: boolean;
-    messages: Message[]
+    messages: Message[],
+    selectedMode?: MikeMode,
+    fileIds?: string[]
   } = await req.json();
   const { signal } = req;
   try {
     const {params} = routeContextSchema.parse(context);
     const threadId = params.id;
+
+    const selectedMode = input?.selectedMode ?? "research";
+    if (selectedMode === "analysis") {
+      const fileIds = input?.fileIds || [];
+      if (fileIds.length === 0)
+        return new Response("no files were provided while it requires analysis", {status: 400})
+      console.log('fileIds:', fileIds);
+      console.log('Create vector store...');
+      let vectorStore = await openai.beta.vectorStores.create({
+        file_ids: fileIds,
+        expires_after: {
+          anchor: "last_active_at",
+          days: 1,
+        }
+      });
+      console.log('Create assistant...');
+      const assistant = await openai.beta.assistants.create({
+        instructions: "Tu es un expert juridique, sert toi de tes connaissances pour répondre à des questions sur des documents, si on te le demande tu as la possibilité d'établir une systhèse des documents.",
+        model: "gpt-4o-mini",
+        tools: [{ type: "file_search" }],
+        tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
+      });
+      await openai.beta.threads.messages.create(
+        threadId,
+        { role: "user", content: input.content }
+      );
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+
+          openai.beta.threads.runs
+            .stream(threadId, {
+              assistant_id: assistant.id,
+            })
+            .on("textCreated", (event) => {
+              console.log("assistant >", event);
+            })
+            .on("toolCallCreated", (event) => {
+              console.log("assistant tool call >", event.type);
+            })
+            .on("textDelta", (event) => {
+              if (event.annotations && event.value) {
+                for (let annotation of event.annotations) {
+                  if (annotation.text)
+                    event.value = event.value.replace(annotation.text, "[" + annotation.index + "]");
+                }
+              }
+              controller.enqueue(encoder.encode(event.value));
+            })
+            .on("messageDone", async (event) => {
+              if (event.content[0].type === "text") {
+                const { text } = event.content[0];
+                const { annotations } = text;
+                const citations: string[] = [];
+
+                let index = 0;
+                for (let annotation of annotations) {
+                  text.value = text.value.replace(annotation.text, "[" + index + "]");
+                  const { file_citation } = annotation as { file_citation?: { file_id: string } };
+                  console.log('annotation:', annotation)
+                  if (file_citation) {
+                    const citedFile = await openai.files.retrieve(file_citation.file_id);
+                    citations.push("[" + index + "]" + citedFile.filename);
+                  }
+                  index++;
+                }
+                if (citations.length > 0)
+                  controller.enqueue(encoder.encode("\n\nCitations:\n" + citations.join("\n") + "\n"));
+              }
+              controller.close(); // Close the stream when done
+            })
+            .on("error", (error) => {
+              console.error("Stream error:", error);
+              controller.enqueue(encoder.encode("Error: " + error.message));
+              controller.close();
+            });
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+        status: 200,
+      });
+    }
 
     const app = await getCompiledGraph();
 

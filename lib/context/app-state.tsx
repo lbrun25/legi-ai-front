@@ -3,6 +3,7 @@
 import {createContext, useState, ReactNode, useContext, useRef} from 'react'
 import {Article} from "@/lib/types/article";
 import {Decision} from "@/lib/types/decision";
+import {MikeMode} from "@/lib/types/mode";
 
 type ArticleCache = Map<string, Article>;
 type DecisionCache = Map<string, Decision>;
@@ -22,6 +23,8 @@ interface AppState {
   setTimeSaved: (timeSaved: number) => void;
   onSignup: () => void;
   hasJustSignUp: boolean;
+  selectedMode: MikeMode;
+  setSelectedMode: (mode: MikeMode) => void;
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -33,6 +36,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const decisionCache = useRef(new Map<string, Decision>());
   const [timeSaved, setTimeSaved] = useState<number>(0);
   const [hasJustSignUp, setHasJustSignUp] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<MikeMode>("research");
 
   const getCachedArticle = (articleNumber: string, articleSource: string): Article | undefined => {
     const cacheKey = `${articleNumber}_${articleSource}`;
@@ -73,6 +77,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         setTimeSaved,
         onSignup,
         hasJustSignUp,
+        selectedMode,
+        setSelectedMode,
       }}
     >
       {children}

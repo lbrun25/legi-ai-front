@@ -17,7 +17,7 @@ export function ChatInput({input, onChange, isGenerating, onSubmit, onStopClicke
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   return (
-    <form onSubmit={onSubmit} className="max-w-2xl w-full px-4">
+    <form onSubmit={onSubmit}>
       <div className="relative flex items-center w-full">
         {input.length > 0 && ( // A voir si on garde ou non
           <span className="absolute top-[-20px] right-5 text-xs text-gray-400 dark:text-gray-600">
@@ -33,7 +33,7 @@ export function ChatInput({input, onChange, isGenerating, onSubmit, onStopClicke
           placeholder="Écrivez votre message..."
           spellCheck={false}
           value={input}
-          className="resize-none w-full min-h-12 rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
+          className="resize-none w-full min-h-16 rounded-full bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
           onChange={onChange}
           onKeyDown={e => {
             // Enter should submit the form
