@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
       return new Response(JSON.stringify({error: "Missing decision number"}), {status: 400});
     }
     const { data, error } = await supabaseClient
-      .from("legaldecisions_test")
+      .from("LegalDecisions")
       .select('number, date, juridiction, ficheArret, decisionContent, decisionLink')
       .eq('number', decisionNumber)
 
