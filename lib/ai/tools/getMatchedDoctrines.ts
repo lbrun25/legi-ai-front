@@ -25,7 +25,7 @@ export const getMatchedDoctrinesTool = tool(async (input) => {
 })
 
 export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
-  //console.log("input :", input)
+  console.log("input :", input)
   //console.time("getMatchedDoctrines")
   if (!input) return [];
   const bm25Results = await ElasticsearchClient.searchDoctrines(input, NUM_RELEVANT_CHUNKS);
@@ -64,7 +64,7 @@ export async function listDoctrines(input: string, rankFusionIds: bigint[]):Prom
     const index = doctrinesRanked.data[i].index;
     //const content = doctrinesToRank[index];
     const doctrine: any = doctrinesToRank[index];
-   //console.log("ParagrapheNB :", doctrine.paragrapheNumber)
+    //console.log("ParagrapheNB :", doctrine.paragrapheNumber)
     //console.log(`${doctrine.bookTitle} : ${doctrine.paragrapheContent}`)
     doctrinesFormatted += `<doctrines><doctrine_domaine>${doctrine.bookTitle}</doctrine_domaine><content>${doctrine.paragrapheContent}</content></doctrines>\n`;
   }

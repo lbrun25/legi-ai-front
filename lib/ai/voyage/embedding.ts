@@ -58,7 +58,7 @@ export const embeddingWithVoyageLawForDoctrines = async (input: string): Promise
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  console.log('embeddingWithVoyageLaw input:', input)
+  //console.log('embeddingWithVoyageLaw input:', input)
   const body = {
     input: input,
     model: 'voyage-law-2'
@@ -76,7 +76,7 @@ export const embeddingWithVoyageLawForDoctrines = async (input: string): Promise
       console.error("Cannot embed text with Voyage AI:", (responseBody as VoyageEmbeddingErrorResponse).detail);
       return null;
     }
-    console.log('embeddingWithVoyageLaw res:', responseBody)
+    //console.log('embeddingWithVoyageLaw res:', responseBody)
     return responseBody;
   } catch (error) {
     console.error("Cannot embed text with Voyage AI: there was a problem with the fetch operation:", error);
@@ -109,7 +109,7 @@ export const embeddingWithVoyageLawForDecisions = async (input: string): Promise
       console.error("Cannot embed text with Voyage AI:", (responseBody as VoyageEmbeddingErrorResponse).detail);
       return null;
     }
-    console.log('embeddingWithVoyageLaw res:', responseBody)
+    //console.log('embeddingWithVoyageLaw res:', responseBody)
     return responseBody;
   } catch (error) {
     console.error("Cannot embed text with Voyage AI: there was a problem with the fetch operation:", error);

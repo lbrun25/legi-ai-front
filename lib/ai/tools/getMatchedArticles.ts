@@ -14,7 +14,7 @@ interface ArticlePrecision {
 }
 
 export const getMatchedArticlesTool = tool(async (input) => {
-  console.log("QUery :", input.query)
+  console.log("[getMatchedArticlesTool] Query :", input.query)
   return resultArticles(input.query);
 }, {
   name: 'getMatchedArticles',
@@ -43,10 +43,11 @@ async function resultArticles(input: any){
   const articlesContent = articlesToRank?.map(article => article.content) || [];
   if (!articlesToRank) return "";
   const articlesRanked: any = await rerankWithVoyageAI(input, articlesContent);
+  //console.log("articlesRanked", articlesRanked)
   const filteredArticles: any = articlesRanked.data.filter((Article: ArticlePrecision) => Article.relevance_score >= 0.4);
   const indexes = filteredArticles.map((Article: ArticlePrecision) => Article.index).reverse();
   const orderedArticles = indexes.map((index: any) => articlesToRank[index]);
- // console.log("orderedArticles :", orderedArticles);
+  //console.log("orderedArticles :", orderedArticles);
   if (!orderedArticles) return "Aucun article pertinent n'a été trouvé.";
   console.log("return :", convertArticlesToXML(codeName, orderedArticles))
   return convertArticlesToXML(codeName, orderedArticles);
@@ -73,7 +74,7 @@ export async function getMatchedArticles(input: any) {
   //console.log('Nb bm25Results articles:', bm25Ids);
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 80, 0.5, 0.5);
   const listIDs = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
-  //console.log("[Articles] RankFusion :", listIDs);
+  console.log("[Articles] RankFusion :", listIDs);
   //const listIDs = rankFusionIds.slice(0, 10);
   return {codeName, listIDs}
 }
@@ -97,10 +98,9 @@ export async function articlesCleaned(code: string, rankFusionIds: bigint[], inp
   //console.log(`For ${code}, list ids : [${rankFusionIds}]`)
   const codeName = getCodeName(code)
   const articlesToRank = await getArticlesByIds(rankFusionIds, codeName);
- // console.log("articlesToRank :", articlesToRank)
   const articlesContent = articlesToRank?.map(article => article.content) || [];
   if (!articlesToRank) return "";
-  const articlesRanked: any = await rerankWithVoyageAI(input, articlesContent);
+  const articlesRanked: any = await rerankWithVoyageAI(input, articlesContent); //A voir si on vire le reranlr quand ça passe apres doctrine et on garde quand ça passe pas par la doctrine avant aussi actuellement c'est sur summary l'input il faut modifier pour mettre sur le contenu de l'article
   //console.log("index :", articlesRanked)
   const filteredArticles: any = articlesRanked.data.filter((Article: ArticlePrecision) => Article.relevance_score >= 0.4);
   const index = filteredArticles.map((Article: ArticlePrecision) => Article.index);
@@ -117,7 +117,7 @@ export async function articlesCleaned(code: string, rankFusionIds: bigint[], inp
       orderedArticles.push(articlesToRank[index]);
   }
   //console.log("orderedArticles :", orderedArticles.length);
-  if (!orderedArticles) return "Aucun article pertinent n'a été trouvé.";
+  if (orderedArticles.length === 0) return "Aucun article pertinent n'a été trouvé.";
   /*const filteredArticlesToRank = articlesToRank.filter(article =>
     rankFusionIds.includes(article.id)
   );*/

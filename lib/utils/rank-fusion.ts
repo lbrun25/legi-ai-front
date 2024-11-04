@@ -98,7 +98,7 @@ export function rankFusion(
   // Now apply slice after deduplication to get exactly 'k' unique decisions
   const finalResults = allResults.slice(0, k);
 
-  printResults(finalResults.length, semanticCount, bm25Count);
+  //printResults(finalResults.length, semanticCount, bm25Count);
 
   return { results: finalResults, semanticCount, bm25Count };
 }

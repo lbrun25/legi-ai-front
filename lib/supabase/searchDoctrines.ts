@@ -112,7 +112,7 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
 };
 
 export const searchMatchedDoctrines = async (input: string, limit: number = 5): Promise<SearchMatchedDoctrinesResponse> => {
-  console.log('searchMatchedDoctrines:', input);
+  //console.log('searchMatchedDoctrines:', input);
   const response = await embeddingWithVoyageLawForDoctrines(input)
   if (!response) {
     return {
