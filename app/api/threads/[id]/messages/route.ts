@@ -84,12 +84,27 @@ export async function POST(
         }
       });
       console.log('Create assistant...');
-      const assistant = await openai.beta.assistants.create({
-        instructions: "Tu es un expert juridique, sert toi de tes connaissances pour répondre à des questions sur des documents, si on te le demande tu as la possibilité d'établir une systhèse des documents.",
-        model: "gpt-4o-mini",
-        tools: [{ type: "file_search" }],
-        tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
-      });
+      const assistantId = process.env.ASSISTANT_ID ??
+        (() => {
+          throw new Error('ASSISTANT_ID is not set');
+        })();
+      let assistant = await openai.beta.assistants.retrieve(assistantId);
+      if (assistant?.id !== assistantId) {
+        openai.beta.assistants.create({
+          instructions: "Tu es un expert juridique, sert toi de tes connaissances pour répondre à des questions sur des documents, si on te le demande tu as la possibilité d'établir une systhèse des documents.",
+          model: "gpt-4o-mini",
+          temperature: 0,
+          tools: [{ type: "file_search" }],
+          tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
+        });
+      } else {
+        assistant = await openai.beta.assistants.update(
+          assistantId,
+          {
+            tool_resources: { file_search: { vector_store_ids: [vectorStore.id] } },
+          }
+        );
+      }
       await openai.beta.threads.messages.create(
         threadId,
         { role: "user", content: input.content }

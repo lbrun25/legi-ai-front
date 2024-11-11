@@ -10,12 +10,6 @@ import {AssistantTool} from "openai/resources/beta/assistants";
 import {Input} from "@/components/ui/input";
 import {FunctionTool} from "openai/resources/beta/assistants";
 import OpenAI from "openai";
-import {
-  GetArticleByNumberToolParametersProperties,
-  GetMatchedArticlesToolParametersProperties,
-  GetMatchedDecisionsToolParametersProperties,
-  GetMatchedDoctrinesToolParametersProperties
-} from "@/lib/types/functionTool";
 
 export default function Page() {
   const {assistant, loading, updateAssistant, updatingAssistant} = useAssistant()
@@ -26,15 +20,6 @@ export default function Page() {
   const [tools, setTools] = useState<Array<AssistantTool>>([])
   const [temperature, setTemperature] = useState<string>()
   const [topP, setTopP] = useState<string>()
-  const [getMatchedArticlesDescription, setGetMatchedArticlesDescription] = useState<string>()
-  const [getMatchedArticlesQueryDescription, setGetMatchedArticlesQueryDescription] = useState<string>()
-  const [getMatchedDecisionsDescription, setGetMatchedDecisionsDescription] = useState<string>()
-  const [getMatchedDecisionsQueryDescription, setGetMatchedDecisionsQueryDescription] = useState<string>()
-  const [getMatchedDoctrinesDescription, setGetMatchedDoctrinesDescription] = useState<string>()
-  const [getMatchedDoctrinesQueryDescription, setGetMatchedDoctrinesQueryDescription] = useState<string>()
-  const [getArticleByNumberDescription, setGetArticleByNumberDescription] = useState<string>()
-  const [getArticleByNumberSourceDescription, setGetArticleByNumberSourceDescription] = useState<string>()
-  const [getArticleByNumberNumberDescription, setGetArticleByNumberNumberDescription] = useState<string>()
 
   function findFunctionByName(arr: AssistantTool[] | undefined, functionName: string): FunctionTool | undefined {
     return arr?.find(item => item.type === "function" && item.function?.name === functionName) as FunctionTool;
@@ -48,23 +33,6 @@ export default function Page() {
     setTools(assistant?.tools || [])
     setTemperature(String(assistant?.temperature) || "1")
     setTopP(String(assistant?.top_p) || "1")
-
-    const getMatchedArticlesTool = findFunctionByName(assistant?.tools, "getMatchedArticles");
-    setGetMatchedArticlesDescription(getMatchedArticlesTool?.function.description || "");
-    setGetMatchedArticlesQueryDescription((getMatchedArticlesTool?.function.parameters?.properties as GetMatchedArticlesToolParametersProperties)?.query.description || "");
-
-    const getMatchedDecisionsTool = findFunctionByName(assistant?.tools, "getMatchedDecisions");
-    setGetMatchedDecisionsDescription(getMatchedDecisionsTool?.function.description || "");
-    setGetMatchedDecisionsQueryDescription((getMatchedDecisionsTool?.function.parameters?.properties as GetMatchedDecisionsToolParametersProperties)?.query.description || "");
-
-    const getMatchedDoctrinesTool = findFunctionByName(assistant?.tools, "getMatchedDoctrines");
-    setGetMatchedDoctrinesDescription(getMatchedDoctrinesTool?.function.description || "");
-    setGetMatchedDoctrinesQueryDescription((getMatchedDoctrinesTool?.function.parameters?.properties as GetMatchedDoctrinesToolParametersProperties)?.query.description || "");
-
-    const getArticleByNumberTool = findFunctionByName(assistant?.tools, "getArticleByNumber");
-    setGetArticleByNumberDescription(getArticleByNumberTool?.function.description || "");
-    setGetArticleByNumberSourceDescription((getArticleByNumberTool?.function.parameters?.properties as GetArticleByNumberToolParametersProperties)?.source.description || "");
-    setGetArticleByNumberNumberDescription((getArticleByNumberTool?.function.parameters?.properties as GetArticleByNumberToolParametersProperties)?.number.description || "");
   }, [assistant]);
 
   const onSubmitClicked = async () => {
@@ -73,73 +41,6 @@ export default function Page() {
     if (name) params.name = name;
     if (model) params.model = model;
     if (description) params.description = description;
-    if (tools) {
-      params.tools = [{
-        type: "function",
-        function: {
-          name: "getMatchedArticles",
-          description: getMatchedArticlesDescription,
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
-                description: getMatchedArticlesQueryDescription,
-              }
-            }
-          }
-        }
-      }, {
-        type: "function",
-        function: {
-          name: "getMatchedDecisions",
-          description: getMatchedDecisionsDescription,
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
-                description: getMatchedDecisionsQueryDescription,
-              }
-            }
-          }
-        }
-      }, {
-        type: "function",
-        function: {
-          name: "getMatchedDoctrines",
-          description: getMatchedDoctrinesDescription,
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
-                description: getMatchedDoctrinesQueryDescription,
-              }
-            }
-          }
-        },
-      }, {
-        type: "function",
-        function: {
-          name: "getArticleByNumber",
-          description: getArticleByNumberDescription,
-          parameters: {
-            type: "object",
-            properties: {
-              source: {
-                type: "string",
-                description: getArticleByNumberSourceDescription,
-              },
-              number: {
-                type: "string",
-                description: getArticleByNumberNumberDescription,
-              }
-            }
-          }
-        },
-      }];
-    }
     if (temperature) params.temperature = Number(temperature);
     if (topP) params.top_p = Number(topP);
     await updateAssistant(params);
@@ -175,12 +76,12 @@ export default function Page() {
             </Collapsible.Root>
           </div>
           <div className="space-y-3">
-            <h2>{"Edit Instructions"}</h2>
+            <h2>{"Edit Analysis Instructions"}</h2>
             <Textarea
               name="input"
               rows={5}
               tabIndex={0}
-              placeholder="Set instructions..."
+              placeholder="Set analysis instructions..."
               value={instructions}
               className="resize-none w-full min-h-96 h-[500px] rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
               onChange={e => setInstructions(e.target.value)}
@@ -219,102 +120,6 @@ export default function Page() {
               className="pr-14 h-12"
               onChange={e => setModel(e.target.value)}
             />
-          </div>
-          <div className="space-y-3">
-            <h2>{"Edit tools"}</h2>
-            <div className="space-y-2">
-              <h3>{"getMatchedArticles"}</h3>
-              <h4>{"Edit description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedArticles description..."
-                value={getMatchedArticlesDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedArticlesDescription(e.target.value)}
-              />
-              <h4>{"Edit query description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedArticles query description..."
-                value={getMatchedArticlesQueryDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedArticlesQueryDescription(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <h3>{"getMatchedDecisions"}</h3>
-              <h4>{"Edit description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedDecisions description..."
-                value={getMatchedDecisionsDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedDecisionsDescription(e.target.value)}
-              />
-              <h4>{"Edit query description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedDecisions query description..."
-                value={getMatchedDecisionsQueryDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedDecisionsQueryDescription(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <h3>{"getMatchedDoctrines"}</h3>
-              <h4>{"Edit description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedDoctrines description..."
-                value={getMatchedDoctrinesDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedDoctrinesDescription(e.target.value)}
-              />
-              <h4>{"Edit query description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getMatchedDoctrines query description..."
-                value={getMatchedDoctrinesQueryDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetMatchedDoctrinesQueryDescription(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <h3>{"getArticleByNumber"}</h3>
-              <h4>{"Edit description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getArticlesByNumber description..."
-                value={getArticleByNumberDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetArticleByNumberDescription(e.target.value)}
-              />
-              <h4>{"Edit source description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getArticlesByNumber source description..."
-                value={getArticleByNumberSourceDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetArticleByNumberSourceDescription(e.target.value)}
-              />
-              <h4>{"Edit number description"}</h4>
-              <Input
-                type="text"
-                name="input"
-                placeholder="Set getArticlesByNumber number description..."
-                value={getArticleByNumberNumberDescription}
-                className="pr-14 h-12"
-                onChange={e => setGetArticleByNumberNumberDescription(e.target.value)}
-              />
-            </div>
           </div>
           <div className="space-y-3">
             <h2>{"Edit temperature"}</h2>
