@@ -23,14 +23,15 @@ export const UploadFilesButton = ({ isGenerating, onAcceptedFiles }: UploadFiles
     const maxFileSize = 512 * 1024 * 1024; // 512 MB per file
     const maxFileCount = 20;
     const oversizedFiles = files.filter(file => file.size > maxFileSize);
-    if (oversizedFiles.length > 0) {
-      toast.error('Certains fichiers dépassent la limite de 512 Mo.');
-      return;
-    }
-    if (files.length > maxFileCount) {
-      toast.error(`Vous pouvez télécharger un maximum de ${maxFileCount} fichiers.`);
-      return;
-    }
+    // TODO: uncomment when the issue with the size file is resolved
+    // if (oversizedFiles.length > 0) {
+    //   toast.error('Certains fichiers dépassent la limite de 512 Mo.');
+    //   return;
+    // }
+    // if (files.length > maxFileCount) {
+    //   toast.error(`Vous pouvez télécharger un maximum de ${maxFileCount} fichiers.`);
+    //   return;
+    // }
     onAcceptedFiles(files);
   };
 
