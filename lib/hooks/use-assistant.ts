@@ -15,7 +15,14 @@ export const useAssistant = () => {
       setError(null);
 
       try {
-        const response = await fetch(`/api/assistant/me`);
+        const response = await fetch(`/api/assistant/me`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        });
         if (!response.ok) {
           setError(`Error fetching assistant: ${response.statusText}`);
           return;
