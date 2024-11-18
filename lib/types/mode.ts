@@ -1,1 +1,1 @@
-export type MikeMode = "research" | "analysis";
+export type MikeMode = "research" | "analysis" | "synthesis";

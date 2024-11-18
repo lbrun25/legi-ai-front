@@ -30,7 +30,7 @@ export const SegmentedControl = ({ name, segments, onSelected, value }: Segmente
   };
 
     return (
-    <div className="relative flex items-center bg-gray-200 rounded-full p-2 max-w-md mx-auto">
+    <div className="relative flex items-center bg-gray-200 rounded-full p-2 max-w-[600px] mx-auto">
       {/* Blue highlight indicator */}
       <div
         className="absolute top-0 bottom-0 left-0 h-full bg-blue-500 rounded-full transition-transform duration-300"

@@ -6,6 +6,7 @@ import {AIMessage, HumanMessage} from "@langchain/core/messages";
 import {getCompiledGraph} from "@/lib/ai/langgraph/graph";
 import {Message} from "@/lib/types/message";
 import {MikeMode} from "@/lib/types/mode";
+import {getCompiledAnalysisGraph} from "@/lib/ai/langgraph/analysisGraph";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -52,6 +53,54 @@ export async function GET(
   }
 }
 
+const startAssistantStream = (threadId: string, assistantId: string, controller: ReadableStreamDefaultController<any>) => {
+  const encoder = new TextEncoder();
+
+  openai.beta.threads.runs
+    .stream(threadId, {
+      assistant_id: assistantId,
+    })
+    .on("textCreated", (event) => {
+      console.log("assistant >", event);
+    })
+    .on("textDelta", (event) => {
+      if (event.annotations && event.value) {
+        for (let annotation of event.annotations) {
+          if (annotation.text)
+            event.value = event.value.replace(annotation.text, "[" + annotation.index + "]");
+        }
+      }
+      controller.enqueue(encoder.encode(event.value));
+    })
+    .on("messageDone", async (event) => {
+      if (event.content[0].type === "text") {
+        const { text } = event.content[0];
+        const { annotations } = text;
+        const citations: string[] = [];
+
+        let index = 0;
+        for (let annotation of annotations) {
+          text.value = text.value.replace(annotation.text, "[" + index + "]");
+          const { file_citation } = annotation as { file_citation?: { file_id: string } };
+          console.log('annotation:', annotation)
+          if (file_citation) {
+            const citedFile = await openai.files.retrieve(file_citation.file_id);
+            citations.push("[" + index + "]" + citedFile.filename);
+          }
+          index++;
+        }
+        if (citations.length > 0)
+          controller.enqueue(encoder.encode("\n\nCitations:\n" + citations.join("\n") + "\n"));
+      }
+      controller.close(); // Close the stream when done
+    })
+    .on("error", (error) => {
+      console.error("Stream error:", error);
+      controller.enqueue(encoder.encode("Error: " + error.message));
+      controller.close();
+    });
+};
+
 // Send a new message to a thread
 export async function POST(
   req: Request,
@@ -70,7 +119,7 @@ export async function POST(
     const threadId = params.id;
 
     const selectedMode = input?.selectedMode ?? "research";
-    if (selectedMode === "analysis") {
+    if (selectedMode === "synthesis") {
       const fileIds = input?.fileIds || [];
       if (fileIds.length === 0)
         return new Response("no files were provided while it requires analysis", {status: 400})
@@ -111,54 +160,7 @@ export async function POST(
       );
       const stream = new ReadableStream({
         async start(controller) {
-          const encoder = new TextEncoder();
-
-          openai.beta.threads.runs
-            .stream(threadId, {
-              assistant_id: assistant.id,
-            })
-            .on("textCreated", (event) => {
-              console.log("assistant >", event);
-            })
-            .on("toolCallCreated", (event) => {
-              console.log("assistant tool call >", event.type);
-            })
-            .on("textDelta", (event) => {
-              if (event.annotations && event.value) {
-                for (let annotation of event.annotations) {
-                  if (annotation.text)
-                    event.value = event.value.replace(annotation.text, "[" + annotation.index + "]");
-                }
-              }
-              controller.enqueue(encoder.encode(event.value));
-            })
-            .on("messageDone", async (event) => {
-              if (event.content[0].type === "text") {
-                const { text } = event.content[0];
-                const { annotations } = text;
-                const citations: string[] = [];
-
-                let index = 0;
-                for (let annotation of annotations) {
-                  text.value = text.value.replace(annotation.text, "[" + index + "]");
-                  const { file_citation } = annotation as { file_citation?: { file_id: string } };
-                  console.log('annotation:', annotation)
-                  if (file_citation) {
-                    const citedFile = await openai.files.retrieve(file_citation.file_id);
-                    citations.push("[" + index + "]" + citedFile.filename);
-                  }
-                  index++;
-                }
-                if (citations.length > 0)
-                  controller.enqueue(encoder.encode("\n\nCitations:\n" + citations.join("\n") + "\n"));
-              }
-              controller.close(); // Close the stream when done
-            })
-            .on("error", (error) => {
-              console.error("Stream error:", error);
-              controller.enqueue(encoder.encode("Error: " + error.message));
-              controller.close();
-            });
+          startAssistantStream(threadId, assistantId, controller);
         },
       });
 
@@ -170,6 +172,82 @@ export async function POST(
         },
         status: 200,
       });
+    }
+
+    if (selectedMode === "analysis") {
+      const app = await getCompiledAnalysisGraph();
+      const inputs = {
+        messages: input.messages.map((message) => {
+          if (message.role === "user") {
+            return new HumanMessage(message.text);
+          } else if (message.role === "assistant") {
+            return new AIMessage(message.text);
+          }
+        })
+      };
+      const eventStreamFinalRes = app.streamEvents(inputs, {
+        version: "v2",
+        configurable: { thread_id: threadId },
+      });
+
+      let firstCalledChunk = false;
+
+      const toolsCalled = new Map<string, boolean>();
+
+      const textEncoder = new TextEncoder();
+      const transformStream = new ReadableStream({
+        async start(controller) {
+          // Listen for cancellation
+          signal.addEventListener('abort', () => {
+            console.log('Request aborted by the client');
+            controller.close();
+          });
+
+          for await (const { event, data } of eventStreamFinalRes) {
+            // Logs to debug
+            if (event !== "on_chat_model_stream") {
+              // console.log('event:', event)
+              // console.log('data:', data)
+            }
+            if (event === "on_chain_end") {
+              const messages = data.output.messages;
+              if (Array.isArray(messages)) {
+                messages?.map((message: any) => {
+                  const toolName = message.name;
+                  if (toolName)
+                    toolsCalled.set(toolName, true);
+                });
+              }
+            }
+            if (signal.aborted) {
+              console.log("Streaming aborted, stopping early.");
+              controller.close();
+              break;
+            }
+
+            if (event === "on_chat_model_stream") {
+              // Intermediate chat model generations will contain tool calls and no content
+              if (!!data.chunk.content) {
+                if (!firstCalledChunk) {
+                  console.timeEnd("Streaming answer");
+                  firstCalledChunk = true;
+                }
+                controller.enqueue(textEncoder.encode(data.chunk.content));
+              }
+            }
+          }
+          controller.close();
+        },
+      });
+
+      return new Response(transformStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+        status: 200,
+      })
     }
 
     const app = await getCompiledGraph();
