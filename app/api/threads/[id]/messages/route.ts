@@ -177,13 +177,19 @@ export async function POST(
     if (selectedMode === "analysis") {
       const app = await getCompiledAnalysisGraph();
       const inputs = {
-        messages: input.messages.map((message) => {
+        messages: input.messages.map((message, index) => {
           if (message.role === "user") {
+            const isLastHumanMessage = input.messages
+              .slice(index + 1)
+              .every((msg) => msg.role !== "user");
+            if (isLastHumanMessage) {
+              return new HumanMessage("Base toi sur le document que je t'ai fourni pour répondre à cette question: " + message.text);
+            }
             return new HumanMessage(message.text);
           } else if (message.role === "assistant") {
             return new AIMessage(message.text);
           }
-        })
+        }),
       };
       const eventStreamFinalRes = app.streamEvents(inputs, {
         version: "v2",
