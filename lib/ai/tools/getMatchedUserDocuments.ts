@@ -44,7 +44,6 @@ const getMatchedUserDocuments = async (input: string) => {
   const filteredDocs: any = docsRanked.data.filter((doc: UserDocumentPrecision) => doc.relevance_score >= 0.4);
   const indexes = filteredDocs.map((doc: UserDocumentPrecision) => doc.index).reverse();
   const orderedDocs = indexes.map((index: number) => docsToRank[index]);
-  console.log('question:', input);
   console.log("orderedDocs:", orderedDocs);
   if (!orderedDocs) return "";
   try {
