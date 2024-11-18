@@ -294,6 +294,15 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     setFilesUploading(true);
     const uploadedFileIds: string[] = [];
     // TODO: make a record of states (loading,error) for each file and show on the uploaded files box
+    if (selectedFiles.length > 0) {
+      try {
+        await fetch('/api/assistant/files/deleteAll', {
+          method: 'DELETE',
+        });
+      } catch (error) {
+        console.error("cannot delete user documents:", error);
+      }
+    }
     for (const file of selectedFiles) {
       try {
         const formData = new FormData();
@@ -384,7 +393,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
         <div className="flex flex-row items-center justify-center w-full">
           <div className="max-w-4xl w-full px-4 space-y-6">
-            {(files.length > 0 && selectedMode === "analysis") && (
+            {(files.length > 0 && (selectedMode === "analysis" || selectedMode === "synthesis")) && (
               <UploadedFilesList
                 files={files}
                 onDeleteFile={handleDeleteFile}
@@ -399,7 +408,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                     isGenerating={isGenerating}
                     onReceivedText={(text) => setUserInput(prevState => prevState ? `${prevState} ${text}` : text)}
                   />
-                  {selectedMode === "analysis" && (
+                  {(selectedMode === "analysis" || selectedMode === "synthesis") && (
                     <UploadFilesButton
                       isGenerating={isGenerating}
                       onAcceptedFiles={handleFileUpload}

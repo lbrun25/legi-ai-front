@@ -1,6 +1,6 @@
 "use client";
 import {useAppState} from "@/lib/context/app-state";
-import {BotIcon, FileIcon} from "lucide-react";
+import {BotIcon, FileIcon, FileSearchIcon} from "lucide-react";
 import React from "react";
 import {SegmentedControl} from "@/components/segmented-controls";
 import {MikeMode} from "@/lib/types/mode";
@@ -22,6 +22,11 @@ export const SelectMode = () => {
         {
           label: "Analyse",
           value: "analysis",
+          icon: <FileSearchIcon className="w-4 h-4"/>
+        },
+        {
+          label: "Synthèse",
+          value: "synthesis",
           icon: <FileIcon className="w-4 h-4"/>
         },
       ]}
