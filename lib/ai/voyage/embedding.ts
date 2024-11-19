@@ -19,9 +19,8 @@ interface VoyageEmbeddingErrorResponse {
   detail: string;
 }
 
-export const embeddingWithVoyageLaw = async (input: string): Promise<VoyageEmbeddingResponse | null> => {
+export const embeddingWithVoyageLaw = async (input: string, apiKey: string): Promise<VoyageEmbeddingResponse | null> => {
   const url = 'https://api.voyageai.com/v1/embeddings';
-  const apiKey = process.env.VOYAGE_AI_API_KEY;
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',

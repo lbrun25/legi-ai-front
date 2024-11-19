@@ -67,12 +67,67 @@ export const checkUserDocumentTable = async () => {
   return tableName;
 }
 
-export const insertDocument = async (doc: Document, chunk: string, tableName: string, filename: string, index: string): Promise<Pick<UserDocument, "id" | "content"> | null> => {
+export const insertDocument = async (
+  doc: Document,
+  chunk: string,
+  tableName: string,
+  filename: string,
+  index: string
+): Promise<Pick<UserDocument, "id" | "content"> | null> => {
   const supabase = createClient();
+  const voyageApiKeys = [
+    process.env.VOYAGE_AI_API_KEY,
+    process.env.VOYAGE_AI_API_KEY_FOR_DECISIONS,
+    process.env.VOYAGE_AI_API_KEY_FOR_DOCTRINES,
+  ];
+
+  // Ensure all API keys are present
+  if (voyageApiKeys.some((key) => !key)) {
+    throw new Error("One or more VOYAGE_AI_API_KEY environment variables are not set");
+  }
+
+  const MAX_RETRIES = 3; // Maximum retries per key
+  const RETRY_DELAY = 2000; // Delay between retries in milliseconds
+
+  // Retry logic to get embedding
+  const getEmbeddingWithRetry = async (chunk: string): Promise<number[] | null> => {
+    for (let i = 0; i < voyageApiKeys.length; i++) {
+      const voyageApiKey = voyageApiKeys[i];
+      if (!voyageApiKey) throw new Error("Voyage API key is missing");
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const embeddingVoyageResponse = await embeddingWithVoyageLaw(chunk, voyageApiKey);
+          const embedding = embeddingVoyageResponse?.data[0]?.embedding;
+
+          if (embedding) {
+            return embedding;
+          } else {
+            console.warn(`Attempt ${attempt} failed for API key ${i + 1}`);
+          }
+        } catch (error) {
+          console.error(`Error on attempt ${attempt} with API key ${i + 1}:`, error);
+        }
+
+        // Delay before the next retry
+        if (attempt < MAX_RETRIES) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        }
+      }
+      console.warn(`Exhausted retries for API key ${i + 1}, switching to next key`);
+    }
+    console.error("Failed to get embedding from all keys after retries");
+    return null;
+  };
+
   try {
-    // const embeddingOpenai = await createOpenAiEmbedding(chunk);
-    const embeddingVoyageResponse = await embeddingWithVoyageLaw(chunk);
-    const embeddingVoyage = embeddingVoyageResponse?.data[0]?.embedding;
+    // Get embedding with retry logic
+    const embeddingVoyage = await getEmbeddingWithRetry(chunk);
+
+    if (!embeddingVoyage) {
+      throw new Error("Failed to get embedding after retries");
+    }
+
+    // Insert the document into the database
     const { data, error } = await supabase
       .from(tableName)
       .insert([
@@ -81,21 +136,22 @@ export const insertDocument = async (doc: Document, chunk: string, tableName: st
           filename: filename,
           index: index,
           metadata: JSON.stringify(doc.metadata),
-          // embedding_openai: embeddingOpenai,
           embedding_voyage: embeddingVoyage,
-        }
+        },
       ])
       .select("id, content");
+
     if (error) {
       console.error("Error inserting document:", error);
       throw error;
     }
+
     return data ? data[0] : null;
   } catch (err) {
     console.error("Unexpected error:", err);
     throw err;
   }
-}
+};
 
 export const createFetchingUserDocumentChunksByIdsFunction = async (tableName: string) => {
   const functionName = `match_${tableName}_by_ids`;
@@ -196,7 +252,11 @@ export const matchUserDocuments = async (
 };
 
 export const searchMatchedUserDocuments = async (input: string): Promise<MatchedUserDocument[]> => {
-  const inputEmbeddingVoyageResponse = await embeddingWithVoyageLaw(input);
+  const voyageApiKey = process.env.VOYAGE_AI_API_KEY ??
+    (() => {
+      throw new Error('VOYAGE_AI_API_KEY is not set');
+    })();
+  const inputEmbeddingVoyageResponse = await embeddingWithVoyageLaw(input, voyageApiKey);
   if (!inputEmbeddingVoyageResponse) {
     return [];
   }

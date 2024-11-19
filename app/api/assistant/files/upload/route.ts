@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { checkUserDocumentTable, insertDocument } from "@/lib/supabase/documents";
 import { ElasticsearchClient } from "@/lib/elasticsearch/client";
-import { CharacterTextSplitter } from "@langchain/textsplitters";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import path from 'path';
 import { createReadStream } from 'fs';
 
@@ -59,10 +59,9 @@ const ingestDocumentForAnalysis = async (filePath: string, file: File) => {
   await Promise.all(
     docs.map(async (doc, indexDocument) => {
       // Makes chunks with LangChain
-      const textSplitter = new CharacterTextSplitter({
-        chunkSize: 400,
-        separator: " ",
-        chunkOverlap: 80,
+      const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 2048,
+        chunkOverlap: 256,
       });
 
       const chunks = await textSplitter.splitText(doc.pageContent);
