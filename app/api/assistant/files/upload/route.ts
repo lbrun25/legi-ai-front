@@ -60,8 +60,8 @@ const ingestDocumentForAnalysis = async (filePath: string, file: File) => {
     docs.map(async (doc, indexDocument) => {
       // Makes chunks with LangChain
       const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 2048,
-        chunkOverlap: 256,
+        chunkSize: 3072,
+        chunkOverlap: 384,
       });
 
       const chunks = await textSplitter.splitText(doc.pageContent);
