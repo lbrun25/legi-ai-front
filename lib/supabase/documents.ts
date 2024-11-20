@@ -76,30 +76,35 @@ export const insertDocument = async (
 ): Promise<Pick<UserDocument, "id" | "content"> | null> => {
   const supabase = createClient();
   const voyageApiKeys = [
-    process.env.VOYAGE_AI_API_KEY,
-    process.env.VOYAGE_AI_API_KEY_FOR_DECISIONS,
-    process.env.VOYAGE_AI_API_KEY_FOR_DOCTRINES,
+    process.env.VOYAGE_AI_API_KEY_ANALYSIS_1,
+    process.env.VOYAGE_AI_API_KEY_ANALYSIS_2,
+    process.env.VOYAGE_AI_API_KEY_ANALYSIS_3,
   ];
 
   // Ensure all API keys are present
   if (voyageApiKeys.some((key) => !key)) {
-    throw new Error("One or more VOYAGE_AI_API_KEY environment variables are not set");
+    throw new Error("One or more VOYAGE_AI_API_KEY_ANALYSIS environment variables are not set");
   }
 
-  const MAX_RETRIES = 3; // Maximum retries per key
-  const RETRY_DELAY = 2000; // Delay between retries in milliseconds
+  const RETRY_DELAY = 2000;
 
   // Retry logic to get embedding
-  const getEmbeddingWithRetry = async (chunk: string): Promise<number[] | null> => {
-    for (let i = 0; i < voyageApiKeys.length; i++) {
-      const voyageApiKey = voyageApiKeys[i];
-      if (!voyageApiKey) throw new Error("Voyage API key is missing");
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  const getEmbeddingWithRetry = async (chunk: string): Promise<number[]> => {
+    let attempt = 0;
+
+    while (true) {
+      for (let i = 0; i < voyageApiKeys.length; i++) {
+        const voyageApiKey = voyageApiKeys[i];
+        if (!voyageApiKey) throw new Error("Voyage API key is missing");
+
+        attempt++;
         try {
+          console.log(`Attempt ${attempt} with API key ${i + 1}`);
           const embeddingVoyageResponse = await embeddingWithVoyageLaw(chunk, voyageApiKey);
           const embedding = embeddingVoyageResponse?.data[0]?.embedding;
 
           if (embedding) {
+            console.log(`Success after ${attempt} attempts with API key ${i + 1}`);
             return embedding;
           } else {
             console.warn(`Attempt ${attempt} failed for API key ${i + 1}`);
@@ -108,24 +113,16 @@ export const insertDocument = async (
           console.error(`Error on attempt ${attempt} with API key ${i + 1}:`, error);
         }
 
-        // Delay before the next retry
-        if (attempt < MAX_RETRIES) {
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-        }
+        // Delay before the next attempt
+        console.log(`Retrying after ${RETRY_DELAY}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
       }
-      console.warn(`Exhausted retries for API key ${i + 1}, switching to next key`);
     }
-    console.error("Failed to get embedding from all keys after retries");
-    return null;
   };
 
   try {
     // Get embedding with retry logic
     const embeddingVoyage = await getEmbeddingWithRetry(chunk);
-
-    if (!embeddingVoyage) {
-      throw new Error("Failed to get embedding after retries");
-    }
 
     // Insert the document into the database
     const { data, error } = await supabase
