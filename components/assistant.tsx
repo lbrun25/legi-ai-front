@@ -42,6 +42,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [filesUploading, setFilesUploading] = useState(false);
   const [fileIds, setFileIds] = useState<string[]>([]);
+  const [fileProgress, setFileProgress] = useState<Record<string, { uploaded: number; total: number }>>({});
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -293,8 +294,15 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     setFiles(selectedFiles);
     setFilesUploading(true);
     const uploadedFileIds: string[] = [];
-    // TODO: make a record of states (loading,error) for each file and show on the uploaded files box
+
     if (selectedFiles.length > 0) {
+      try {
+        await fetch('/api/assistant/files/checkTables', {
+          method: 'POST',
+        });
+      } catch (error) {
+        console.error("cannot check tables:", error);
+      }
       try {
         await fetch('/api/assistant/files/deleteAll', {
           method: 'DELETE',
@@ -303,6 +311,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         console.error("cannot delete user documents:", error);
       }
     }
+
     for (const file of selectedFiles) {
       try {
         const formData = new FormData();
@@ -312,53 +321,71 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           body: formData,
         });
         const result = await response.json();
+        console.log('result upload:', result);
+
         if (response.ok) {
           uploadedFileIds.push(result.fileId);
         } else {
           toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
         }
+
         const chunks = result.chunks;
-        const chunkSize = 100;
+        const totalPages = chunks.length; // Total number of pages
 
-        // Helper function to split chunks into batches of 100
-        const splitIntoBatches = (array: any[], size: number) => {
-          const batches = [];
-          for (let i = 0; i < array.length; i += size) {
-            batches.push(array.slice(i, i + size));
-          }
-          return batches;
-        };
+        // Initialize progress for this file
+        setFileProgress((prev) => ({
+          ...prev,
+          [file.name]: { uploaded: 0, total: totalPages }, // Track pages instead of chunks
+        }));
 
-        // Split the chunks into batches of 100
-        const batches = splitIntoBatches(chunks, chunkSize);
+        // Parallelize processing of all pages
+        await Promise.all(
+          chunks.map(async (pageChunks, pageIndex) => {
+            try {
+              // Process chunks in parallel for the current page
+              await Promise.all(
+                pageChunks.map(async (chunk: string, chunkIndex: number) => {
+                  try {
+                    const ingestResponse = await fetch('/api/assistant/files/ingest', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        chunk: chunk,
+                        filename: file.name,
+                        index: `${pageIndex}-${chunkIndex}`,
+                      }),
+                    });
 
-        // Process each batch sequentially or in parallel
-        for (const batch of batches) {
-          try {
-            const ingestResponse = await fetch('/api/assistant/files/ingest', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                chunks: batch,
-                filename: file.name,
-              }),
-            });
+                    if (!ingestResponse.ok) {
+                      console.error(`Failed to ingest chunk on page ${pageIndex}, chunk index ${chunkIndex}:`, chunk);
+                    }
+                  } catch (error) {
+                    console.error(`Error ingesting chunk on page ${pageIndex}, chunk index ${chunkIndex}:`, error);
+                  }
+                })
+              );
 
-            if (!ingestResponse.ok) {
-              console.error('Failed to ingest batch:', batch);
-            } else {
-              console.log('Successfully ingested batch:', batch);
+              // Update progress after processing all chunks for the current page
+              setFileProgress((prev) => ({
+                ...prev,
+                [file.name]: {
+                  ...prev[file.name],
+                  uploaded: prev[file.name]?.uploaded + 1, // Increment page count
+                  currentPage: pageIndex + 1, // Update current page being processed
+                },
+              }));
+            } catch (error) {
+              console.error(`Error processing page ${pageIndex}:`, error);
             }
-          } catch (error) {
-            console.error('Error processing batch:', error);
-          }
-        }
+          })
+        );
       } catch (error) {
         toast.error(`Échec du téléchargement de "${file.name}".`);
       }
     }
+
     setFileIds(uploadedFileIds);
     setFilesUploading(false);
   };
@@ -436,6 +463,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                 files={files}
                 onDeleteFile={handleDeleteFile}
                 uploading={filesUploading}
+                progress={fileProgress}
               />
             )}
             <SelectMode />

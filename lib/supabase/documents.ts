@@ -5,7 +5,6 @@ import {
   isSupabaseTableExists
 } from "@/lib/supabase/utils";
 import {createClient} from "@/lib/supabase/client/server";
-import {Document} from "@langchain/core/documents";
 import {UserDocument} from "@/lib/types/document";
 import {embeddingWithVoyageLaw} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";

@@ -41,13 +41,12 @@ export async function POST(req: Request) {
       docs.map(async (doc) => {
         // Makes chunks with LangChain
         const textSplitter = new RecursiveCharacterTextSplitter({
-          chunkSize: 3072,
-          chunkOverlap: 384,
+          chunkSize: 2048,
+          chunkOverlap: 256,
         });
         return textSplitter.splitText(doc.pageContent);
       })
     );
-    const flattenedChunks = chunks.flat();
 
     const stream = createReadStream(tempFilePath);
     const openAiFileResponse = await openai.files.create({
@@ -57,7 +56,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       fileId: openAiFileResponse.id,
-      chunks: flattenedChunks,
+      chunks: chunks,
     });
   } catch (error) {
     console.error('File upload error:', error);

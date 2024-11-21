@@ -30,22 +30,30 @@ const getMatchedUserDocuments = async (input: string) => {
   console.log('semanticResponse:', semanticResponse);
   const bm25Results = await ElasticsearchClient.searchUserDocuments(input, NUM_RELEVANT_CHUNKS);
   // console.log('bm25Results:', bm25Results);
-  if (semanticResponse.length === 0 || bm25Results.length === 0)
+  if (semanticResponse.length === 0 || bm25Results.length === 0) {
+    console.warn("no result were found for semantic and BM25 search.");
     return "";
+  }
   const semanticIds = semanticResponse.map((doc) => doc.id);
   const bm25Ids = bm25Results.map((doc: any) => doc.id);
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 80, 0.5, 0.5);
   const listIDs = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
   const docsToRank = await getUserDocumentsByIds(listIDs);
   const docsContent = docsToRank?.map(article => article.content) || [];
-  if (!docsToRank) return "";
+  if (!docsToRank) {
+    console.warn("no docs to rank.");
+    return ""
+  }
   const docsRanked: any = await rerankWithVoyageAI(input, docsContent);
   console.log("docsRanked", docsRanked);
-  const filteredDocs: any = docsRanked.data.filter((doc: UserDocumentPrecision) => doc.relevance_score >= 0.4);
+  const filteredDocs: any = docsRanked.data.filter((doc: UserDocumentPrecision) => doc.relevance_score >= 0.2);
   const indexes = filteredDocs.map((doc: UserDocumentPrecision) => doc.index).reverse();
   const orderedDocs = indexes.map((index: number) => docsToRank[index]);
   console.log("orderedDocs:", orderedDocs);
-  if (!orderedDocs) return "";
+  if (!orderedDocs){
+    console.warn("no ordered docs.");
+    return "";
+  }
   try {
     convertUserDocumentsToXML(orderedDocs)
   } catch (error) {
