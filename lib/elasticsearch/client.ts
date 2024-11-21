@@ -94,6 +94,10 @@ class ElasticsearchClientSingleton {
   public async searchUserDocuments(query: string, limit: number): Promise<any> {
     try {
       const indexName = await this.getUserDocumentIndexName();
+      if (!await this.isIndexExists(indexName)) {
+        console.log('searchUserDocuments index does not exist, create it.')
+        await this.createIndex(indexName);
+      }
       const result = await this.client.search<{ content: string }>({
         index: indexName,
         query: {
