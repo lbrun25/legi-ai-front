@@ -12,17 +12,17 @@ export const Suggestions = ({onSuggestionClicked}: SuggestionsProps) => {
   const suggestions = [
     {
       id: "research",
-      text: "Aide moi à trouver une jurisprudence",
+      text: "Aide moi à réaliser une recherche juridique",
       icon: <ScaleIcon/>
     },
     {
       id: "analysis",
-      text: "Aide moi dans ma recherche juridique",
+      text: "Répond à des questions précises sur un document",
       icon: <SearchIcon/>,
     },
     {
       id: "redaction",
-      text: "Aide-moi à identifier les articles de loi pertinents",
+      text: "Résume ce document",
       icon: <BookIcon/>
     }
   ];
@@ -38,6 +38,8 @@ export const Suggestions = ({onSuggestionClicked}: SuggestionsProps) => {
             onClick={() => {
               onSuggestionClicked(suggestion.text);
               if (selectedMode !== "analysis" && suggestion.id === "analysis")
+                setSelectedMode(suggestion.id);
+              if (selectedMode !== "synthesis" && suggestion.id === "synthesis")
                 setSelectedMode(suggestion.id);
             }}
           >
