@@ -175,6 +175,30 @@ class ElasticsearchClientSingleton {
       console.error(`Error indexing user document (${doc.id}):`, error);
     }
   }
+
+  public async deleteAllDataInIndex(index: string): Promise<void> {
+    try {
+      // Ensure the index exists before attempting deletion
+      const indexExists = await this.isIndexExists(index);
+      if (!indexExists) {
+        console.log(`Index ${index} does not exist. No data to delete.`);
+        return;
+      }
+
+      // Use the _delete_by_query API to delete all documents
+      const result = await this.client.deleteByQuery({
+        index: index,
+        query: {
+          match_all: {}, // Match all documents
+        },
+        refresh: true, // Ensures the index is refreshed after deletion
+      });
+
+      console.log(`Successfully deleted all data from index ${index}:`, result);
+    } catch (error) {
+      console.error(`Error deleting all data from index ${index}:`, error);
+    }
+  }
 }
 
 export const ElasticsearchClient = ElasticsearchClientSingleton.getInstance();

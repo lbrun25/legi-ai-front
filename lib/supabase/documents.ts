@@ -68,7 +68,7 @@ export const checkUserDocumentTable = async () => {
 }
 
 export const insertDocument = async (
-  doc: Document,
+  metadata: Record<string, any>,
   chunk: string,
   tableName: string,
   filename: string,
@@ -132,7 +132,7 @@ export const insertDocument = async (
           content: chunk,
           filename: filename,
           index: index,
-          metadata: JSON.stringify(doc.metadata),
+          metadata: JSON.stringify(metadata),
           embedding_voyage: embeddingVoyage,
         },
       ])

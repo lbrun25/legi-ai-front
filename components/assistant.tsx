@@ -313,9 +313,47 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         });
         const result = await response.json();
         if (response.ok) {
-          uploadedFileIds.push(result.id);
+          uploadedFileIds.push(result.fileId);
         } else {
           toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
+        }
+        const chunks = result.chunks;
+        const chunkSize = 100;
+
+        // Helper function to split chunks into batches of 100
+        const splitIntoBatches = (array: any[], size: number) => {
+          const batches = [];
+          for (let i = 0; i < array.length; i += size) {
+            batches.push(array.slice(i, i + size));
+          }
+          return batches;
+        };
+
+        // Split the chunks into batches of 100
+        const batches = splitIntoBatches(chunks, chunkSize);
+
+        // Process each batch sequentially or in parallel
+        for (const batch of batches) {
+          try {
+            const ingestResponse = await fetch('/api/assistant/files/ingest', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                chunks: batch,
+                filename: file.name,
+              }),
+            });
+
+            if (!ingestResponse.ok) {
+              console.error('Failed to ingest batch:', batch);
+            } else {
+              console.log('Successfully ingested batch:', batch);
+            }
+          } catch (error) {
+            console.error('Error processing batch:', error);
+          }
         }
       } catch (error) {
         toast.error(`Échec du téléchargement de "${file.name}".`);
