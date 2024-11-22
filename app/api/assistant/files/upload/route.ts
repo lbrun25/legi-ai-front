@@ -15,7 +15,7 @@ const openai = new OpenAI({
 
 const docGoogleAiClient = new DocumentProcessorServiceClient({
   apiEndpoint: 'eu-documentai.googleapis.com',
-  ...getGCPCredentials
+  ...getGCPCredentials()
 });
 
 export async function POST(req: Request) {
