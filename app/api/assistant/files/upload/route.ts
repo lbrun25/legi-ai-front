@@ -6,6 +6,7 @@ import path from 'path';
 import {createReadStream} from 'fs';
 import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
 import { PDFDocument } from 'pdf-lib'
+import {getGCPCredentials} from "@/lib/google/gcp";
 
 
 const openai = new OpenAI({
@@ -13,7 +14,8 @@ const openai = new OpenAI({
 });
 
 const docGoogleAiClient = new DocumentProcessorServiceClient({
-  apiEndpoint: 'eu-documentai.googleapis.com'
+  apiEndpoint: 'eu-documentai.googleapis.com',
+  ...getGCPCredentials
 });
 
 export async function POST(req: Request) {
