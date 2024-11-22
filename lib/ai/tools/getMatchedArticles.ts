@@ -14,15 +14,33 @@ interface ArticlePrecision {
 }
 
 export const getMatchedArticlesTool = tool(async (input) => {
-  console.log("[getMatchedArticlesTool] Query :", input.query)
-  return resultArticles(input.query);
-}, {
+  try {
+    // Validation de l'entrée
+    if (!input.query.trim()) {
+      throw new Error("La requête de recherche des articles ne peut pas être vide");
+    }
+
+    // Effectuer la recherche
+    const response:any = await getMatchedArticles(input.query);
+    const artiles = await articlesCleaned(response.codeName, response.listIDs, input.query,)
+    // Vérifier si la réponse est valide
+    if (!artiles) {
+      return "Aucun résultat trouvé pour cette recherche de articles.";
+    }
+    console.log(`[getMatchedArticlesTool] Pour l'input : "${input.query}", les articles viennent d'être transmises à l'agent.`);
+    return artiles;
+  } catch (error: any) {
+    console.error("Erreur lors de la recherche des articles:", error);
+    throw new Error(`Erreur lors de la recherche des articles: ${error.message}`);
+  }
+},
+{
   name: 'getMatchedArticles',
-  description: "Obtient les articles les plus similaires basée sur la rêquete de l'utilisateur",
+  description: "Obtient les articles les plus similaires à la rêquete",
   schema: z.object({
     query: z.string().describe("Il est impératif de mentionner le nom du code entre crochets ([]) au début de la requête, suivi de termes juridiques précis et pertinents. Exemple : [Nom du code] terme1 terme2 ..."),
   })
-})
+});
 
 async function resultArticles(input: any){
   if (!input) return "";
@@ -61,20 +79,16 @@ export async function getMatchedArticles(input: any) {
   if (semanticResponse.hasTimedOut) return "";
   const codeNameMatch = input.match(/\[([^\]]+)\]/);
   const codeName = codeNameMatch ? codeNameMatch[1] : semanticResponse.codeName;
-
   const bm25Results = await ElasticsearchClient.searchArticles(semanticResponse.codeName, input, NUM_RELEVANT_CHUNKS);
   if (semanticResponse.articles.length === 0 || bm25Results.length === 0)
     return "";
-
   const semanticIds = semanticResponse.articles.map((article) => article.id);
-  //console.log("inputs :", input)
-  //console.log('Nb semantic articles:', semanticIds);
   const bm25Ids = bm25Results.map((article: any) => article.id);
-  //console.log("inputs :", input)
-  //console.log('Nb bm25Results articles:', bm25Ids);
+  //console.log('[Article] Semantic : ', semanticIds);
+  //console.log('[Article] BM25: ', input, bm25Ids);
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 80, 0.5, 0.5);
   const listIDs = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
-  console.log("[Articles] RankFusion :", listIDs);
+  //console.log("[Articles] RankFusion :", listIDs);
   //const listIDs = rankFusionIds.slice(0, 10);
   return {codeName, listIDs}
 }
@@ -100,6 +114,9 @@ export async function articlesCleaned(code: string, rankFusionIds: bigint[], inp
   const articlesToRank = await getArticlesByIds(rankFusionIds, codeName);
   const articlesContent = articlesToRank?.map(article => article.content) || [];
   if (!articlesToRank) return "";
+  /* SET SI JE PASSE LE CONTENU A RECHERCHE EN MODE JE PASSE LE CONTENU ET IL DOIT TROUVER L'ART
+  const newInput = await transformText(input);
+  console.log("Artricles NewInput :", newInput)*/
   const articlesRanked: any = await rerankWithVoyageAI(input, articlesContent); //A voir si on vire le reranlr quand ça passe apres doctrine et on garde quand ça passe pas par la doctrine avant aussi actuellement c'est sur summary l'input il faut modifier pour mettre sur le contenu de l'article
   //console.log("index :", articlesRanked)
   const filteredArticles: any = articlesRanked.data.filter((Article: ArticlePrecision) => Article.relevance_score >= 0.4);
@@ -150,4 +167,8 @@ function convertArticlesToXML(codeName: string, articles: { number: string, cont
   });
   const serializer = new XMLSerializer();
   return serializer.serializeToString(document);
+}
+
+async function transformText(input: string): Promise<string> {
+  return input.replace(/\[([^\]]+)\]/g, "Quelle article semble contenir la phrase suivant :");
 }

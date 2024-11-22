@@ -6,7 +6,7 @@ import {rankFusion} from "@/lib/utils/rank-fusion";
 import {rerankWithVoyageAI} from "@/lib/ai/voyage/reRankers";
 import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
-const NUM_RELEVANT_CHUNKS = 150;
+const NUM_RELEVANT_CHUNKS = 500;
 
 interface DoctrinesPrecision {
   relevance_score: number;
@@ -14,33 +14,51 @@ interface DoctrinesPrecision {
 }
 
 export const getMatchedDoctrinesTool = tool(async (input) => {
-  console.log("Doctrines :", input)
-  return getMatchedDoctrines(input.query);
-}, {
+  try {
+    // Validation de l'entrée
+    if (!input.query.trim()) {
+      throw new Error("La requête de recherche des doctrines ne peut pas être vide");
+    }
+
+    // Effectuer la recherche
+    const response = await getMatchedDoctrines(input.query);
+    const doctrines = await listDoctrines(input.query, response)
+    // Vérifier si la réponse est valide
+    if (!doctrines) {
+      return "Aucun résultat trouvé pour cette recherche de doctrines.";
+    }
+    console.log(`[getMatchedDoctrinesTool] Pour l'input : "${input.query}", les doctrines viennent d'être transmises à l'agent.`);
+    return doctrines;
+  } catch (error: any) {
+    console.error("Erreur lors de la recherche des doctrines:", error);
+    throw new Error(`Erreur lors de la recherche des doctrines: ${error.message}`);
+  }
+},
+{
   name: 'getMatchedDoctrines',
-  description: "Obtient les doctrines les plus similaires à la demande de l'utilisateur",
+  description: "Obtient les doctrines les plus similaires à la rêquete",
   schema: z.object({
-    query: z.string().describe("La description du problème que l'utilisateur tente de résoudre"),
+    query: z.string().describe("Rêquete pour consulter la doctrine"),
   })
-})
+});
 
 export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
-  console.log("input :", input)
+  //console.log("input :", input)
   //console.time("getMatchedDoctrines")
   if (!input) return [];
   const bm25Results = await ElasticsearchClient.searchDoctrines(input, NUM_RELEVANT_CHUNKS);
   if (bm25Results.length === 0)
     return [];
-  //const bm25IdsForSemantic = bm25Results.map((decision: any) => decision.id);
-  //const bm25Ids = bm25IdsForSemantic.slice(0, 150);
+  const bm25IdsForSemantic = bm25Results.map((doctrine: any) => doctrine.id);
+  const bm25Ids = bm25IdsForSemantic.slice(0, 150);
   //console.log('Nb bm25Results doctrines:', bm25Ids);
-  const semanticResponse = await searchMatchedDoctrines(input, 40);
+  const semanticResponse = await searchMatchedDoctrines(input, 150, bm25IdsForSemantic);
   if (semanticResponse.hasTimedOut) return [];
   if (semanticResponse.doctrines.length === 0 || bm25Results.length === 0)
     return [];
   const semanticIds = semanticResponse.doctrines.map((doctrine) => doctrine.id);
   //console.log("Semantic doctrines ids :", semanticIds);
-  const bm25Ids = bm25Results.map((doctrine: any) => doctrine.id);
+  //const bm25Ids = bm25Results.map((doctrine: any) => doctrine.id);
   //console.log('Nb bm25Results doctrines:', bm25Ids);
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 50, 0.65, 0.35);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
@@ -54,48 +72,60 @@ export async function listDoctrines(input: string, rankFusionIds: bigint[]):Prom
   console.log("doctrine ids :", rankFusionIds)
   const doctrinesToRank = await getDoctrinesByIds(rankFusionIds);
   if (!doctrinesToRank) return "";
-  const doctrinesContentToRank = doctrinesToRank?.map((doctrine) => doctrine.paragrapheContent as string);
+  const doctrinesContentToRank = doctrinesToRank?.map((doctrine) => doctrine.contextual_content as string);
   if (!doctrinesContentToRank) return "";
   const doctrinesRanked: any = await rerankWithVoyageAI(input, doctrinesContentToRank);
   const filteredDoctrines: any = doctrinesRanked.data.filter((doctrine: DoctrinesPrecision) => doctrine.relevance_score >= 0.5);
-  console.log("filteredDoctrines : ", filteredDoctrines)
+  //console.log("filteredDoctrines : ", filteredDoctrines)
   let doctrinesFormatted = "";
-  for (let i = 0; i < filteredDoctrines.length && i < 20; i++) { // Faire passer les 10 dec à un agent qui refait un résumé et ensuite à cette agent
+  for (let i = 0; i < filteredDoctrines.length && i < 25; i++) { // Faire passer les 10 dec à un agent qui refait un résumé et ensuite à cette agent
     const index = doctrinesRanked.data[i].index;
-    //const content = doctrinesToRank[index];
+    //console.log("Index of doctrines send to LLM :", doctrinesToRank[index].id)    //const content = doctrinesToRank[index];
     const doctrine: any = doctrinesToRank[index];
     //console.log("ParagrapheNB :", doctrine.paragrapheNumber)
     //console.log(`${doctrine.bookTitle} : ${doctrine.paragrapheContent}`)
-    doctrinesFormatted += `<doctrines><doctrine_domaine>${doctrine.bookTitle}</doctrine_domaine><content>${doctrine.paragrapheContent}</content></doctrines>\n`;
+    doctrinesFormatted += `<doctrines><doctrine_domaine>${doctrine.bookTitle}</doctrine_domaine><content>${doctrine.contextual_content}</content></doctrines>\n`;
   }
   //console.log(formattedFiches)
   return doctrinesFormatted;
 }
 
-// Convert the result to XML format
-function convertDoctrinesToXML(doctrines: { paragrapheNumber: string, paragrapheContent: string }[]): string {
-  const domImplementation = new DOMImplementation();
-  const document = domImplementation.createDocument(null, 'doctrines', null);
-  const rootElement = document.documentElement;
-  if (!rootElement) return "";
-
-  doctrines.forEach((doctrine) => {
-    // Create <doctrine> element
-    const doctrineElement = document.createElement('doctrine');
-
-    // Create <paragrapheNumber> element
-    const numberElement = document.createElement('paragrapheNumber');
-    numberElement.textContent = doctrine.paragrapheNumber.toString();
-    doctrineElement.appendChild(numberElement);
-
-    // Create <paragrapheContent> element
-    const contentElement = document.createElement('paragrapheContent');
-    contentElement.textContent = doctrine.paragrapheContent;
-    doctrineElement.appendChild(contentElement);
-
-    // Append <doctrine> to the root element
-    rootElement.appendChild(doctrineElement);
-  });
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(document);
+async function estimateTokenCount(strings: string[]): Promise<number> {
+  const TOKEN_LIMIT = 150000;
+  const AVERAGE_CHARS_PER_TOKEN = 4;
+  const WHITESPACE_FACTOR = 1.2;
+  const PUNCTUATION_FACTOR = 1.1;
+  
+  let runningTotal = 0;
+  
+  for (let i = 0; i < strings.length; i++) {
+    const str = strings[i];
+    
+    // Compte les caractères
+    const charCount = str.length;
+    
+    // Compte les espaces pour ajuster l'estimation
+    const whitespaceCount = (str.match(/\s/g) || []).length;
+    
+    // Compte la ponctuation pour ajuster l'estimation
+    const punctuationCount = (str.match(/[.,!?;:'"()\[\]{}]/g) || []).length;
+    
+    // Calcul de base : caractères divisés par la moyenne de caractères par token
+    let baseEstimate = charCount / AVERAGE_CHARS_PER_TOKEN;
+    
+    // Ajustement pour les espaces et la ponctuation
+    baseEstimate *= (1 + (whitespaceCount / charCount) * WHITESPACE_FACTOR);
+    baseEstimate *= (1 + (punctuationCount / charCount) * PUNCTUATION_FACTOR);
+    
+    const estimatedTokens = Math.ceil(baseEstimate);
+    runningTotal += estimatedTokens;
+    
+    // Si on dépasse la limite, retourner l'index actuel
+    if (runningTotal > TOKEN_LIMIT) {
+      return i;
+    }
+  }
+  
+  // Si on n'a jamais dépassé la limite, retourner -1
+  return -1;
 }

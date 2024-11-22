@@ -7,7 +7,7 @@ import {MatchedDecision} from "@/lib/supabase/searchDecisions";
 
 export interface MatchedDoctrine {
   id: bigint;
-  paragrapheContent: string;
+  contextual_content: string;
   paragrapheNumber: string;
   bookTitle: string;
   similarity: number;
@@ -111,8 +111,8 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
   }
 };
 
-export const searchMatchedDoctrines = async (input: string, limit: number = 5): Promise<SearchMatchedDoctrinesResponse> => {
-  //console.log('searchMatchedDoctrines:', input);
+export const searchMatchedDoctrines = async (input: string, limit: number = 5, idList: bigint[]): Promise<SearchMatchedDoctrinesResponse> => {
+  //console.log('searchMatchedDoctrines:', idList);
   const response = await embeddingWithVoyageLawForDoctrines(input)
   if (!response) {
     return {
@@ -122,7 +122,7 @@ export const searchMatchedDoctrines = async (input: string, limit: number = 5): 
     };
   }
   const embedding_Voyage = response.data[0].embedding;
-  const openai = new OpenAI({
+  /*const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
   const result = await openai.embeddings.create({
@@ -131,11 +131,11 @@ export const searchMatchedDoctrines = async (input: string, limit: number = 5): 
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 2;
-  const matchCount = 10;
+  const maxIndex = 0;
+  const matchCount = 10;*/
 
   try {
-    const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    /*const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
     if (fetchDoctrinesFromPartitionsResponse.hasTimedOut) {
       return {
         doctrines: [],
@@ -143,8 +143,8 @@ export const searchMatchedDoctrines = async (input: string, limit: number = 5): 
         doctrineDomaine: "",
       }
     }
-    const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);
-    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, limit);
+    const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);*/
+    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, idList, limit);
     const domaine = fetchDoctrinesFromIdsResponse.doctrines[0]?.bookTitle;
     //console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, bookTitle: m.bookTitle, paragrapheNumber:m.paragrapheNumber, similarity: m.similarity})));
     return {
@@ -163,13 +163,29 @@ export const searchMatchedDoctrines = async (input: string, limit: number = 5): 
 }
 
 export async function getDoctrinesByIds(ids: bigint[]) {
-  const { data, error } = await supabaseClient
-    .from("LegalDoctrine")
-    .select('id,paragrapheContent,paragrapheNumber, bookTitle')
-    .in('id', ids);
-  if (error) {
-    console.error('Error fetching doctrines:', error);
-    return null;
+  let retries = 0;
+  
+  while (retries < 5) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("LegalDoctrine")
+        .select('id, contextual_content, paragrapheNumber, bookTitle')
+        .in('id', ids);
+
+      if (error) throw error;
+      return data;
+      
+    } catch (error) {
+      retries++;
+      console.error(`Attempt ${retries}/${3} failed:`, error);
+      
+      if (retries === 3) {
+        console.error('Max retries reached. Returning null.');
+        return null;
+      }
+      await new Promise(resolve => setTimeout(resolve, 200 * retries));
+    }
   }
-  return data;
+  
+  return null;
 }
