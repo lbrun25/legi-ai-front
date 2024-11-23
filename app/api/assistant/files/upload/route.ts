@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     const totalPages = pdfDoc.getPageCount();
     const MAX_PAGES = 15;
 
-    let chunks: string[] = [];
+    let allChunks: string[] = [];
 
     for (let i = 0; i < totalPages; i += MAX_PAGES) {
       console.log('will process page:', i)
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
         chunkSize: 2048,
         chunkOverlap: 256,
       });
-      chunks = await textSplitter.splitText(text);
+      const chunks = await textSplitter.splitText(text);
 
       // Extract shards from the text field
       // const getText = (textAnchor) => {
@@ -121,6 +121,8 @@ export async function POST(req: Request) {
       //     return paragraphChunks.flat(); // Flatten paragraph chunks into a single array for the page
       //   })
       // );
+
+      allChunks.push(...chunks);
     }
 
     // Write file to temporary location
@@ -134,7 +136,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       fileId: openAiFileResponse.id,
-      chunks: chunks,
+      chunks: allChunks,
     });
   } catch (error) {
     console.error('File upload error:', error);
