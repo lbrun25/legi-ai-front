@@ -5,9 +5,7 @@ import {RecursiveCharacterTextSplitter} from "@langchain/textsplitters";
 import path from 'path';
 import {createReadStream} from 'fs';
 import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
-import { PDFDocument } from 'pdf-lib'
-import {getGCPCredentials} from "@/lib/google/gcp";
-
+import {PDFDocument} from 'pdf-lib'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -15,7 +13,12 @@ const openai = new OpenAI({
 
 const docGoogleAiClient = new DocumentProcessorServiceClient({
   apiEndpoint: 'eu-documentai.googleapis.com',
-  ...getGCPCredentials()
+  projectId: process.env.GCP_PROJECT_ID,
+  credentials: {
+    project_id: process.env.GCP_PROJECT_ID,
+    private_key: process.env.GCP_PRIVATE_KEY,
+    client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
+  },
 });
 
 export async function POST(req: Request) {
@@ -34,10 +37,10 @@ export async function POST(req: Request) {
     }
     tempFilePath = path.join(tempDir, file.name);
 
-    const projectId = "739114993089";
-    const location = process.env.GOOGLE_CLOUD_PROJECT_LOCATION || 'eu';
-    const processorId = process.env.GOOGLE_CLOUD_PROCESSOR_ID || '';
-    const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
+    const projectNumber = process.env.GCP_PROJECT_NUMBER;
+    const location = process.env.GCP_PROJECT_LOCATION || 'eu';
+    const processorId = process.env.GCP_PROCESSOR_ID || '';
+    const name = `projects/${projectNumber}/locations/${location}/processors/${processorId}`;
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
