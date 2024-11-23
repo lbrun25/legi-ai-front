@@ -9,6 +9,7 @@ import { JsonOutputToolsParser } from "langchain/output_parsers";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { GraphAnnotation} from '@/lib/ai/langgraph/graph'
+import {BaseChatModel} from "@langchain/core/language_models/chat_models";
 
 const llm = new ChatOpenAI({
     temperature: 0,
@@ -19,7 +20,7 @@ const llm = new ChatOpenAI({
   });
 
 const hydeAgent = createReactAgent({
-    llm,
+    llm: llm as unknown as BaseChatModel,
     tools: [],
     messageModifier: new SystemMessage(HydeAgentPrompt)
   })

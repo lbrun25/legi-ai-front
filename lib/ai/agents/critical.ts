@@ -59,7 +59,7 @@ export const criticalNode = async (
     ];
 
     try {
-        const result = await llm.invoke(input, config);
+        const result = await llm.invoke(input);
         console.log("Critical Agent response :", result.content)
         console.timeEnd("call criticalagent invoke");
         return {

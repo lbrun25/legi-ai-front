@@ -10,6 +10,7 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getMatchedDecisions, listDecisions, getMatchedDecisionsTool } from "@/lib/ai/tools/getMatchedDecisions";
 import { GraphAnnotation} from '@/lib/ai/langgraph/graph'
+import {BaseChatModel} from "@langchain/core/language_models/chat_models";
 
 const llm = new ChatOpenAI({
     temperature: 0,
@@ -22,12 +23,12 @@ const llm = new ChatOpenAI({
 /* AVEC CALL TOOL SEUL */
 
 const decisionAgent = createReactAgent({
-    llm,
+    llm: llm as unknown as BaseChatModel,
     tools: [getMatchedDecisionsTool],
     messageModifier: new SystemMessage(DecisionAgentPrompt)
   })
   // const decisionsModel = llm.bindTools([getMatchedDecisions]);
-  
+
   export const decisionAgentNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
@@ -55,4 +56,4 @@ const decisionAgent = createReactAgent({
       console.error("error when invoking decisions agent:", error);
       return { messages: [] }
     }
-}; 
+};

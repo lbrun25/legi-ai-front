@@ -77,7 +77,7 @@ export const doctrinesIntermediaryNode = async (
     try {
       //console.timeEnd("[DoctrinesThinking] : Data Ready, send to LLM");
       //console.log("[DoctrinesThinkingAgents] inputs : ", inputs)
-      const result = await llm.invoke(inputs, config);
+      const result = await llm.invoke(inputs);
       console.timeEnd("[DoctrinesThinking] : invoke")
       const lastMessage = result.content
       console.log("[DoctrinesThinkingAgents] Content :", lastMessage);

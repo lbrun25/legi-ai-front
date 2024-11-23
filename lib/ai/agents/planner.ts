@@ -1,4 +1,3 @@
-"use server"
 import { ChatOpenAI } from "@langchain/openai";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { PlannerAgentPrompt } from "@/lib/ai/langgraph/prompt";
@@ -36,15 +35,18 @@ const subQuestionsTool = {
 };
 
 //BreakDown in question
+
 export const plannerChain = plannerPrompt
-.pipe(llm.bindTools([subQuestionsTool]))
-.pipe(new JsonOutputToolsParser())
-.pipe((output) => {
-  //LIMITE DANS LES PIPE OUTPUT ICI JE PEUX METTRE UN CONTROLE POUR ETRE SUR QUE C'EST QUE DES QUESTIONS
-  //console.timeEnd("call output plannerChain");
-  console.log('[plannerChain] Liste des requêtes:', JSON.stringify(output));
-  return output[0].args; // Retourne les requêtes générées
-});
+  // @ts-ignore
+  .pipe(llm.bindTools([subQuestionsTool]))
+  // @ts-ignore
+  .pipe(new JsonOutputToolsParser())
+  .pipe((output) => {
+    //LIMITE DANS LES PIPE OUTPUT ICI JE PEUX METTRE UN CONTROLE POUR ETRE SUR QUE C'EST QUE DES QUESTIONS
+    //console.timeEnd("call output plannerChain");
+    console.log('[plannerChain] Liste des requêtes:', JSON.stringify(output));
+    return output[0].args; // Retourne les requêtes générées
+  });
 
 
 /* FAIRE STRUCTURED OUTPUT */
@@ -63,7 +65,7 @@ export const plannerNode = async (
     const criticalAgentMessage = state.messages.find(
         (msg) => msg.name === "CriticalAgent"
     );
-  
+
     // Premier passage pas encore eu de feedback de l'agent
     if (!criticalAgentMessage) //
     {

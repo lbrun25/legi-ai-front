@@ -11,6 +11,7 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 //import { webSearch, getSearchResults, getLastSearchKey} from '@/lib/ai/tools/webSearchTool' // Pour passer contenu site à cette page
 import { webSearch } from '@/lib/ai/tools/webSearchTool'
 import { GraphAnnotation } from '@/lib/ai/langgraph/graph'
+import {BaseChatModel} from "@langchain/core/language_models/chat_models";
 
 
 const llm = new ChatOpenAI({
@@ -22,7 +23,7 @@ const llm = new ChatOpenAI({
 });
 
 const webSearchAgent = createReactAgent({
-    llm,
+    llm: llm as unknown as BaseChatModel,
     tools: [webSearch],
     messageModifier: new SystemMessage(WebSearchAgentPrompt)
 })
@@ -42,7 +43,7 @@ export const webSearchNode = async (
     try {
       const result = await webSearchAgent.invoke({messages: input}, config);
       //console.timeEnd("call webSearchAgent invoke")
-      /* TEST 
+      /* TEST
       const searchKey = getLastSearchKey();
       if (!searchKey) {
           return Response.json({ error: "Aucune recherche trouvée" });
@@ -63,5 +64,5 @@ export const webSearchNode = async (
       console.error("error when invoking decisions agent:", error);
       return { messages: [] }
     }
-}; 
+};
 

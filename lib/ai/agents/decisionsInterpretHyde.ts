@@ -29,7 +29,7 @@ export const decisionsInterpretHydeNode = async (
     const hydeAgentMessage = state.messages.find(
       (msg) => msg.name === "HydeAgent"
     );
-  
+
     async function getExpertMessages() {
       const expertMessages: string[] = [];
       const rankFusionIdsPromises = await getMatchedDecisions(hydeAgentMessage?.content);
@@ -38,22 +38,22 @@ export const decisionsInterpretHydeNode = async (
       expertMessages.push(message);
       return expertMessages;
     }
-  
+
     const expertMessages = await getExpertMessages();
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(DecisionsThinkingAgent)
       .format({
         summary: state.summary,
       });
-  
+
     const input: any = [
       systemMessage,
       ...expertMessages
     ];
-  
+
     try {
       console.timeEnd("[DecisionsInterpretHydeAgent] : Data Ready, send to LLM");
-      const result = await llm.invoke(input, config);
+      const result = await llm.invoke(input);
       console.timeEnd("[DecisionsInterpretHydeAgent] : invoke");
       const lastMessage = result.content
       console.log("DecisionsInterpretHydeAgent Content :", lastMessage)

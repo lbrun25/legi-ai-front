@@ -1,4 +1,3 @@
-"use server"
 import { ChatOpenAI } from "@langchain/openai";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
@@ -81,9 +80,9 @@ export const webSearch = tool(async (input) => {
 
         // Traiter les résultats pour obtenir les résumés
         const enhancedResults = await processSearchResults(response);
-        
+
         console.log("[WebSearchTool]: Resultats internet résumés et transmis à l'agent.")
-        
+
         enhancedResults.forEach((result, index) => {
           console.log(`--- Page ${index + 1} ---`);
           console.log(`Date de Publication: ${result.publishedDate || 'Non spécifiée'}`);
@@ -148,7 +147,7 @@ export const webSearch = tool(async (input) => {
       // Formater les résultats
       return response
         .map((result: SearchResult) => {
-          
+
           // Construction du résultat
           let formattedResult = [
             `# ${result.title}`,
@@ -239,7 +238,7 @@ export const webSearch = tool(async (input) => {
       // Formater les résultats
       return response
         .map((result: SearchResult) => {
-          
+
           // Construction du résultat
           let formattedResult = [
             `# ${result.title}`,
@@ -269,7 +268,7 @@ export const webSearch = tool(async (input) => {
   }
 );*/
 
-/* POUR PASSER RESULTAT SITE A AUTRE PAGE 
+/* POUR PASSER RESULTAT SITE A AUTRE PAGE
 // Variable pour stocker les résultats temporairement sur le serveur
 let searchResults: { [key: string]: string } = {};
 

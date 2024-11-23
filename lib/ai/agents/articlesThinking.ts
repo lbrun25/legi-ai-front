@@ -107,7 +107,7 @@ export const articlesThinkingNode = async (
 
     try {
       console.timeEnd("[ArticlesThinkingAgent] : Data Ready, send to LLM");
-      const result = await llm.invoke(input, config);
+      const result = await llm.invoke(input);
       console.timeEnd("[ArticlesThinkingAgent] : invoke");
       const lastMessage = result.content
       console.log("[ArticlesThinkingAgent] Result :", lastMessage)

@@ -1,12 +1,10 @@
 "use server"
 import { ChatOpenAI } from "@langchain/openai";
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { articlesInterpretHydePrompt } from "@/lib/ai/langgraph/prompt";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { z } from "zod";
-import { ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate } from "@langchain/core/prompts";
+import { HumanMessage } from "@langchain/core/messages";
+import { SystemMessagePromptTemplate } from "@langchain/core/prompts";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { getMatchedArticles, articlesCleaned, getMatchedArticlesTool } from "@/lib/ai/tools/getMatchedArticles";
+import { getMatchedArticles, articlesCleaned } from "@/lib/ai/tools/getMatchedArticles";
 import { getArticleByNumber2 } from "@/lib/ai/tools/getArticleByNumber";
 import { mergeResults } from '../../utils/mergeResults'
 import { GraphAnnotation} from '@/lib/ai/langgraph/graph'
@@ -102,7 +100,7 @@ export const articlesInterpretHydeNode = async (
 
     try {
       //console.timeEnd("[ArticlesInterpretHydeAgent] : Data Ready, send to LLM");
-      const result = await llm.invoke(input, config);
+      const result = await llm.invoke(input);
       console.log("[ArticlesInterpretHydeAgent] input :", input)
       //console.timeEnd("[ArticlesInterpretHydeAgent] : invoke");
       const lastMessage = result.content
@@ -117,4 +115,3 @@ export const articlesInterpretHydeNode = async (
       return { messages: [] }
     }
   };
-  

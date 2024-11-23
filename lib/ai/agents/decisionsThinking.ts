@@ -37,7 +37,7 @@ export const decisionsThinkingNode = async (
       let rankFusionIds: bigint[] = [];
 
       console.timeEnd("[DecisionsThinking] : Start searching decisions in DB.");
-      
+
       const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
         let rankFusionIdsTemp = await getMatchedDecisions(query);
         let retries = 0;
@@ -66,7 +66,7 @@ export const decisionsThinkingNode = async (
     }
 
     const expertMessages = await getExpertMessages();
-    
+
     // ICI AJOTUER POUR RESUMER DETOUTE LES DECISIONS
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(DecisionsThinkingAgent)
@@ -81,7 +81,7 @@ export const decisionsThinkingNode = async (
 
     try {
       console.timeEnd("[DecisionsThinking] : Data Ready, send to LLM");
-      const result = await llm.invoke(input, config);
+      const result = await llm.invoke(input);
       console.timeEnd("[DecisionsThinking] : invoke");
       const lastMessage = result.content
       console.log("[DecisionsThinkingAgent] Response :", lastMessage)

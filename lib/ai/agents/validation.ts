@@ -63,7 +63,7 @@ export const validationNode = async (
 
     try {
       console.timeEnd("[ValidationAgent] : Data ready, send to LLM.");
-      const result = await llm.invoke(input, config);
+      const result = await llm.invoke(input);
       console.log("[Validation Agent] response :", result.content)
       console.timeEnd("[ValidationAgent] : invoke");
       return {

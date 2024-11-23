@@ -1,4 +1,3 @@
-"use server"
 import {tool} from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";

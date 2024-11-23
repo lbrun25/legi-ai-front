@@ -1,4 +1,3 @@
-"use server"
 import { ChatOpenAI } from "@langchain/openai";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import {
@@ -84,7 +83,7 @@ const createGraph = async () => {
 
   const members = ["ArticlesAgent", "DecisionsAgent","WebSearchAgent", "DoctrinesAgent" ] as const;
   const options = ["FINISH", ...members];
-  
+
   const routingTool = {
     name: "route",
     description: "Sélectionnez les membres qui semblent les plus qualifiés pour répondre au sommaire transmis.",
@@ -136,12 +135,14 @@ const createGraph = async () => {
 /* SUPERVISOR */
 
   const supervisorChain = prompt
+    // @ts-ignore
     .pipe(llm.bindTools(
       [routingTool],
       {
         tool_choice: "route",
       },
     ))
+    // @ts-ignore
     .pipe(new JsonOutputToolsParser())
     .pipe((x) => {
       console.timeEnd("call supervisor");
@@ -167,7 +168,9 @@ const createGraph = async () => {
 
   // Création de la chaîne de traitement pour ArticlesAgent
   const articlesChain = articlesPrompt
+    // @ts-ignore
     .pipe(llm.bindTools([queryListTool]))
+    // @ts-ignore
     .pipe(new JsonOutputToolsParser())
     .pipe((output) => {
       console.timeEnd("call output articlesChain");
@@ -193,13 +196,15 @@ const createGraph = async () => {
 
   // Création de la chaîne de traitement pour ArticlesAgent
   const doctrinesChain = doctrinesPrompt
-  .pipe(llm.bindTools([doctrineRequestListTool]))
-  .pipe(new JsonOutputToolsParser())
-  .pipe((output) => {
-    console.timeEnd("call output doctrinesChain");
-    //console.log('Liste des requêtes en matièere de doctrine :', JSON.stringify(output));
-    return output[0].args; // Retourne les requêtes générées
-  });
+    // @ts-ignore
+    .pipe(llm.bindTools([doctrineRequestListTool]))
+    // @ts-ignore
+    .pipe(new JsonOutputToolsParser())
+    .pipe((output) => {
+      console.timeEnd("call output doctrinesChain");
+      //console.log('Liste des requêtes en matièere de doctrine :', JSON.stringify(output));
+      return output[0].args; // Retourne les requêtes générées
+    });
 
 /* DECISIONS CHAIN*/
 
@@ -218,124 +223,15 @@ const createGraph = async () => {
 
   // Création de la chaîne de traitement pour ArticlesAgent
   const decisionsChain = decisionsPrompt
+    // @ts-ignore
     .pipe(llm.bindTools([queryDecisionsListTool]))
+    // @ts-ignore
     .pipe(new JsonOutputToolsParser())
     .pipe((output) => {
       console.timeEnd("call output decisionsChain");
       console.log('[decisionsChain] Liste des requêtes:', JSON.stringify(output));
       return output[0].args; // Retourne les requêtes générées
     });
-
-/* ARTICLES CHAIN SANS DOCTRINE PREALABLE : */
-
-  const articlesPrompt2 = ChatPromptTemplate.fromMessages([
-    ["system", ArticlesAgentPrompt2], // Votre prompt spécifique pour ArticlesAgent
-    new MessagesPlaceholder("messages"),
-  ]);
-
-  // Définition de l'outil pour ArticlesAgent
-  const queryListTool2 = {
-    name: "queries_list",
-    description: "Établit une liste de requêtes basée sur la demande de l'utilisateur",
-    schema: z.object({
-      queries2: z.array(z.string()),
-    }),
-  };
-
-  // Création de la chaîne de traitement pour ArticlesAgent
-  const articlesChain2 = articlesPrompt2
-    .pipe(llm.bindTools([queryListTool2]))
-    .pipe(new JsonOutputToolsParser())
-    .pipe((output) => {
-      console.timeEnd("call output articlesChain");
-      console.log('[articlesChain2] Liste des requêtes:', JSON.stringify(output));
-      return output[0].args; // Retourne les requêtes générées
-    });
-
-/* ARTICLES THINKING SANS DOCTRINE PREALABLE : */
-
-  const articlesThinkingNode2 = async (
-    state: typeof GraphAnnotation.State,
-    config?: RunnableConfig,
-  ) => {
-    console.timeEnd("Call ArticlesThinkingAgent2");
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    console.log("queries :", state.queries2)
-      async function getArticlesExpertMessages() {
-        const expertMessages: string[] = [];
-        console.timeEnd("[ArticlesThinkingAgent2] : Start searching articles in DB.");
-
-        // Convertir les appels à getArticleByNumber2 et getMatchedArticles en promises pour un traitement parallèle
-        const promises = state.queries2.map(async (query) => {
-          let message;
-
-          if (query.includes("getArticleByNumber")) {
-            message = await getArticleByNumber2(query);
-            if (!message) {
-              await delay(100); // Attente avant de réessayer si nécessaire
-              message = await getArticleByNumber2(query);
-            }
-            // Ajouter directement le message à expertMessages
-            if (message) {
-              expertMessages.push(message);
-            }
-            return null; // Retourne null pour ne pas inclure ce message dans results
-          } else {
-            message = await getMatchedArticles(query);
-            if (!message) {
-              await delay(1000); // Attente avant de réessayer si nécessaire
-              message = await getMatchedArticles(query);
-            }
-            return message;
-          }
-        });
-
-        const results = (await Promise.all(promises)).filter((res) => res !== null);
-        const mergedResults = await mergeResults(results) // merge les ids des memes codes sans les doublons
-        console.timeEnd("[ArticlesThinkingAgent2] : Done searching articles in DB.");
-
-        for (const result of mergedResults) {
-          const { codeName, listIDs } = result;
-          const cleanedResult = await articlesCleaned(codeName, listIDs, state.summary);
-          if (cleanedResult) {
-            expertMessages.push(cleanedResult);
-          }
-        }
-        return expertMessages;
-      }
-
-    const expertMessages = await getArticlesExpertMessages();
-
-    const systemMessage = await SystemMessagePromptTemplate
-      .fromTemplate(ArticlesThinkingAgent2)
-      .format({});
-
-    const summary = state.summary;
-
-    const input: any = [
-      systemMessage,
-      summary,
-      ...expertMessages
-    ];
-
-    try {
-      console.timeEnd("[ArticlesThinkingAgent2] : Data Ready, send to LLM");
-      const result = await llm.invoke(input, config);
-      console.log("[ArticlesThinkingNode2] input :", input)
-      console.timeEnd("[ArticlesThinkingAgent2] : invoke");
-      const lastMessage = result.content
-      console.log("ArticlesThinkingAgent2 Content :", lastMessage)
-      return {
-        messages: [
-          new HumanMessage({ content: result.content, name: "ArticlesThinkingAgent2" }),
-        ],
-      };
-    } catch (error) {
-      console.error("error when invoking decisionsThinkingAgent agent:", error);
-      return { messages: [] }
-    }
-  };
 
 /* FORMATTING AGENT */
 
@@ -373,7 +269,7 @@ const formattingNode = async (
     // Appeler le modèle LLM avec l'entrée modifiée
     const result = await llm
       .withConfig({ tags: ["formatting_agent"] })
-      .invoke(input, config);
+      .invoke(input);
 
     console.timeEnd("call formatting invoke");
 
@@ -437,7 +333,7 @@ const formattingNode = async (
   workflow.addEdge(START, "ReflectionAgent");
   workflow.addConditionalEdges("ReflectionAgent", shouldContinue);
 
-  /* TEST UNITAIRE 
+  /* TEST UNITAIRE
   workflow.addEdge("Supervisor", "DecisionsAgent");
   workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
   workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");*/
@@ -447,7 +343,7 @@ const formattingNode = async (
     "Supervisor",
     () => ["DecisionsAgent", "WebSearchAgent", "HydeAgent"]//, "WebSearchAgent", "HydeAgent", "DecisionsAgent"] // C'EST ICI QUE JE LANCE LES GRAPHS ? + GERER COMMENT LEUR FAIRE PUTAIN DE PASSER LES STATE POUR BIEN DERTERMINER
   );
-  
+
   workflow.addEdge("HydeAgent", "DoctrinesInterpretHydeAgent");
   workflow.addEdge("DoctrinesInterpretHydeAgent", "ValidationAgent");
   workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");

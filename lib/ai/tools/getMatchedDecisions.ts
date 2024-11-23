@@ -1,4 +1,3 @@
-"use server"
 import {tool} from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import {z} from "zod";
@@ -57,7 +56,7 @@ export const getMatchedDecisionsTool = tool(async (input) => {
 });
 
 /* AVEC ELASTICSEARCH */ // J'ai l'inpression qu'on utilise presque jamais la similarity
-export async function getMatchedDecisions(input : any): Promise<bigint[]> { 
+export async function getMatchedDecisions(input : any): Promise<bigint[]> {
   console.log("Decisions Input :", input)
   //input = "Est-ce que porteurs des actions de préférence doivent prendre part au vote sur la modification des droits de ces actions de préférence ?";
   if (!input) return [];
@@ -77,7 +76,7 @@ export async function getMatchedDecisions(input : any): Promise<bigint[]> {
   if (semanticResponse.decisions.length === 0 || bm25Results.length === 0)
     return [];
   //console.log('Nb bm25Results:', bm25Ids)
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 15, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner 
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 15, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id); //result => result.score > 0.5
   //console.log("RANKFUSION : ", rankFusionIds)
   return rankFusionIds;
@@ -141,7 +140,7 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
       const decisionDetails: any = await getDecisionDetailsById(id);
       const decisionContentSingleString = decisionDetails[0].decisionContent.replace(/\n/g, ' ');
       const newDecisionContent = await summarizeDecision(decisionContentSingleString);
-      
+
       return {
         juridiction: decisionDetails[0].juridiction,
         date: decisionDetails[0].date,
@@ -152,10 +151,10 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
     });
 
   const decisions = await Promise.all(decisionPromises);
-  
+
   const formattedFiches = decisions
     .sort((a, b) => a.originalIndex - b.originalIndex)
-    .map(decision => 
+    .map(decision =>
       `<decision><juridiction>${decision.juridiction}</juridiction><date>${decision.date}</date><number>${decision.number}</number><content>${decision.content}</content></decision>`
     )
     .join('\n');
@@ -235,18 +234,18 @@ async function getDecisionDetailsById(id: number, maxRetries = 5, delayMs = 1000
 
       if (error) {
         console.error(`[getDecisionDetailsById] Tentative ${attempt + 1}/${maxRetries + 1} - Erreur lors de la récupération:`, error);
-        
+
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, delayMs));
           continue;
         }
         return null;
       }
-      
+
       return data;
     } catch (err) {
       console.error(`Tentative ${attempt + 1}/${maxRetries + 1} - Erreur:`, err);
-      
+
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
         continue;
@@ -306,38 +305,38 @@ async function estimateTokenCount(strings: string[]): Promise<number> {
   const AVERAGE_CHARS_PER_TOKEN = 4;
   const WHITESPACE_FACTOR = 1.2;
   const PUNCTUATION_FACTOR = 1.1;
-  
+
   let runningTotal = 0;
-  
+
   for (let i = 0; i < strings.length; i++) {
     const str = strings[i];
-    
+
     // Compte les caractères
     const charCount = str.length;
-    
+
     // Compte les espaces pour ajuster l'estimation
     const whitespaceCount = (str.match(/\s/g) || []).length;
-    
+
     // Compte la ponctuation pour ajuster l'estimation
     const punctuationCount = (str.match(/[.,!?;:'"()\[\]{}]/g) || []).length;
-    
+
     // Calcul de base : caractères divisés par la moyenne de caractères par token
     let baseEstimate = charCount / AVERAGE_CHARS_PER_TOKEN;
-    
+
     // Ajustement pour les espaces et la ponctuation
     baseEstimate *= (1 + (whitespaceCount / charCount) * WHITESPACE_FACTOR);
     baseEstimate *= (1 + (punctuationCount / charCount) * PUNCTUATION_FACTOR);
-    
+
     const estimatedTokens = Math.ceil(baseEstimate);
     runningTotal += estimatedTokens;
-    
+
     // Si on dépasse la limite, retourner l'index actuel
     if (runningTotal > TOKEN_LIMIT) {
       console.log("[estimateTokenCount in decision] : over the token limit")
       return i;
     }
   }
-  
+
   // Si on n'a jamais dépassé la limite, retourner -1
   return -1;
 }

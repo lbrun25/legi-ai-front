@@ -11,6 +11,7 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { GraphAnnotation} from '@/lib/ai/langgraph/graph'
 import { route } from "@/lib/ai/tools/route";
 import { stat } from "fs";
+import {BaseChatModel} from "@langchain/core/language_models/chat_models";
 
 const llm = new ChatOpenAI({
     temperature: 0,
@@ -21,7 +22,7 @@ const llm = new ChatOpenAI({
 });
 
 const supervisorAgent = createReactAgent({
-    llm,
+    llm: llm as unknown as BaseChatModel,
     tools: [route], // avoir ou sens
     messageModifier: new SystemMessage(SupervisorPrompt)
 })

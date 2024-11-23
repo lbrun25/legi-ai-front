@@ -1,31 +1,29 @@
 "use server"
-import { ChatOpenAI } from "@langchain/openai";
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
-import { DoctrineAgentPrompt } from "@/lib/ai/langgraph/prompt";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { z } from "zod";
-import { ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate } from "@langchain/core/prompts";
-import { JsonOutputToolsParser } from "langchain/output_parsers";
-import { RunnableConfig } from "@langchain/core/runnables";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { getMatchedDoctrinesTool } from "@/lib/ai/tools/getMatchedDoctrines";
-import { GraphAnnotation} from '@/lib/ai/langgraph/graph'
+import {DoctrineAgentPrompt} from "@/lib/ai/langgraph/prompt";
+import {HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {SystemMessagePromptTemplate} from "@langchain/core/prompts";
+import {RunnableConfig} from "@langchain/core/runnables";
+import {getMatchedDoctrinesTool} from "@/lib/ai/tools/getMatchedDoctrines";
+import {GraphAnnotation} from '@/lib/ai/langgraph/graph'
+import {ChatOpenAI} from "@langchain/openai";
+import {createReactAgent} from "@langchain/langgraph/prebuilt";
+import {BaseChatModel} from "@langchain/core/language_models/chat_models";
 
 const llm = new ChatOpenAI({
-    temperature: 0,
-    model: "gpt-4o-mini",
-    configuration: {
-      apiKey: process.env.OPENAI_API_KEY!,
-    }
+  temperature: 0,
+  model: "gpt-4o-mini",
+  configuration: {
+    apiKey: process.env.OPENAI_API_KEY!,
+  }
 });
 
 const doctrineAgent = createReactAgent({
-    llm,
+    llm: llm as unknown as BaseChatModel,
     tools: [getMatchedDoctrinesTool],
     messageModifier: new SystemMessage(DoctrineAgentPrompt)
 })
   // const decisionsModel = llm.bindTools([getMatchedDecisions]);
-  
+
 export const doctrineAgentNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
@@ -53,4 +51,4 @@ export const doctrineAgentNode = async (
       console.error("error when invoking decisions agent:", error);
       return { messages: [] }
     }
-}; 
+};
