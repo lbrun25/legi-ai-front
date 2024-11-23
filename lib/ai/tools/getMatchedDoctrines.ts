@@ -60,7 +60,7 @@ export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
   //console.log("Semantic doctrines ids :", semanticIds);
   //const bm25Ids = bm25Results.map((doctrine: any) => doctrine.id);
   //console.log('Nb bm25Results doctrines:', bm25Ids);
-  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 50, 0.65, 0.35);
+  const rankFusionResult = rankFusion(semanticIds, bm25Ids, 100, 0.65, 0.35);
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id);
   //console.log("RANKFUSION doctrines: ", rankFusionIds);
   return rankFusionIds;
@@ -68,30 +68,31 @@ export async function getMatchedDoctrines(input: any): Promise<bigint[]> {
 
 export async function listDoctrines(input: string, rankFusionIds: bigint[]):Promise <string>
 {
-  //console.log("In list doctrines for :", input)
   console.log("doctrine ids :", rankFusionIds)
-  const doctrinesToRank = await getDoctrinesByIds(rankFusionIds);
+  let doctrinesToRank = await getDoctrinesByIds(rankFusionIds);
   if (!doctrinesToRank) return "";
-  const doctrinesContentToRank = doctrinesToRank?.map((doctrine) => doctrine.contextual_content as string);
+  let doctrinesContentToRank = doctrinesToRank?.map((doctrine) => doctrine.contextual_content as string);
   if (!doctrinesContentToRank) return "";
+  const res = await estimateTokenCount(doctrinesContentToRank)
+  if (res !== -1)
+  {
+    console.log("[Doctrine estimateTokenCount] slice :", res);
+    doctrinesContentToRank.slice(res);
+  }
   const doctrinesRanked: any = await rerankWithVoyageAI(input, doctrinesContentToRank);
   const filteredDoctrines: any = doctrinesRanked.data.filter((doctrine: DoctrinesPrecision) => doctrine.relevance_score >= 0.5);
-  //console.log("filteredDoctrines : ", filteredDoctrines)
   let doctrinesFormatted = "";
-  for (let i = 0; i < filteredDoctrines.length && i < 25; i++) { // Faire passer les 10 dec à un agent qui refait un résumé et ensuite à cette agent
+
+  for (let i = 0; i < filteredDoctrines.length && i < 25; i++) {
     const index = doctrinesRanked.data[i].index;
-    //console.log("Index of doctrines send to LLM :", doctrinesToRank[index].id)    //const content = doctrinesToRank[index];
     const doctrine: any = doctrinesToRank[index];
-    //console.log("ParagrapheNB :", doctrine.paragrapheNumber)
-    //console.log(`${doctrine.bookTitle} : ${doctrine.paragrapheContent}`)
     doctrinesFormatted += `<doctrines><doctrine_domaine>${doctrine.bookTitle}</doctrine_domaine><content>${doctrine.contextual_content}</content></doctrines>\n`;
   }
-  //console.log(formattedFiches)
   return doctrinesFormatted;
 }
 
 async function estimateTokenCount(strings: string[]): Promise<number> {
-  const TOKEN_LIMIT = 150000;
+  const TOKEN_LIMIT = 280000;
   const AVERAGE_CHARS_PER_TOKEN = 4;
   const WHITESPACE_FACTOR = 1.2;
   const PUNCTUATION_FACTOR = 1.1;

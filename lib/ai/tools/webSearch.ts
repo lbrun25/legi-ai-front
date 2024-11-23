@@ -367,87 +367,107 @@ export async function googleSearch(query: string, maxResults: number = 10): Prom
       throw error;
   }
 }
-  
-  // Fonction utilitaire pour limiter la longueur du contenu si nécessaire
-function truncateContent(content: string, maxLength: number = 500): string {
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
+
+export async function googleSearchWithReranking(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    console.log("[WebSearch] Query:", query);
+
+    // 1. Get initial search results
+    const initialResults = await googleSearch(query, maxResults);
+    if (!initialResults || initialResults.length === 0) {
+      console.log("No initial results found");
+      return [];
+    }
+
+    // 2. Prepare contents for reranking
+    const contents = initialResults.map(result => result.content);
+
+    const rerankedResults = await getRankedResults(query, contents);
+    //console.log("rerankedResults:", rerankedResults);
+
+    // Vérification que rerankedResults existe et est un tableau
+    if (!rerankedResults || !Array.isArray(rerankedResults)) {
+      console.log("No reranking data available");
+      return initialResults.map(result => ({
+        ...result,
+        similarity_score: 0
+      }));
+    }
+
+    // 3. Create new results array with scores
+    const resultsWithScores: SearchResult[] = initialResults.map((result, index) => {
+      // Vérification pour trouver le score correspondant dans rerankedResults
+      const rankData = rerankedResults.find((d: any) => d.index === index);
+
+      return {
+        title: result.title,
+        link: result.link,
+        content: result.content,
+        publishedDate: result.publishedDate,
+        similarity_score: rankData?.relevance_score ?? 0
+      };
+    });
+
+    // 4. Sort by similarity score
+    const sortedResults = resultsWithScores
+      .sort((a, b) => b.similarity_score - a.similarity_score);
+
+    let finalResults: SearchResult[] = [];
+    let totalEstimatedTokens = 0;
+    const TOKEN_LIMIT = 100000;
+
+    for (const result of sortedResults) {
+      if (result.similarity_score >= 0.5) {
+        const estimatedTokens = Math.ceil(result.content.length / 10);
+        if (totalEstimatedTokens + estimatedTokens <= TOKEN_LIMIT && finalResults.length < 10) {
+          totalEstimatedTokens += estimatedTokens;
+          finalResults.push(result);
+        } else {
+          break;
+        }
+      }
+    }
+
+    return finalResults;
+
+  } catch (error) {
+    console.error('Erreur lors de la recherche avec reranking:', error);
+    throw error;
+  }
 }
 
-export async function googleSearchWithReranking(query: string, maxResults: number = 10): Promise<SearchResult[]> {
-    try {
-        console.log("[WebSearch] Query :", query)
-        // 1. Obtenir les résultats de recherche initiaux
-        const initialResults = await googleSearch(query, maxResults);
-        // 2. Préparer les contenus pour le reranking
-        let contents = initialResults.map(result => result.content);
-        /*const embeddingsList:any = await createEmbeddings(contents) // Fait un embedding des différents sites // Voir pour faire un BM25 + Hybrid sur les sites internet
-        console.log("embeddingsList: ", embeddingsList)*/
-        const res = await estimateTokenCount(contents)
-        if (res !== -1)
-        {
-          console.log("Website slice at :", res)
-          contents = contents.slice(0, res)
-        }
-        // 3. Obtenir les scores et indices de reranking
-        const rerankedResults: any = await rerankWithVoyageAIMultiLangual(query, contents);
-        console.log("rerankedResults :",rerankedResults);
+async function getRankedResults(query: string, contents: string[]): Promise<any[]> {
+  const tokenCount = await estimateTokenCount(contents);
+  
+  if (tokenCount === -1) {
+    const results = await rerankWithVoyageAIMultiLangual(query, contents);
+    return results?.data || [];
+  }
 
-        // 4. Créer un nouveau tableau de résultats avec les scores
-        const resultsWithScores = initialResults.map((result, index) => {
-          const rankData = rerankedResults.data.find((d: any) => d.index === index);
-          return {
-              ...result,
-              similarity_score: rankData?.relevance_score ?? 0
-          };});
+  const [contents1, contents2] = [
+    contents.slice(0, tokenCount),
+    contents.slice(tokenCount)
+  ];
 
-                /* Pourra la remettre j'avais commenté pour qu'il m'imprime dans la console les resultats transmis
-      // 5. Filtrer les résultats avec un score > 0.5 et limiter à 2 résultats
-      return resultsWithScores
-        .filter(result => result.similarity_score > 0.5)
-        .sort((a, b) => b.similarity_score - a.similarity_score)
-        .slice(0, 2);*/
+  const [results1, results2] = await Promise.all([
+    rerankWithVoyageAIMultiLangual(query, contents1),
+    rerankWithVoyageAIMultiLangual(query, contents2)
+  ]);
 
-        // Trier par score de similarité
-        const sortedResults = resultsWithScores
-        .sort((a, b) => b.similarity_score - a.similarity_score);
+  // Ajuster les index pour la deuxième partie des résultats
+  const adjustedResults2 = results2?.data?.map(item => ({
+    ...item,
+    index: item.index + tokenCount
+  })) || [];
 
-        let finalResults: SearchResult[] = [];
-        let totalEstimatedTokens = 0;
-        const TOKEN_LIMIT = 100000;
-
-        for (const result of sortedResults) {
-          // On vérifie d'abord le score de similarité
-          if (result.similarity_score >= 0.5) {
-              const estimatedTokens = Math.ceil(result.content.length / 6);
-              if (totalEstimatedTokens + estimatedTokens <= TOKEN_LIMIT && finalResults.length < 6) {
-                  totalEstimatedTokens += estimatedTokens;
-                  finalResults.push(result);
-                  //console.log(`Added source ${finalResults.length}, estimated tokens: ${estimatedTokens}, total: ${totalEstimatedTokens}`);
-              } else {
-                  break;
-              }
-          }
-        }
-       /* finalResults.forEach((result, index) => {
-          console.log(`--- Page ${index + 1} ---`);
-          console.log(`Score: ${result.similarity_score.toFixed(3)}`);
-          console.log(`URL: ${result.link}`);
-          console.log(`Titre: ${result.title}`);
-          console.log(`Contenu: ${result.content}`);
-          console.log("------------------------");
-        });*/
-//        console.log(`Final sources: ${finalResults.length}, estimated total tokens: ${totalEstimatedTokens}`);
-        return finalResults;
-
-      } catch (error) {
-      console.error('Erreur lors de la recherche avec reranking:', error);
-      throw error;
-      }
+  return [...(results1?.data || []), ...adjustedResults2];
 }
 
 async function estimateTokenCount(strings: string[]): Promise<number> {
-  const TOKEN_LIMIT = 150000;
+  const TOKEN_LIMIT = 280000;
   const AVERAGE_CHARS_PER_TOKEN = 4;
   const WHITESPACE_FACTOR = 1.2;
   const PUNCTUATION_FACTOR = 1.1;
@@ -481,28 +501,11 @@ async function estimateTokenCount(strings: string[]): Promise<number> {
       return i;
     }
   }
-  
   // Si on n'a jamais dépassé la limite, retourner -1
   return -1;
 }
 
-async function createEmbeddings(stringList: string[])
-{
-  try {
-      const embeddings: any[] = [];
-      
-      for (const text of stringList) {
-          // Attendre la résolution de chaque embedding
-          const embedding:any = await embeddingWithVoyageLaw(text);
-          //console.log("Embedding du contenu :", embedding.data[0].embedding)
-          embeddings.push(embedding.data[0].embedding);
-      }
-      
-      return embeddings;
-  } catch (error: any) {
-      throw new Error(`Erreur lors de la création des embeddings: ${error.message}`);
-  }
-};
+
 
 /* VERSION WITH BALISES ENTRE LIENS
 
@@ -569,4 +572,71 @@ ${content}
       throw error;
   }
 }
+*/
+
+/*
+export async function googleSearchWithReranking(query: string, maxResults: number = 10): Promise<SearchResult[]> {
+    try {
+        let contents2;
+        let combined: any = { data: [] }; // Déclaration de combined en dehors des blocs conditionnels
+        const res = await estimateTokenCount(contents)
+        if (res !== -1)
+        {
+          console.log("Website slice at :", res);
+          contents2 = contents.slice(res, contents.length);
+          contents = contents.slice(0, res);
+          const rerankedResults: any = await rerankWithVoyageAIMultiLangual(query, contents);
+          const rerankedResults2: any = await rerankWithVoyageAIMultiLangual(query, contents2);
+          console.log("rerankedResults :",rerankedResults);
+          combined = {
+            data: [...rerankedResults.data, ...rerankedResults2.data]
+          };
+        } else 
+        {
+          const rerankedResults: any = await rerankWithVoyageAIMultiLangual(query, contents);
+          combined = rerankedResults;
+        }
+        
+        const rerankedResults: any = combined.data
+        .sort((a: any, b: any) => b.similarity_score - a.similarity_score);
+        rerankedResults.slice()
+
+        // 4. Créer un nouveau tableau de résultats avec les scores
+        const resultsWithScores = initialResults.map((result, index) => {
+          const rankData = rerankedResults.data.find((d: any) => d.index === index);
+          return {
+              ...result,
+              similarity_score: rankData?.relevance_score ?? 0
+          };});
+
+        // Trier par score de similarité
+        const sortedResults = resultsWithScores
+        .sort((a, b) => b.similarity_score - a.similarity_score);
+
+        let finalResults: SearchResult[] = [];
+        let totalEstimatedTokens = 0;
+        const TOKEN_LIMIT = 100000;
+
+        for (const result of sortedResults) {
+          // On vérifie d'abord le score de similarité
+          if (result.similarity_score >= 0.5) {
+              const estimatedTokens = Math.ceil(result.content.length / 6);
+              if (totalEstimatedTokens + estimatedTokens <= TOKEN_LIMIT && finalResults.length < 6) {
+                  totalEstimatedTokens += estimatedTokens;
+                  finalResults.push(result);
+                  //console.log(`Added source ${finalResults.length}, estimated tokens: ${estimatedTokens}, total: ${totalEstimatedTokens}`);
+              } else {
+                  break;
+              }
+          }
+        }
+        return finalResults;
+
+      } catch (error) {
+      console.error('Erreur lors de la recherche avec reranking:', error);
+      throw error;
+      }
+}
+
+
 */

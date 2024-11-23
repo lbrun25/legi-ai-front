@@ -53,7 +53,7 @@ export const rerankWithVoyageAI = async (query: string, documents: string[]): Pr
 
 export const rerankWithVoyageAIMultiLangual = async (query: string, documents: string[]): Promise<VoyageRerankResponse | null> => {
   const url = 'https://api.voyageai.com/v1/rerank';
-  const apiKey = process.env.VOYAGE_AI_API_KEY;
+  const apiKey = process.env.VOYAGE_AI_API_KEY_FOR_INTERNET;
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ export const rerankWithVoyageAIMultiLangual = async (query: string, documents: s
   const body = {
     query: query,
     documents: documents,
-    model: 'rerank-2-lite'
+    model: 'rerank-2'
   };
 
   const options = {

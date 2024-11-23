@@ -73,6 +73,7 @@ export const webSearch = tool(async (input) => {
 
         // Effectuer la recherche
         const response = await googleSearchWithReranking(input.query);
+        //console.log("Response sites :", response)
         // Vérifier si la réponse est valide
         if (!response || !Array.isArray(response) || response.length === 0) {
             return "Aucun résultat trouvé pour cette recherche.";
@@ -83,7 +84,7 @@ export const webSearch = tool(async (input) => {
         
         console.log("[WebSearchTool]: Resultats internet résumés et transmis à l'agent.")
         
-        /*enhancedResults.forEach((result, index) => {
+        enhancedResults.forEach((result, index) => {
           console.log(`--- Page ${index + 1} ---`);
           console.log(`Date de Publication: ${result.publishedDate || 'Non spécifiée'}`);
           console.log(`Score: ${result.similarity_score.toFixed(3)}`);
@@ -91,7 +92,7 @@ export const webSearch = tool(async (input) => {
           console.log(`Titre: ${result.title}`);
           console.log(`Contenu: ${result.summary}`);
           console.log("------------------------");
-        });*/
+        });
         // Formater les résultats avec uniquement les résumés
         return enhancedResults
             .map((result) => {
@@ -114,7 +115,7 @@ export const webSearch = tool(async (input) => {
     }
 }, {
     name: "webSearch",
-    description: "Effectuer une recherche sur internet et retourner les résumés des résultats les plus pertinents",
+    description: "Effectuer une recherche sur internet et obtenez les résumés des résultats les plus pertinents",
     schema: z.object({
         query: z
             .string()

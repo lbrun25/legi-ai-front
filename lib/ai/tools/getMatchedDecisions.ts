@@ -107,29 +107,40 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
 
 export async function listDecisions(input: string, rankFusionIds: bigint[]) {
   console.log("Decisions FinalRankFusionList :", rankFusionIds);
-  //const Ids = rankFusionIds.slice(0, 30);
-  //let filteredDecisions2 : any; 
-  let decisionsToRank = await getdecisionsToRank(rankFusionIds)
-  /*const count = await estimateTokenCount(decisionsToRank)
-  if (count !== -1)
-  {
-    const decisionsToRank2 = decisionsToRank.slice(X, end) // en mode je sépare et on fait deux reranking
-    const decisionsRanked2: any = await rerankWithVoyageAI(input, decisionsToRank2)
-    const filteredDecisions2: any = decisionsRanked.data.filter((decision: DecisionPrecision) => decision.relevance_score >= 0.5);
-    decisionsToRank.slice(0, X)
-  }*/
-  const decisionsRanked: any = await rerankWithVoyageAI(input, decisionsToRank)
-  const filteredDecisions: any = decisionsRanked.data.filter((decision: DecisionPrecision) => decision.relevance_score >= 0.5);
-  //const filt = filteredDecisions + filteredDecisions2
-  const decisionPromises = filteredDecisions // mettre filt
+  let decisionsToRank = await getdecisionsToRank(rankFusionIds);
+  let combined: any = { data: [] }; // Déclaration de combined en dehors des blocs conditionnels
+  const count = await estimateTokenCount(decisionsToRank);
+
+  if (count !== -1) {
+    const decisionsToRank2 = decisionsToRank.slice(count, decisionsToRank.length);
+    //console.log("decisionsToRank2 :", decisionsToRank2)
+    const decisionsRanked2: any = await rerankWithVoyageAI(input, decisionsToRank2);
+    //console.log("decisionsRanked2 :", decisionsRanked2)
+    decisionsToRank = decisionsToRank.slice(0, count);
+    //console.log("decisionsToRank :", decisionsToRank)
+    const decisionsRanked: any = await rerankWithVoyageAI(input, decisionsToRank);
+    //console.log("decisionsRanked :", decisionsRanked)
+    combined = {
+      data: [...decisionsRanked.data, ...decisionsRanked2.data]
+    };
+  } else {
+    const decisionsRanked: any = await rerankWithVoyageAI(input, decisionsToRank);
+    combined = decisionsRanked;
+  }
+  const filteredDecisions: any = combined.data
+    .filter((decision: DecisionPrecision) => decision.relevance_score >= 0.5)
+    .sort((a: any, b: any) => b.similarity_score - a.similarity_score);
+
+  //console.log("filteredDecisions :", filteredDecisions)
+  const decisionPromises = filteredDecisions
     .slice(0, 7)
     .map(async (rankedDecision: any, i: number) => {
-      const index = decisionsRanked.data[i].index;
-      const id: any = rankFusionIds[index]
-      console.log("Decision print :", id)
-      const decisionDetails: any = await getDecisionDetailsById(id)
+      const index = combined.data[i].index;
+      const id: any = rankFusionIds[index];
+      console.log("Decision print :", id);
+      const decisionDetails: any = await getDecisionDetailsById(id);
       const decisionContentSingleString = decisionDetails[0].decisionContent.replace(/\n/g, ' ');
-      const newDecisionContent = await summarizeDecision(decisionContentSingleString)
+      const newDecisionContent = await summarizeDecision(decisionContentSingleString);
       
       return {
         juridiction: decisionDetails[0].juridiction,
@@ -149,7 +160,6 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
     )
     .join('\n');
 
-  //console.log("FormattedFiches :", formattedFiches)
   return formattedFiches;
 }
 
@@ -292,7 +302,7 @@ async function getdecisionsToRank(ids: bigint[]): Promise<string[]> {
 }
 
 async function estimateTokenCount(strings: string[]): Promise<number> {
-  const TOKEN_LIMIT = 150000;
+  const TOKEN_LIMIT = 280000;
   const AVERAGE_CHARS_PER_TOKEN = 4;
   const WHITESPACE_FACTOR = 1.2;
   const PUNCTUATION_FACTOR = 1.1;
@@ -323,6 +333,7 @@ async function estimateTokenCount(strings: string[]): Promise<number> {
     
     // Si on dépasse la limite, retourner l'index actuel
     if (runningTotal > TOKEN_LIMIT) {
+      console.log("[estimateTokenCount in decision] : over the token limit")
       return i;
     }
   }

@@ -141,13 +141,13 @@ Format de réponse :
 
 [Votre analyse de TOUS les articles de loi pertinents (Etape 2 du raisonnement)]
 
-  • Pour rappel en droit français, [Présentation concise du principe légal pertinent] [Si disponible : citation extacte du contenu entre _" "_].[Si l'article ne couvre que partiellement la question, préciser les limites]. (Référence : Article [numéro] du [code])
+  • Pour rappel en droit français, [Présentation concise du principe légal pertinent].[Si l'article ne couvre que partiellement la question, préciser les limites]. (Référence : Article [numéro] [code])
 
   • [Répétez pour chaque article de loi pertinente]
 
   • ...
   
-Attention : Ce partie contient uniquement des articles de loi. Les articles de contrats,... sont exclues.
+Attention : Ce partie contient uniquement des articles de loi. Les articles de contrats, jurisprudences,... sont exclues.
 
 **Précisions Jurisprudentielles :**
 
@@ -737,9 +737,11 @@ Processus de raisonnement (étape par étape) :
   - Favorisez les notions centrale de la demande
   - Eliminez les éléments qui pourraient créer de la nuissance dans la recherche
   - Optimisez la requête pour une recherche internet
-  - Evitez de répéter les mêmes requêtes
 
-3. Attendre la réponse de l’outil.
+3. Attendre la réponse de l’outil et gestion des résultats insuffisants :
+   - Si un point juridique n'est pas couvert : formulez une nouvelle requête en utilisant des termes alternatifs
+   - Si les sources juridiques manquent : ajoutez explicitement "jurisprudence" ou "article de loi" dans une nouvelle requête
+   - Si le contexte est incomplet : effectuez une recherche complémentaire en ciblant l'aspect manquant
 
 4. Analysez les résultats reçues (site internet par site internet) :
   - Etudier chaque informations transmises et les sources juridiques qui s’y attachent 
