@@ -340,7 +340,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
         // Parallelize processing of all pages
         await Promise.all(
-          chunks.map(async (pageChunks, pageIndex) => {
+          chunks.map(async (pageChunks: string[], pageIndex: number) => {
             try {
               // Process chunks in parallel for the current page
               await Promise.all(

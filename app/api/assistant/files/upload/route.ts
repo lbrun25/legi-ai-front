@@ -1,13 +1,24 @@
-import { NextResponse } from 'next/server';
+import {NextResponse} from 'next/server';
 import fs from 'fs/promises';
 import OpenAI from "openai";
-import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import {RecursiveCharacterTextSplitter} from "@langchain/textsplitters";
 import path from 'path';
-import { createReadStream } from 'fs';
+import {createReadStream} from 'fs';
+import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
+import {PDFDocument} from 'pdf-lib'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
+});
+
+const docGoogleAiClient = new DocumentProcessorServiceClient({
+  apiEndpoint: 'eu-documentai.googleapis.com',
+  projectId: process.env.GCP_PROJECT_ID,
+  credentials: {
+    project_id: process.env.GCP_PROJECT_ID,
+    private_key: process.env.GCP_PRIVATE_KEY?.replace(/\\n/g,"\n"),
+    client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
+  },
 });
 
 export async function POST(req: Request) {
@@ -24,30 +35,101 @@ export async function POST(req: Request) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       return NextResponse.json({ message: 'Unsupported files: Support only PDFs' }, { status: 400 });
     }
-
+    console.log(`will upload file ${file.name}`);
     tempFilePath = path.join(tempDir, file.name);
+
+    const projectNumber = process.env.GCP_PROJECT_NUMBER;
+    const location = process.env.GCP_PROJECT_LOCATION || 'eu';
+    const processorId = process.env.GCP_PROCESSOR_ID || '';
+    const name = `projects/${projectNumber}/locations/${location}/processors/${processorId}`;
+
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Split the PDF into chunks of 15 pages
+    const pdfDoc = await PDFDocument.load(fileBuffer);
+    const totalPages = pdfDoc.getPageCount();
+    const MAX_PAGES = 15;
+
+    let allChunks: string[][] = [];
+
+    for (let i = 0; i < totalPages; i += MAX_PAGES) {
+      console.log('will process page:', i)
+      const subPdf = await PDFDocument.create();
+      const startPage = i;
+      const endPage = Math.min(i + MAX_PAGES, totalPages);
+
+      const pages = await subPdf.copyPages(pdfDoc, Array.from({ length: endPage - startPage }, (_, j) => startPage + j));
+      pages.forEach((page) => subPdf.addPage(page));
+
+      const chunkBuffer = await subPdf.save();
+      const encodedFileContent = Buffer.from(chunkBuffer).toString('base64');
+
+      const request = {
+        name,
+        rawDocument: {
+          content: encodedFileContent,
+          mimeType: 'application/pdf',
+        },
+      };
+
+      // Process the document with Google Document AI
+      const [result] = await docGoogleAiClient.processDocument(request);
+      const { document } = result;
+
+      if (!document || !document.pages) {
+        console.error("no document were processed by Google Document AI");
+        continue; // Skip if no pages were processed
+      }
+
+      const { text } = document;
+
+      if (!text) {
+        console.error("no texts were processed for the OCR");
+        continue;
+      }
+      const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 2048,
+        chunkOverlap: 256,
+      });
+      const chunks = await textSplitter.splitText(text);
+
+      // Extract shards from the text field
+      // const getText = (textAnchor) => {
+      //   if (!textAnchor.textSegments || textAnchor.textSegments.length === 0) {
+      //     return '';
+      //   }
+      //
+      //   const startIndex = textAnchor.textSegments[0].startIndex || 0;
+      //   const endIndex = textAnchor.textSegments[0].endIndex;
+      //
+      //   return text.substring(startIndex, endIndex);
+      // };
+      //
+      // const chunks = await Promise.all(
+      //   document.pages.map(async (page) => {
+      //     const paragraphChunks = await Promise.all(
+      //       page.paragraphs?.map(async (paragraph) => {
+      //         const textAnchor = paragraph?.layout?.textAnchor;
+      //         const text = getText(textAnchor);
+      //         const textSplitter = new RecursiveCharacterTextSplitter({
+      //           chunkSize: 2048,
+      //           chunkOverlap: 256,
+      //         });
+      //         return textSplitter.splitText(text);
+      //       }) || []
+      //     );
+      //     return paragraphChunks.flat(); // Flatten paragraph chunks into a single array for the page
+      //   })
+      // );
+
+      allChunks.push(chunks); // Append chunks for the current document to allChunks
+    }
+
+    console.log('chunks:', allChunks);
 
     // Write file to temporary location
     const buffer = await file.arrayBuffer();
     await fs.writeFile(tempFilePath, Buffer.from(buffer));
-
-    // Load PDF with LangChain
-    const loader = new PDFLoader(tempFilePath, {
-      parsedItemSeparator: "",
-    });
-    const docs = await loader.load();
-
-    const chunks = await Promise.all(
-      docs.map(async (doc) => {
-        // Makes chunks with LangChain
-        const textSplitter = new RecursiveCharacterTextSplitter({
-          chunkSize: 2048,
-          chunkOverlap: 256,
-        });
-        return textSplitter.splitText(doc.pageContent);
-      })
-    );
-
     const stream = createReadStream(tempFilePath);
     const openAiFileResponse = await openai.files.create({
       file: stream,
@@ -56,19 +138,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       fileId: openAiFileResponse.id,
-      chunks: chunks,
+      chunks: allChunks,
     });
   } catch (error) {
     console.error('File upload error:', error);
     return NextResponse.json({ message: 'Failed to upload file' }, { status: 500 });
-  } finally {
-    // Clean up the temporary file
-    if (tempFilePath) {
-      try {
-        await fs.unlink(tempFilePath);
-      } catch (unlinkError) {
-        console.error('Error cleaning up temporary file:', unlinkError);
-      }
-    }
   }
 }
