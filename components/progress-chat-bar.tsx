@@ -64,7 +64,7 @@ export const ProgressChatBar = () => {
     if (progress >= 25 && progress < 50) {
       return "Compréhension de la demande";
     } else if (progress >= 50 && progress < 75) {
-      return `Recherche dans ${randomNumber} sources de droit pertinentes en temps réel`;
+      return `Traitement de la demande en cours avec optimisation de millier de paramètres...`; //Recherche dans ${randomNumber} sources de droit pertinentes en temps réel
     } else if (progress >= 75 && progress < 100) {
       return "Suggestion de la meilleure réponse possible";
     } else {
