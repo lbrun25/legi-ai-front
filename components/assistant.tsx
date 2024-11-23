@@ -329,55 +329,45 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
         }
 
-        const chunks = result.chunks;
-        const totalPages = chunks.length; // Total number of pages
+        const chunks: string[] = result.chunks; // Single array of chunks
+        const totalChunks = chunks.length; // Total number of chunks
 
-        // Initialize progress for this file
         setFileProgress((prev) => ({
           ...prev,
-          [file.name]: { uploaded: 0, total: totalPages }, // Track pages instead of chunks
+          [file.name]: { uploaded: 0, total: totalChunks }, // Track chunks directly
         }));
 
-        // Parallelize processing of all pages
+        // Process all chunks in parallel
         await Promise.all(
-          chunks.map(async (pageChunks: string[], pageIndex: number) => {
+          chunks.map(async (chunk: string, chunkIndex: number) => {
             try {
-              // Process chunks in parallel for the current page
-              await Promise.all(
-                pageChunks.map(async (chunk: string, chunkIndex: number) => {
-                  try {
-                    const ingestResponse = await fetch('/api/assistant/files/ingest', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        chunk: chunk,
-                        filename: file.name,
-                        index: `${pageIndex}-${chunkIndex}`,
-                      }),
-                    });
+              // Send chunk to the server
+              const ingestResponse = await fetch('/api/assistant/files/ingest', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  chunk: chunk,
+                  filename: file.name,
+                  index: chunkIndex, // Use chunk index directly
+                }),
+              });
 
-                    if (!ingestResponse.ok) {
-                      console.error(`Failed to ingest chunk on page ${pageIndex}, chunk index ${chunkIndex}:`, chunk);
-                    }
-                  } catch (error) {
-                    console.error(`Error ingesting chunk on page ${pageIndex}, chunk index ${chunkIndex}:`, error);
-                  }
-                })
-              );
+              if (!ingestResponse.ok) {
+                console.error(`Failed to ingest chunk at index ${chunkIndex}:`, chunk);
+              }
 
-              // Update progress after processing all chunks for the current page
+              // Update progress after processing this chunk
               setFileProgress((prev) => ({
                 ...prev,
                 [file.name]: {
                   ...prev[file.name],
-                  uploaded: prev[file.name]?.uploaded + 1, // Increment page count
-                  currentPage: pageIndex + 1, // Update current page being processed
+                  uploaded: (prev[file.name]?.uploaded || 0) + 1, // Increment uploaded count
                 },
               }));
             } catch (error) {
-              console.error(`Error processing page ${pageIndex}:`, error);
+              console.error(`Error ingesting chunk at index ${chunkIndex}:`, error);
             }
           })
         );

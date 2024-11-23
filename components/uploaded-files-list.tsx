@@ -10,9 +10,6 @@ interface UploadedFilesListProps {
 const UploadedFilesList = ({ files, onDeleteFile, uploading, progress }: UploadedFilesListProps) => {
   if (files.length === 0) return null;
 
-  // To display current page
-  /*{`${file.name}: ${percentage}% (${fileProgress.uploaded}/${fileProgress.total} pages)`}*/
-
   return (
     <div className="rounded-3xl bg-gray-50 dark:bg-gray-900 shadow">
       <h3 className="p-4 text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
@@ -28,9 +25,16 @@ const UploadedFilesList = ({ files, onDeleteFile, uploading, progress }: Uploade
               ? Math.floor((fileProgress.uploaded / fileProgress.total) * 100)
               : 0;
 
+            if (fileProgress.total === 0)
+              return (
+                <span key={file.name} className="text-xs text-gray-500">
+                  {`${file.name}: lecture...`}
+                </span>
+              )
+
             return (
               <div key={file.name} className="text-xs text-gray-500">
-                {`${file.name}: ${percentage}%`}
+                {`${file.name}: ${percentage}% (${fileProgress.uploaded}/${fileProgress.total} morceaux)`}
               </div>
             );
           })}
