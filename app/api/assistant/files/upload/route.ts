@@ -16,7 +16,7 @@ const docGoogleAiClient = new DocumentProcessorServiceClient({
   projectId: process.env.GCP_PROJECT_ID,
   credentials: {
     project_id: process.env.GCP_PROJECT_ID,
-    private_key: process.env.GCP_PRIVATE_KEY,
+    private_key: process.env.GCP_PRIVATE_KEY?.replace(/\\n/g,"\n"),
     client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
   },
 });
