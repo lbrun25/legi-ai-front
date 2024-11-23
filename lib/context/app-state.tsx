@@ -1,6 +1,6 @@
 'use client'
 
-import {createContext, useState, ReactNode, useContext, useRef} from 'react'
+import {createContext, useState, ReactNode, useContext, useRef, useEffect} from 'react'
 import {Article} from "@/lib/types/article";
 import {Decision} from "@/lib/types/decision";
 import {MikeMode} from "@/lib/types/mode";
@@ -25,7 +25,11 @@ interface AppState {
   hasJustSignUp: boolean;
   selectedMode: MikeMode;
   setSelectedMode: (mode: MikeMode) => void;
+  chunkingMode: string;
+  setChunkingMode: (mode: string) => void;
 }
+
+const LOCAL_STORAGE_CHUNKING_MODE_KEY = 'chunkingMode';
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
@@ -37,6 +41,25 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [timeSaved, setTimeSaved] = useState<number>(0);
   const [hasJustSignUp, setHasJustSignUp] = useState(false);
   const [selectedMode, setSelectedMode] = useState<MikeMode>("research");
+
+  const [chunkingMode, setChunkingModeState] = useState<string>(() => {
+    // Default value during SSR
+    if (typeof window === 'undefined') {
+      return 'character';
+    }
+    // Access localStorage only in the browser
+    return localStorage.getItem(LOCAL_STORAGE_CHUNKING_MODE_KEY) || 'character';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_CHUNKING_MODE_KEY, chunkingMode);
+    }
+  }, [chunkingMode]);
+
+  const setChunkingMode = (mode: string) => {
+    setChunkingModeState(mode);
+  };
 
   const getCachedArticle = (articleNumber: string, articleSource: string): Article | undefined => {
     const cacheKey = `${articleNumber}_${articleSource}`;
@@ -79,6 +102,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         hasJustSignUp,
         selectedMode,
         setSelectedMode,
+        chunkingMode,
+        setChunkingMode,
       }}
     >
       {children}

@@ -10,6 +10,8 @@ import {AssistantTool} from "openai/resources/beta/assistants";
 import {Input} from "@/components/ui/input";
 import {FunctionTool} from "openai/resources/beta/assistants";
 import OpenAI from "openai";
+import Select from 'react-select'
+import {useAppState} from "@/lib/context/app-state";
 
 export default function Page() {
   const {assistant, loading, updateAssistant, updatingAssistant} = useAssistant()
@@ -20,6 +22,7 @@ export default function Page() {
   const [tools, setTools] = useState<Array<AssistantTool>>([])
   const [temperature, setTemperature] = useState<string>()
   const [topP, setTopP] = useState<string>()
+  const {chunkingMode, setChunkingMode} = useAppState();
 
   function findFunctionByName(arr: AssistantTool[] | undefined, functionName: string): FunctionTool | undefined {
     return arr?.find(item => item.type === "function" && item.function?.name === functionName) as FunctionTool;
@@ -56,6 +59,23 @@ export default function Page() {
       )}
       {!loading && (
         <div className="space-y-8">
+          <div className="space-y-3">
+            <h2>Chunking mode</h2>
+            <Select
+              options={[
+                {value: 'semantic', label: 'Semantic'},
+                {value: 'character', label: 'Recursive Character'},
+              ]}
+              value={{
+                value: chunkingMode,
+                label: chunkingMode === 'semantic' ? 'Semantic' : 'Recursive Character',
+              }}
+              onChange={(selectedOption) => {
+                if (selectedOption)
+                  setChunkingMode(selectedOption.value)
+              }}
+            />
+          </div>
           <div className="space-y-3">
             <h2>Assistant response</h2>
             <Collapsible.Root open={open} onOpenChange={setOpen}>

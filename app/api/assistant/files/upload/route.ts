@@ -1,11 +1,12 @@
 import {NextResponse} from 'next/server';
 import fs from 'fs/promises';
 import OpenAI from "openai";
-import {RecursiveCharacterTextSplitter} from "@langchain/textsplitters";
 import path from 'path';
 import {createReadStream} from 'fs';
 import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
 import {PDFDocument} from 'pdf-lib'
+import {google} from "@google-cloud/documentai/build/protos/protos";
+import IDocument = google.cloud.documentai.v1.IDocument;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
     const totalPages = pdfDoc.getPageCount();
     const MAX_PAGES = 15;
 
-    let allChunks: string[] = [];
+    let allDocuments: IDocument[] = [];
 
     for (let i = 0; i < totalPages; i += MAX_PAGES) {
       console.log('will process page:', i)
@@ -80,48 +81,7 @@ export async function POST(req: Request) {
         console.error("no document were processed by Google Document AI");
         continue; // Skip if no pages were processed
       }
-
-      const { text } = document;
-
-      if (!text) {
-        console.error("no texts were processed for the OCR");
-        continue;
-      }
-      const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 2048,
-        chunkOverlap: 256,
-      });
-      const chunks = await textSplitter.splitText(text);
-
-      // Extract shards from the text field
-      // const getText = (textAnchor) => {
-      //   if (!textAnchor.textSegments || textAnchor.textSegments.length === 0) {
-      //     return '';
-      //   }
-      //
-      //   const startIndex = textAnchor.textSegments[0].startIndex || 0;
-      //   const endIndex = textAnchor.textSegments[0].endIndex;
-      //
-      //   return text.substring(startIndex, endIndex);
-      // };
-      //
-      // const chunks = await Promise.all(
-      //   document.pages.map(async (page) => {
-      //     const paragraphChunks = await Promise.all(
-      //       page.paragraphs?.map(async (paragraph) => {
-      //         const textAnchor = paragraph?.layout?.textAnchor;
-      //         const text = getText(textAnchor);
-      //         const textSplitter = new RecursiveCharacterTextSplitter({
-      //           chunkSize: 2048,
-      //           chunkOverlap: 256,
-      //         });
-      //         return textSplitter.splitText(text);
-      //       }) || []
-      //     );
-      //     return paragraphChunks.flat(); // Flatten paragraph chunks into a single array for the page
-      //   })
-      // );
-      allChunks.push(...chunks);
+      allDocuments.push(document);
     }
 
     // Write file to temporary location
@@ -135,7 +95,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       fileId: openAiFileResponse.id,
-      chunks: allChunks,
+      documents: allDocuments,
     });
   } catch (error) {
     console.error('File upload error:', error);
