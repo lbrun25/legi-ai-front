@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       return NextResponse.json({ message: 'Unsupported files: Support only PDFs' }, { status: 400 });
     }
+    console.log(`will upload file ${file.name}`);
     tempFilePath = path.join(tempDir, file.name);
 
     const projectNumber = process.env.GCP_PROJECT_NUMBER;
