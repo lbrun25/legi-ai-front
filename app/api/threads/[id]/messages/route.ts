@@ -8,7 +8,7 @@ import {Message} from "@/lib/types/message";
 import {MikeMode} from "@/lib/types/mode";
 import {getCompiledAnalysisGraph} from "@/lib/ai/langgraph/analysisGraph";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
 
