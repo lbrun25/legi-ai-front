@@ -343,10 +343,13 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
         const chunksResponses = await Promise.all(
           documents.map(async (doc: IDocument) => {
+            const { text: documentText } = doc;
+            if (!documentText)
+              throw Error(`Could not find text in document`);
             const chunksResponse = await fetch('/api/assistant/files/chunks', {
               method: 'POST',
               body: JSON.stringify({
-                document: doc,
+                documentText,
                 chunkingMode
               }),
             });

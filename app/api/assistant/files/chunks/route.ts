@@ -7,10 +7,7 @@ import IDocument = google.cloud.documentai.v1.IDocument;
 import {agenticChunking} from "@/lib/ai/chunking/agenticChunking";
 import {lateChunking} from "@/lib/ai/chunking/lateChunking";
 
-const makeChunks = async (document: IDocument, chunkingMode: ChunkingMode) => {
-  const { text } = document;
-  if (!text)
-    throw Error(`Could not find text in document`);
+const makeChunks = async (text: string, chunkingMode: ChunkingMode) => {
   if (chunkingMode === "character") {
     // Extract shards from the text field
     // const getText = (textAnchor) => {
@@ -60,13 +57,13 @@ const makeChunks = async (document: IDocument, chunkingMode: ChunkingMode) => {
 export async function POST(req: Request) {
   // Parse the request body
   const input: {
-    document: IDocument;
+    documentText: string;
     chunkingMode: ChunkingMode;
   } = await req.json();
 
   try {
     console.log('chunkingMode:', input.chunkingMode);
-    const chunks = await makeChunks(input.document, input.chunkingMode) ?? [];
+    const chunks = await makeChunks(input.documentText, input.chunkingMode) ?? [];
     console.log('chunks:', chunks);
     return NextResponse.json({
       chunks: chunks,
