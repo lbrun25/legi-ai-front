@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     await ingestChunkForAnalysis(input.chunk, input.filename, input.index);
     return NextResponse.json({message: "User documents chunks ingested"});
   } catch (error) {
-    console.log("cannot ingest document chunks:", error);
+    console.error("cannot ingest document chunks:", error);
     return NextResponse.json({ message: 'Failed to ingest documents' }, { status: 500 });
   }
 }

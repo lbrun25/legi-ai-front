@@ -24,6 +24,8 @@ import {UploadFilesButton} from "@/components/upload-files-button";
 import UploadedFilesList from "@/components/uploaded-files-list";
 import {toast} from "sonner";
 import {SelectMode} from "@/components/select-mode";
+import {google} from "@google-cloud/documentai/build/protos/protos";
+import IDocument = google.cloud.documentai.v1.IDocument;
 
 interface AssistantProps {
   threadId?: string;
@@ -31,7 +33,15 @@ interface AssistantProps {
 }
 
 export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
-  const {isGenerating, setIsGenerating, isStreaming, setIsStreaming, setTimeSaved, selectedMode} = useAppState();
+  const {
+    isGenerating,
+    setIsGenerating,
+    isStreaming,
+    setIsStreaming,
+    setTimeSaved,
+    selectedMode,
+    chunkingMode,
+  } = useAppState();
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -329,8 +339,24 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
         }
 
-        const chunks: string[] = result.chunks; // Single array of chunks
-        const totalChunks = chunks.length; // Total number of chunks
+        const documents = result.documents;
+
+        const chunksResponses = await Promise.all(
+          documents.map(async (doc: IDocument) => {
+            const chunksResponse = await fetch('/api/assistant/files/chunks', {
+              method: 'POST',
+              body: JSON.stringify({
+                document: doc,
+                chunkingMode
+              }),
+            });
+            const chunksResult = await chunksResponse.json();
+            return chunksResult.chunks;
+          })
+        );
+
+        const chunks = chunksResponses.flat();
+        const totalChunks = chunks.length;
 
         setFileProgress((prev) => ({
           ...prev,
