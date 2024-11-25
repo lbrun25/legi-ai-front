@@ -4,6 +4,8 @@ import {RecursiveCharacterTextSplitter} from "@langchain/textsplitters";
 import {createSemanticChunks} from "@/lib/ai/chunking/semanticChunking";
 import {google} from "@google-cloud/documentai/build/protos/protos";
 import IDocument = google.cloud.documentai.v1.IDocument;
+import {agenticChunking} from "@/lib/ai/chunking/agenticChunking";
+import {lateChunking} from "@/lib/ai/chunking/lateChunking";
 
 const makeChunks = async (document: IDocument, chunkingMode: ChunkingMode) => {
   const { text } = document;
@@ -46,6 +48,12 @@ const makeChunks = async (document: IDocument, chunkingMode: ChunkingMode) => {
   }
   if (chunkingMode === "semantic") {
     return await createSemanticChunks(text);
+  }
+  if (chunkingMode === "agentic") {
+    return await agenticChunking(text);
+  }
+  if (chunkingMode === "contextual") {
+    return await lateChunking(text, text);
   }
 }
 

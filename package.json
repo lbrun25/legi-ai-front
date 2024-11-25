@@ -53,6 +53,7 @@
     "lucide-react": "^0.363.0",
     "markdown-to-txt": "^2.0.1",
     "mathjs": "^14.0.0",
+    "nanoid": "^5.0.8",
     "natural": "^8.0.1",
     "next": "^14.2.3",
     "next-auth": "^4.24.7",

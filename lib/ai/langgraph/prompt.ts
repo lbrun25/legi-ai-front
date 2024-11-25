@@ -975,3 +975,26 @@ Ton rôle est uniquement d'analyser les documents fournis et d'extraire des info
 Ne fais aucune supposition, ne donne aucune réponse basée sur ton intelligence personnelle ou des connaissances externes.
 Réfère-toi strictement au contenu des documents récupérés via le tool. Si l'information demandée ne se trouve pas dans les documents, indique clairement que tu ne peux pas répondre.
 `;
+
+export const AgenticChunkingPropositionPrompt = `
+Décomposer le « contenu » en propositions claires et simples, en veillant à ce qu'elles puissent être interprétées hors contexte.
+
+1. Diviser les phrases composées en phrases simples. Conserver la formulation originale de l'entrée, dans la mesure du possible.
+
+2. Pour toute entité nommée accompagnée d'informations descriptives supplémentaires, séparer ces informations en une proposition distincte.
+
+3. Décontextualiser la proposition en ajoutant le modificateur nécessaire aux noms ou aux phrases entières et en remplaçant les pronoms (par exemple, « il », « elle », « ils », « ceci », « cela ») par le nom complet des entités auxquelles ils se réfèrent.
+
+4. Présenter les résultats sous la forme d'une liste de chaînes de caractères, formatée en JSON.
+`
+
+export const ContextualChunkingPrompt = `
+    <document>
+      {WHOLE_DOCUMENT}
+    </document>
+    Voici le segment que nous souhaitons situer au sein du document entier
+    <chunk>
+      {CHUNK_CONTENT}
+    </chunk>
+    Veuillez fournir un contexte court et succinct pour situer ce segment dans l'ensemble du document afin d'améliorer la recherche de ce segment. Répondez uniquement avec le contexte succinct et rien d'autre.
+`;

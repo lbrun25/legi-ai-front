@@ -3,7 +3,6 @@ import * as math from "mathjs";
 import {quantile} from "d3-array";
 import {OpenAIEmbeddings} from "@langchain/openai";
 
-// TODO: use breakpoint_threshold_type="gradient"
 // https://python.langchain.com/docs/how_to/semantic-chunker/
 // This method is useful when chunks are highly correlated with each other or specific to a domain e.g. legal or medical
 export const createSemanticChunks = async (text: string): Promise<string[]> => {
@@ -19,8 +18,10 @@ export const createSemanticChunks = async (text: string): Promise<string[]> => {
   );
 
   // Step 5: Calculate cosine distances and significant shifts to identify semantic chunks.
+  // 90%: percentile distance
+  // 0.5% gradient distance (useful when chunks are highly correlated with each other or specific to a domain e.g. legal or medical)
   const {updatedArray, significantShiftIndices} =
-    calculateCosineDistancesAndSignificantShifts(sentencesWithEmbeddings, 90); // Assuming a threshold of 90%
+    calculateCosineDistancesAndSignificantShifts(sentencesWithEmbeddings, 90);
 
   // Step 6: Group sentences into semantic chunks based on the significant shifts identified.
   return groupSentencesIntoChunks(
