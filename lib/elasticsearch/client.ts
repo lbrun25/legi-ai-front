@@ -71,19 +71,19 @@ class ElasticsearchClientSingleton {
 
   public async searchDoctrines(query: string, limit: number): Promise<any> {
     try {
-      const result = await this.client.search<{ paragrapheContent: string }>({
+      const result = await this.client.search<{ contextual_content: string }>({
         index: 'doctrines',
         query: {
           match: {
-            paragrapheContent: query
+            contextual_content: query
           }
         },
         size: limit
       });
-      return result.hits.hits.map(hit => {
+      return result.hits.hits.map((hit:any) => {
         return {
           id: hit._id,
-          paragrapheContent: hit._source?.paragrapheContent
+          contextual_content: hit._source?.contextual_content
         };
       });
     } catch (error) {

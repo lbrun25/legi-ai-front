@@ -2,17 +2,21 @@
 import {embeddingWithVoyageLaw, embeddingWithVoyageLawForDoctrines} from "@/lib/ai/voyage/embedding";
 import {supabaseClient} from "@/lib/supabase/supabaseClient";
 import {OpenAI} from "openai";
+import {sql} from "@/lib/sql/client";
+import {MatchedDecision} from "@/lib/supabase/searchDecisions";
 
 export interface MatchedDoctrine {
   id: bigint;
-  paragrapheContent: string;
+  contextual_content: string;
   paragrapheNumber: string;
+  bookTitle: string;
   similarity: number;
 }
 
 export interface SearchMatchedDoctrinesResponse {
   doctrines: MatchedDoctrine[];
   hasTimedOut: boolean;
+  doctrineDomaine: string;
 }
 
 interface FetchDoctrinesFromPartitionsResponse {
@@ -30,25 +34,26 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
   const promises: any[] = [];
   let hasTimedOut = false;
 
+  const formattedEmbedding = `[${embedding.join(',')}]`;
+
   for (let partitionIndex = 0; partitionIndex <= maxIndex; partitionIndex++) {
     const promise = (async () => {
       try {
-        const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_part_${partitionIndex}_adaptive`, {
-          query_embedding: embedding,
-          match_count: matchCount,
-        });
+        const functionName = `match_doctrines_part_${partitionIndex}_adaptive`;
 
-        if (error) {
-          console.error(`Error fetching doctrines from partition ${partitionIndex}:`, error);
-          // canceling statement due to statement timeout
-          if (error.code === "57014") {
-            hasTimedOut = true;
-          }
+        const query = sql.unsafe(`
+          SELECT * FROM ${functionName}($1::halfvec, $2::int)
+        `, [formattedEmbedding, matchCount]);
+
+        const matchedDoctrines = await query as unknown as MatchedDoctrine[];
+
+        // console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
+
+        if (matchedDoctrines) {
+          return matchedDoctrines;
+        } else {
           return [];
         }
-
-        console.log(`Fetched doctrines from partition ${partitionIndex}:`, matchedDoctrines.map((m: MatchedDoctrine) => JSON.stringify({ number: m.paragrapheNumber, similarity: m.similarity })));
-        return matchedDoctrines;
       } catch (err) {
         console.error(`Exception occurred for partition ${partitionIndex}:`, err);
         return [];
@@ -80,30 +85,19 @@ const fetchDoctrinesFromPartitions = async (maxIndex: number, embedding: number[
 };
 
 const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matchCount: number): Promise<FetchDoctrinesFromIdsResponse> => {
-  console.log('Will call match_doctrines_by_ids with IDs:', idList);
+  // console.log('Will call match_doctrines_by_ids with IDs:', idList);
   try {
     console.time('call match_doctrines_by_ids')
-    const { data: matchedDoctrines, error } = await supabaseClient.rpc(`match_doctrines_by_ids`, {
-      query_embedding: embedding,
-      match_threshold: 0.2,
-      match_count: matchCount,
-      id_list: idList,
-    });
+    const formattedEmbedding = `[${embedding.join(',')}]`;
+    const formattedIdList = `{${idList.join(',')}}`;
+
+    const query = sql.unsafe(`
+      SELECT * FROM match_doctrines_by_ids_2($1, $2, $3, $4)
+    `, [formattedEmbedding, 0.2, matchCount, formattedIdList]);
+
+    const matchedDoctrines = await query as unknown as MatchedDoctrine[];
     console.timeEnd('call match_doctrines_by_ids');
-    if (error) {
-      console.error(`Error fetching doctrines from indexes:`, error);
-      // canceling statement due to statement timeout
-      if (error.code === "57014") {
-        return {
-          doctrines: [],
-          hasTimedOut: true,
-        }
-      }
-      return {
-        doctrines: [],
-        hasTimedOut: false
-      };
-    }
+
     return {
       doctrines: matchedDoctrines,
       hasTimedOut: false,
@@ -117,17 +111,18 @@ const fetchDoctrinesFromIds = async (embedding: number[], idList: bigint[], matc
   }
 };
 
-export const searchMatchedDoctrines = async (input: string): Promise<SearchMatchedDoctrinesResponse> => {
-  console.log('searchMatchedDoctrines:', input);
+export const searchMatchedDoctrines = async (input: string, limit: number = 5, idList: bigint[]): Promise<SearchMatchedDoctrinesResponse> => {
+  //console.log('searchMatchedDoctrines:', idList);
   const response = await embeddingWithVoyageLawForDoctrines(input)
   if (!response) {
     return {
       doctrines: [],
-      hasTimedOut: false
+      hasTimedOut: false,
+      doctrineDomaine: "",
     };
   }
   const embedding_Voyage = response.data[0].embedding;
-  const openai = new OpenAI({
+  /*const openai = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY'],
   });
   const result = await openai.embeddings.create({
@@ -136,29 +131,61 @@ export const searchMatchedDoctrines = async (input: string): Promise<SearchMatch
   });
   const [{embedding: embeddingOpenai}] = result.data;
 
-  const maxIndex = 2;
-  const matchCount = 5;
+  const maxIndex = 0;
+  const matchCount = 10;*/
 
   try {
-    const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
+    /*const fetchDoctrinesFromPartitionsResponse = await fetchDoctrinesFromPartitions(maxIndex, embeddingOpenai, matchCount);
     if (fetchDoctrinesFromPartitionsResponse.hasTimedOut) {
       return {
         doctrines: [],
         hasTimedOut: true,
+        doctrineDomaine: "",
       }
     }
-    const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);
-    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, doctrineIds, matchCount);
-    console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, number: m.paragrapheNumber, similarity: m.similarity })));
+    const doctrineIds: bigint[] = fetchDoctrinesFromPartitionsResponse.doctrines.map((doctrine) => doctrine.id);*/
+    const fetchDoctrinesFromIdsResponse = await fetchDoctrinesFromIds(embedding_Voyage, idList, limit);
+    const domaine = fetchDoctrinesFromIdsResponse.doctrines[0]?.bookTitle;
+    //console.log(`topDoctrines:`, fetchDoctrinesFromIdsResponse.doctrines.map((m: MatchedDoctrine) => JSON.stringify({ id: m.id, bookTitle: m.bookTitle, paragrapheNumber:m.paragrapheNumber, similarity: m.similarity})));
     return {
       doctrines: fetchDoctrinesFromIdsResponse.doctrines,
       hasTimedOut: fetchDoctrinesFromIdsResponse.hasTimedOut,
+      doctrineDomaine: domaine,
     };
   } catch (err) {
     console.error('Error occurred while fetching doctrines:', err);
     return {
       doctrines: [],
-      hasTimedOut: false
+      hasTimedOut: false,
+      doctrineDomaine: "",
     };
   }
+}
+
+export async function getDoctrinesByIds(ids: bigint[]) {
+  let retries = 0;
+  
+  while (retries < 5) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("LegalDoctrine")
+        .select('id, contextual_content, paragrapheNumber, bookTitle')
+        .in('id', ids);
+
+      if (error) throw error;
+      return data;
+      
+    } catch (error) {
+      retries++;
+      console.error(`Attempt ${retries}/${3} failed:`, error);
+      
+      if (retries === 3) {
+        console.error('Max retries reached. Returning null.');
+        return null;
+      }
+      await new Promise(resolve => setTimeout(resolve, 200 * retries));
+    }
+  }
+  
+  return null;
 }

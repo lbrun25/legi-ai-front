@@ -8,7 +8,7 @@ import {Message} from "@/lib/types/message";
 import {MikeMode} from "@/lib/types/mode";
 import {getCompiledAnalysisGraph} from "@/lib/ai/langgraph/analysisGraph";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
 
@@ -279,6 +279,8 @@ export async function POST(
     });
 
     let firstCalledChunk = false;
+    let response = "";
+    let lastValidationMessageSent = false;
 
     const toolsCalled = new Map<string, boolean>();
 
@@ -291,7 +293,7 @@ export async function POST(
           controller.close();
         });
 
-        for await (const { event, data } of eventStreamFinalRes) {
+        for await (const { event, data, tags } of eventStreamFinalRes) {
           // Logs to debug
           if (event !== "on_chat_model_stream") {
             // console.log('event:', event)
@@ -313,8 +315,21 @@ export async function POST(
             break;
           }
 
-          if (event === "on_chat_model_stream") {
-            // Intermediate chat model generations will contain tool calls and no content
+          const output = JSON.stringify(data, null, 2)
+          const outputParsed = JSON.parse(output);
+          // lastValidationMessage = outputParsed?.input?.kwargs?.content;
+          if (outputParsed?.input?.kwargs?.content?.startsWith("[IMPRIMER]"))  {
+            if (!lastValidationMessageSent) {
+              controller.enqueue(textEncoder.encode(outputParsed?.input?.kwargs?.content.replace("[IMPRIMER]", "")));
+            }
+            lastValidationMessageSent = true;
+            if (!firstCalledChunk) {
+              console.timeEnd("Streaming answer");
+              firstCalledChunk = true;
+            }
+          }
+
+          if (event === "on_chat_model_stream" && tags.includes("formatting_agent")) {
             if (!!data.chunk.content) {
               if (!firstCalledChunk) {
                 console.timeEnd("Streaming answer");
@@ -324,9 +339,12 @@ export async function POST(
             }
           }
         }
-        const toolsCalledMessage = `Tools called: ${Array.from(toolsCalled.keys()).join(',')}`;
-        console.log('will enqueue toolsCalledMessage:', toolsCalledMessage);
-        controller.enqueue(textEncoder.encode(toolsCalledMessage));
+        console.log('toolsCalled:', toolsCalled)
+        if (toolsCalled.size > 0) {
+          const toolsCalledMessage = `Tools called: ${Array.from(toolsCalled.keys()).join(',')}`;
+          console.log('will enqueue toolsCalledMessage:', toolsCalledMessage);
+          controller.enqueue(textEncoder.encode(toolsCalledMessage));
+        }
         controller.close();
       },
     });
