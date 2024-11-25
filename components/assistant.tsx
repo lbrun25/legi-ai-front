@@ -398,6 +398,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           })
         );
       } catch (error) {
+        console.error(`cannot upload file ${file.name}:`, error);
         toast.error(`Échec du téléchargement de "${file.name}".`);
       }
     }
