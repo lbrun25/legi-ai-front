@@ -26,6 +26,7 @@ import {toast} from "sonner";
 import {SelectMode} from "@/components/select-mode";
 import {google} from "@google-cloud/documentai/build/protos/protos";
 import IDocument = google.cloud.documentai.v1.IDocument;
+import {PDFDocument} from "pdf-lib";
 
 interface AssistantProps {
   threadId?: string;
@@ -326,20 +327,55 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await fetch('/api/assistant/files/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json();
-        console.log('result upload:', result);
 
-        if (response.ok) {
-          uploadedFileIds.push(result.fileId);
-        } else {
-          toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
+        if (selectedMode === "synthesis") {
+          const response = await fetch('/api/assistant/files/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          const result = await response.json();
+          console.log('result upload:', result);
+
+          if (response.ok) {
+            uploadedFileIds.push(result.fileId);
+          } else {
+            toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
+          }
         }
 
-        const documents = result.documents;
+        // PDF splitting
+        const fileBuffer = Buffer.from(await file.arrayBuffer());
+        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const totalPages = pdfDoc.getPageCount();
+        const maxPages = 15;
+
+        const splitTasks = Array.from({ length: Math.ceil(totalPages / maxPages) }, (_, index) => {
+          const startPage = index * maxPages;
+          const endPage = Math.min((index + 1) * maxPages, totalPages);
+
+          return async () => {
+            const subPdf = await PDFDocument.create();
+            const pages = await subPdf.copyPages(pdfDoc, Array.from({ length: endPage - startPage }, (_, j) => startPage + j));
+            pages.forEach((page) => subPdf.addPage(page));
+
+            const chunkBuffer = await subPdf.save();
+            return Buffer.from(chunkBuffer).toString('base64');
+          };
+        });
+        const allEncodedDocument = await Promise.all(splitTasks.map((task) => task()));
+
+        const documents = await Promise.all(
+          allEncodedDocument.map(async (encodedFileContent: string) => {
+            const ocrResponse = await fetch('/api/assistant/files/ocr', {
+              method: 'POST',
+              body: JSON.stringify({
+                encodedFileContent,
+              }),
+            });
+            const ocrResult = await ocrResponse.json();
+            return ocrResult.document;
+          })
+        );
 
         const chunksResponses = await Promise.all(
           documents.map(async (doc: IDocument) => {
