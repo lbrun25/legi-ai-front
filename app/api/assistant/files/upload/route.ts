@@ -8,6 +8,10 @@ import {PDFDocument} from 'pdf-lib'
 import {google} from "@google-cloud/documentai/build/protos/protos";
 import IDocument = google.cloud.documentai.v1.IDocument;
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });

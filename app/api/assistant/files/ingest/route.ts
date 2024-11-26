@@ -2,6 +2,10 @@ import {getTableName, insertDocument} from "@/lib/supabase/documents";
 import {ElasticsearchClient} from "@/lib/elasticsearch/client";
 import {NextResponse} from "next/server";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 const RETRY_DELAY = 2000; // Delay in milliseconds between retries
 
 const retryableIngestion = async (
