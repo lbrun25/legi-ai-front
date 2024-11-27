@@ -397,7 +397,6 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         );
 
         const chunks = chunksResponses.flat();
-        const totalChunks = chunks.length;
 
         try {
           // Table chunks with Unstructured. Chunking by row by adding table headers and contextual.
@@ -435,7 +434,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
 
         setFileProgress((prev) => ({
           ...prev,
-          [file.name]: { uploaded: 0, total: totalChunks }, // Track chunks directly
+          [file.name]: { uploaded: 0, total: chunks.length }, // Track chunks directly
         }));
 
         // Process all chunks in parallel
