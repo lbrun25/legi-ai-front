@@ -2632,6 +2632,11 @@ async@^2.6.4:
   dependencies:
     lodash "^4.17.14"
 
+async@^3.2.5:
+  version "3.2.6"
+  resolved "https://registry.yarnpkg.com/async/-/async-3.2.6.tgz#1b0728e14929d51b85b449b7f06e27c1145e38ce"
+  integrity sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==
+
 asynckit@^0.4.0:
   version "0.4.0"
   resolved "https://registry.yarnpkg.com/asynckit/-/asynckit-0.4.0.tgz#c79ed97f7f34cb8f2ba1bc9790bcc366474b4b79"
@@ -9298,6 +9303,14 @@ universalify@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/universalify/-/universalify-2.0.1.tgz#168efc2180964e6386d061e094df61afe239b18d"
   integrity sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==
+
+unstructured-client@^0.18.2:
+  version "0.18.2"
+  resolved "https://registry.yarnpkg.com/unstructured-client/-/unstructured-client-0.18.2.tgz#38df2a795077ebe3a7f3688d0f0433be04e6fb12"
+  integrity sha512-KwsrkZYtMyMHL44qQ46H3nss2kN8jmW92pb8opUJslByPf0tfMr8EIFWGxxHtcOoBuJRpt3BtjeE3dYip3UuSA==
+  dependencies:
+    async "^3.2.5"
+    pdf-lib "^1.17.1"
 
 update-browserslist-db@^1.1.0:
   version "1.1.0"
