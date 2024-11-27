@@ -998,3 +998,9 @@ export const ContextualChunkingPrompt = `
     </chunk>
     Veuillez fournir un contexte court et succinct pour situer ce segment dans l'ensemble du document afin d'améliorer la recherche de ce segment. Répondez uniquement avec le contexte succinct et rien d'autre.
 `;
+
+export const SummarizeTableRow = `
+  Résumez la ligne suivante dans le contexte du tableau :
+  Tableau : {TABLE}
+  Ligne : {ROW}
+`;

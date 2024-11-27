@@ -8,8 +8,6 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
 
-export const maxDuration = 300;
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });

@@ -1,6 +1,10 @@
 import {NextResponse} from "next/server";
 import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 const docGoogleAiClient = new DocumentProcessorServiceClient({
   apiEndpoint: 'eu-documentai.googleapis.com',
   projectId: process.env.GCP_PROJECT_ID,
