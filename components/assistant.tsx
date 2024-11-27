@@ -399,35 +399,39 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         const chunks = chunksResponses.flat();
         const totalChunks = chunks.length;
 
-        // Table chunks with Unstructured. Chunking by row by adding table headers and contextual.
-        const unstructuredResponse = await fetch('/api/assistant/files/unstructured/partition', {
-          method: 'POST',
-          body: formData,
-        });
-        const unstructuredResponseResult = await unstructuredResponse.json();
-        const unstructuredTables: UnstructuredTableElement[] = unstructuredResponseResult.tables;
+        try {
+          // Table chunks with Unstructured. Chunking by row by adding table headers and contextual.
+          const unstructuredResponse = await fetch('/api/assistant/files/unstructured/partition', {
+            method: 'POST',
+            body: formData,
+          });
+          const unstructuredResponseResult = await unstructuredResponse.json();
+          const unstructuredTables: UnstructuredTableElement[] = unstructuredResponseResult.tables;
 
-        const tableChunksResponses = await Promise.all(
-          unstructuredTables.map(async (unstructuredTable) => {
-            try {
-              const tableChunksResponse = await fetch('/api/assistant/files/chunks/table', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  table: unstructuredTable,
-                }),
-              });
-              const tableChunksResult = await tableChunksResponse.json();
-              return tableChunksResult.chunks;
-            } catch (error) {
-              console.error("cannot make chunks for table:", error);
-            }
-          })
-        );
-        const tableChunks = tableChunksResponses.flat();
-        chunks.push(...tableChunks);
+          const tableChunksResponses = await Promise.all(
+            unstructuredTables.map(async (unstructuredTable) => {
+              try {
+                const tableChunksResponse = await fetch('/api/assistant/files/chunks/table', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    table: unstructuredTable,
+                  }),
+                });
+                const tableChunksResult = await tableChunksResponse.json();
+                return tableChunksResult.chunks;
+              } catch (error) {
+                console.error("cannot make chunks for table:", error);
+              }
+            })
+          );
+          const tableChunks = tableChunksResponses.flat();
+          chunks.push(...tableChunks);
+        } catch (error) {
+          console.error("cannot make chunks for table:", error);
+        }
 
         setFileProgress((prev) => ({
           ...prev,
