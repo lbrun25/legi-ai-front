@@ -7,7 +7,7 @@ import {tool} from "@langchain/core/tools";
 import {z} from "zod";
 import {DOMImplementation, XMLSerializer} from '@xmldom/xmldom';
 
-const NUM_RELEVANT_CHUNKS = 150;
+const NUM_RELEVANT_CHUNKS = 60;
 
 interface UserDocumentPrecision {
   relevance_score: number;
@@ -26,7 +26,7 @@ export const getMatchedUserDocumentsTool = tool(async (input) => {
 })
 
 const getMatchedUserDocuments = async (input: string) => {
-  const semanticResponse = await searchMatchedUserDocuments(input);
+  const semanticResponse = await searchMatchedUserDocuments(input, NUM_RELEVANT_CHUNKS);
   console.log('semanticResponse:', semanticResponse);
   const bm25Results = await ElasticsearchClient.searchUserDocuments(input, NUM_RELEVANT_CHUNKS);
   // console.log('bm25Results:', bm25Results);

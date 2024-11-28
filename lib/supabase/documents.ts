@@ -247,7 +247,7 @@ export const matchUserDocuments = async (
   );
 };
 
-export const searchMatchedUserDocuments = async (input: string): Promise<MatchedUserDocument[]> => {
+export const searchMatchedUserDocuments = async (input: string, limit: number): Promise<MatchedUserDocument[]> => {
   const voyageApiKey = process.env.VOYAGE_AI_API_KEY ??
     (() => {
       throw new Error('VOYAGE_AI_API_KEY is not set');
@@ -257,11 +257,10 @@ export const searchMatchedUserDocuments = async (input: string): Promise<Matched
     return [];
   }
   const inputEmbeddingVoyage = inputEmbeddingVoyageResponse.data[0].embedding;
-  const matchCount = 10;
   const threshold = 0.2;
 
   try {
-    return await matchUserDocuments(inputEmbeddingVoyage, threshold, matchCount);
+    return await matchUserDocuments(inputEmbeddingVoyage, threshold, limit);
   } catch (error) {
     console.error('Error occurred while fetching user documents:', error);
     return [];
