@@ -27,7 +27,7 @@ export const HelpSidebarButton = () => {
   const description = `
 À date, il existe 3 fonctionnalités avec mike, à sélectionner :
 
-1. ⚖️ **Recherche juridique** : mike répond à vos problèmes de droit, en citant les articles, jurisprudences et éléments de doctrine pertinent.\\
+1. ⚖️ **Recherche juridique** : mike répond à vos problèmes de droit, en citant les articles, jurisprudences et éléments de doctrine pertinents.\\
 💡 ***Comment ?*** Posez votre problème juridique ou question de droit en **langage simple** dans la zone de texte, comme si vous vous **adressiez à un collaborateur** 🗣️, en précisant autant que possible les éléments pertinents de contexte de votre cas ou de votre problème juridique.
 
 
@@ -38,7 +38,7 @@ export const HelpSidebarButton = () => {
 
 
 3. 📖 **Résumé de document** : mike résume n’importe quel document en quelques lignes, selon vos souhaits.\\
-💡 ***Comment ?*** Cliquez sur “Synthèse, puis chargez votre document à synthétiser en cliquant sur la petite flèche à gauche de la zone de texte. Ensuite, demandez à mike de synthétiser le document.
+💡 ***Comment ?*** Cliquez sur “Synthèse”, puis chargez votre document à synthétiser en cliquant sur la petite flèche à gauche de la zone de texte. Ensuite, demandez à mike de synthétiser le document.
 
 Grâce à vous de nouvelles fonctionnalités arriveront si vous les jugez pertinentes : gestion automatique des emails, aide à la rédaction, dictée intelligente… **Dites nous ce que vous aimeriez !**
 `;
