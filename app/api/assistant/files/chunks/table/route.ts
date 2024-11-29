@@ -87,9 +87,7 @@ export async function POST(req: Request) {
   } = await req.json();
 
   try {
-    console.log('table:', input.table);
     const chunks = await makeTableChunksAsHTML(input.table.html);
-    console.log('table chunks:', chunks);
     return new Response(JSON.stringify({ chunks }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error) {
     console.error("cannot make table chunks:", error);

@@ -54,6 +54,29 @@ const createMatchDocumentsFunction = async (tableName: string) => {
   `;
 }
 
+const createMatchDocumentsByFilenameFunction = async (tableName: string) => {
+  const userId = await getUserId();
+  const functionName = `match_documents_${userId}_file`;
+  await sql`
+    create or replace function ${sql(functionName)} (
+      query_embedding vector(1024),
+      match_threshold float,
+      match_count int,
+      filename text
+    )
+    returns setof ${sql(tableName)}
+    language sql
+    as $$
+      select *
+      from ${sql(tableName)}
+      where ${sql(tableName)}.embedding_voyage <=> query_embedding < 1 - match_threshold
+        and ${sql(tableName)}.filename = filename
+      order by ${sql(tableName)}.embedding_voyage <=> query_embedding asc
+      limit least(match_count, 200);
+    $$;
+  `;
+};
+
 // checkUserDocumentTable creates the table if it does not exist
 export const checkUserDocumentTable = async () => {
   const tableName = await getTableName();
@@ -62,6 +85,7 @@ export const checkUserDocumentTable = async () => {
     await createUserDocumentsTable(tableName);
     await createHnswIndex(tableName, "embedding_voyage");
     await createMatchDocumentsFunction(tableName);
+    await createMatchDocumentsByFilenameFunction(tableName);
   }
   return tableName;
 }
@@ -247,7 +271,26 @@ export const matchUserDocuments = async (
   );
 };
 
-export const searchMatchedUserDocuments = async (input: string, limit: number): Promise<MatchedUserDocument[]> => {
+export const matchUserDocumentsByFilename = async (
+  embedding: number[],
+  threshold: number,
+  matchCount: number,
+  filename: string,
+): Promise<MatchedUserDocument[]> => {
+  const userId = await getUserId();
+  const functionName = `match_documents_${userId}_file`;
+  const formattedEmbedding = `[${embedding.join(',')}]`;
+
+  return sql.unsafe(
+    `
+      SELECT id, content, filename, index, metadata
+      FROM "${functionName}"($1, $2, $3, $4)
+    `,
+    [formattedEmbedding, threshold, matchCount, filename]
+  );
+};
+
+export const searchMatchedUserDocuments = async (input: string, limit: number, threshold: number): Promise<MatchedUserDocument[]> => {
   const voyageApiKey = process.env.VOYAGE_AI_API_KEY ??
     (() => {
       throw new Error('VOYAGE_AI_API_KEY is not set');
@@ -257,10 +300,28 @@ export const searchMatchedUserDocuments = async (input: string, limit: number): 
     return [];
   }
   const inputEmbeddingVoyage = inputEmbeddingVoyageResponse.data[0].embedding;
-  const threshold = 0.2;
 
   try {
     return await matchUserDocuments(inputEmbeddingVoyage, threshold, limit);
+  } catch (error) {
+    console.error('Error occurred while fetching user documents:', error);
+    return [];
+  }
+}
+
+export const searchMatchedUserDocumentsByFilename = async (input: string, filename: string, limit: number, threshold: number): Promise<MatchedUserDocument[]> => {
+  const voyageApiKey = process.env.VOYAGE_AI_API_KEY ??
+    (() => {
+      throw new Error('VOYAGE_AI_API_KEY is not set');
+    })();
+  const inputEmbeddingVoyageResponse = await embeddingWithVoyageLaw(input, voyageApiKey);
+  if (!inputEmbeddingVoyageResponse) {
+    return [];
+  }
+  const inputEmbeddingVoyage = inputEmbeddingVoyageResponse.data[0].embedding;
+
+  try {
+    return await matchUserDocumentsByFilename(inputEmbeddingVoyage, threshold, limit, filename);
   } catch (error) {
     console.error('Error occurred while fetching user documents:', error);
     return [];

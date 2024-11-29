@@ -25,7 +25,7 @@ export const embeddingWithVoyageLaw = async (input: string, apiKey: string): Pro
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  console.log('embeddingWithVoyageLaw input:', input)
+  // console.log('embeddingWithVoyageLaw input:', input)
   const body = {
     input: input,
     model: 'voyage-law-2'

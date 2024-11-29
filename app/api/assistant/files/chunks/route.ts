@@ -64,7 +64,6 @@ export async function POST(req: Request) {
   try {
     console.log('chunkingMode:', input.chunkingMode);
     const chunks = await makeChunks(input.documentText, input.chunkingMode) ?? [];
-    console.log('chunks:', chunks);
     return NextResponse.json({
       chunks: chunks,
     });
