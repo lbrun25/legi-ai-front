@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   } = await req.json();
 
   try {
+    console.log('will make OCR');
     if (!input.encodedFileContent)
       return NextResponse.json({ message: 'Missing encodedFileContent in the body' }, { status: 400 });
     const projectNumber = process.env.GCP_PROJECT_NUMBER;
