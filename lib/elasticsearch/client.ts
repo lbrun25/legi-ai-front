@@ -118,6 +118,37 @@ class ElasticsearchClientSingleton {
     }
   }
 
+  public async searchUserDocumentsByFilename(query: string, filename: string, limit: number): Promise<any> {
+    try {
+      const indexName = await this.getUserDocumentIndexName();
+      if (!await this.isIndexExists(indexName)) {
+        console.log('searchUserDocumentsByFilename index does not exist, create it.');
+        await this.createIndex(indexName);
+      }
+
+      const result = await this.client.search<{ content: string; filename: string }>({
+        index: indexName,
+        query: {
+          bool: {
+            must: [
+              { match: { content: query } }, // Full-text search on content
+              { term: { "filename.keyword": filename } } // Exact match on filename.keyword
+            ]
+          }
+        },
+        size: limit
+      });
+      return result.hits.hits.map(hit => ({
+        id: hit._id,
+        content: hit._source?.content,
+        filename: hit._source?.filename
+      }));
+    } catch (error) {
+      console.error("Cannot search user documents by filename:", error);
+      throw error; // Throw the error to handle it upstream
+    }
+  }
+
   public async isIndexExists(index: string): Promise<boolean> {
     return await this.client.indices.exists({ index: index });
   }
@@ -166,13 +197,14 @@ class ElasticsearchClientSingleton {
     return indexName;
   }
 
-  public async indexUserDocument(doc: Pick<UserDocument, "id" | "content">, indexName: string) {
+  public async indexUserDocument(doc: Pick<UserDocument, "id" | "content">, filename: string, indexName: string) {
     try {
       await this.client.index({
         index: indexName,
         id: doc.id.toString(),
         document: {
-          content: doc.content
+          content: doc.content,
+          filename: filename
         }
       });
     } catch (error) {

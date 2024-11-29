@@ -19,7 +19,7 @@ const retryableIngestion = async (
       const esIndexName = await ElasticsearchClient.getUserDocumentIndexName();
       const insertedDocument = await insertDocument({}, chunk, tableName, filename, index);
       if (insertedDocument) {
-        await ElasticsearchClient.indexUserDocument(insertedDocument, esIndexName);
+        await ElasticsearchClient.indexUserDocument(insertedDocument, filename, esIndexName);
       } else {
         throw new Error(`Inserted document is null for chunk "${index}".`);
       }

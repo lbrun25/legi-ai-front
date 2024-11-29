@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       esIndexName: esIndexName,
     });
   } catch (error) {
-    console.log("cannot ingest document chunks:", error);
+    console.error("cannot ingest document chunks:", error);
     return NextResponse.json({ message: 'Failed to ingest documents' }, { status: 500 });
   }
 }

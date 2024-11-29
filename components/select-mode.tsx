@@ -4,6 +4,7 @@ import {BotIcon, FileIcon, FileSearchIcon} from "lucide-react";
 import React from "react";
 import {SegmentedControl} from "@/components/segmented-controls";
 import {MikeMode} from "@/lib/types/mode";
+import {DisplayTableExtractionButton} from "@/components/display-table-extraction-button";
 
 export const SelectMode = () => {
   const { selectedMode, setSelectedMode } = useAppState();
@@ -48,6 +49,9 @@ export const SelectMode = () => {
           {`Temps d'attente estimé: ${getWaitingTimeStr()}`}
         </span>
       </div>
+      {selectedMode === "analysis" && (
+        <DisplayTableExtractionButton/>
+      )}
     </div>
   );
 }

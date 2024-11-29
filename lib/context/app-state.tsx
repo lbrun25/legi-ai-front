@@ -4,6 +4,7 @@ import {createContext, useState, ReactNode, useContext, useRef, useEffect} from 
 import {Article} from "@/lib/types/article";
 import {Decision} from "@/lib/types/decision";
 import {MikeMode} from "@/lib/types/mode";
+import {ChunkingMode} from "@/lib/types/chunking";
 
 type ArticleCache = Map<string, Article>;
 type DecisionCache = Map<string, Decision>;
@@ -25,8 +26,10 @@ interface AppState {
   hasJustSignUp: boolean;
   selectedMode: MikeMode;
   setSelectedMode: (mode: MikeMode) => void;
-  chunkingMode: string;
-  setChunkingMode: (mode: string) => void;
+  chunkingMode: ChunkingMode;
+  setChunkingMode: (mode: ChunkingMode) => void;
+  analysisFiles: File[];
+  setAnalysisFiles: (files: File[]) => void;
 }
 
 const LOCAL_STORAGE_CHUNKING_MODE_KEY = 'chunkingMode';
@@ -41,14 +44,15 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [timeSaved, setTimeSaved] = useState<number>(0);
   const [hasJustSignUp, setHasJustSignUp] = useState(false);
   const [selectedMode, setSelectedMode] = useState<MikeMode>("research");
+  const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
 
-  const [chunkingMode, setChunkingModeState] = useState<string>(() => {
+  const [chunkingMode, setChunkingModeState] = useState<ChunkingMode>(() => {
     // Default value during SSR
     if (typeof window === 'undefined') {
       return 'semantic';
     }
     // Access localStorage only in the browser
-    return localStorage.getItem(LOCAL_STORAGE_CHUNKING_MODE_KEY) || 'semantic';
+    return localStorage.getItem(LOCAL_STORAGE_CHUNKING_MODE_KEY) as ChunkingMode || 'semantic';
   });
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [chunkingMode]);
 
-  const setChunkingMode = (mode: string) => {
+  const setChunkingMode = (mode: ChunkingMode) => {
     setChunkingModeState(mode);
   };
 
@@ -104,6 +108,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         setSelectedMode,
         chunkingMode,
         setChunkingMode,
+        analysisFiles,
+        setAnalysisFiles,
       }}
     >
       {children}

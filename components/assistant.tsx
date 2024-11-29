@@ -24,9 +24,7 @@ import {UploadFilesButton} from "@/components/upload-files-button";
 import UploadedFilesList from "@/components/uploaded-files-list";
 import {toast} from "sonner";
 import {SelectMode} from "@/components/select-mode";
-import {google} from "@google-cloud/documentai/build/protos/protos";
-import IDocument = google.cloud.documentai.v1.IDocument;
-import {PDFDocument} from "pdf-lib";
+import {createChunksForFile, ingestChunks} from "@/lib/utils/documents";
 
 interface AssistantProps {
   threadId?: string;
@@ -341,101 +339,26 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           } else {
             toast.error(`Erreur lors du téléchargement de "${file.name}": ${result.message}`);
           }
+          continue;
         }
 
-        // PDF splitting
-        const fileBuffer = Buffer.from(await file.arrayBuffer());
-        const pdfDoc = await PDFDocument.load(fileBuffer);
-        const totalPages = pdfDoc.getPageCount();
-        const maxPages = 15;
-
-        const splitTasks = Array.from({ length: Math.ceil(totalPages / maxPages) }, (_, index) => {
-          const startPage = index * maxPages;
-          const endPage = Math.min((index + 1) * maxPages, totalPages);
-
-          return async () => {
-            const subPdf = await PDFDocument.create();
-            const pages = await subPdf.copyPages(pdfDoc, Array.from({ length: endPage - startPage }, (_, j) => startPage + j));
-            pages.forEach((page) => subPdf.addPage(page));
-
-            const chunkBuffer = await subPdf.save();
-            return Buffer.from(chunkBuffer).toString('base64');
-          };
-        });
-        const allEncodedDocument = await Promise.all(splitTasks.map((task) => task()));
-
-        const documents = await Promise.all(
-          allEncodedDocument.map(async (encodedFileContent: string) => {
-            const ocrResponse = await fetch('/api/assistant/files/ocr', {
-              method: 'POST',
-              body: JSON.stringify({
-                encodedFileContent,
-              }),
-            });
-            const ocrResult = await ocrResponse.json();
-            return ocrResult.document;
-          })
-        );
-
-        const chunksResponses = await Promise.all(
-          documents.map(async (doc: IDocument) => {
-            const { text: documentText } = doc;
-            if (!documentText)
-              throw Error(`Could not find text in document`);
-            const chunksResponse = await fetch('/api/assistant/files/chunks', {
-              method: 'POST',
-              body: JSON.stringify({
-                documentText,
-                chunkingMode
-              }),
-            });
-            const chunksResult = await chunksResponse.json();
-            return chunksResult.chunks;
-          })
-        );
-
-        const chunks = chunksResponses.flat();
-        const totalChunks = chunks.length;
+        const chunks = await createChunksForFile(file, chunkingMode);
 
         setFileProgress((prev) => ({
           ...prev,
-          [file.name]: { uploaded: 0, total: totalChunks }, // Track chunks directly
+          [file.name]: { uploaded: 0, total: chunks.length }, // Track chunks directly
         }));
 
         // Process all chunks in parallel
-        await Promise.all(
-          chunks.map(async (chunk: string, chunkIndex: number) => {
-            try {
-              // Send chunk to the server
-              const ingestResponse = await fetch('/api/assistant/files/ingest', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  chunk: chunk,
-                  filename: file.name,
-                  index: chunkIndex, // Use chunk index directly
-                }),
-              });
-
-              if (!ingestResponse.ok) {
-                console.error(`Failed to ingest chunk at index ${chunkIndex}:`, chunk);
-              }
-
-              // Update progress after processing this chunk
-              setFileProgress((prev) => ({
-                ...prev,
-                [file.name]: {
-                  ...prev[file.name],
-                  uploaded: (prev[file.name]?.uploaded || 0) + 1, // Increment uploaded count
-                },
-              }));
-            } catch (error) {
-              console.error(`Error ingesting chunk at index ${chunkIndex}:`, error);
-            }
-          })
-        );
+        await ingestChunks(chunks, file.name, () => {
+          setFileProgress((prev) => ({
+            ...prev,
+            [file.name]: {
+              ...prev[file.name],
+              uploaded: (prev[file.name]?.uploaded || 0) + 1, // Increment uploaded count
+            },
+          }));
+        });
       } catch (error) {
         console.error(`cannot upload file ${file.name}:`, error);
         toast.error(`Échec du téléchargement de "${file.name}".`);
