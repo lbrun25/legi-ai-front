@@ -45,10 +45,10 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [chunkingMode, setChunkingModeState] = useState<string>(() => {
     // Default value during SSR
     if (typeof window === 'undefined') {
-      return 'character';
+      return 'semantic';
     }
     // Access localStorage only in the browser
-    return localStorage.getItem(LOCAL_STORAGE_CHUNKING_MODE_KEY) || 'character';
+    return localStorage.getItem(LOCAL_STORAGE_CHUNKING_MODE_KEY) || 'semantic';
   });
 
   useEffect(() => {
