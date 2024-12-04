@@ -57,7 +57,7 @@ export async function POST(
             accumulatedResponse += chunk.content;
             controller.enqueue(textEncoder.encode(chunk.content as string));
           }
-          console.log(`Query: ${input.question.content}\nAnswer: ${accumulatedResponse}`);
+          console.log(`Query: ${input.question.content}\nAnswer: ${accumulatedResponse}\n\nChunks: ${matchedDocuments}`);
           controller.close();
         } catch (error) {
           console.error("Error processing tool or LLM response:", error);
