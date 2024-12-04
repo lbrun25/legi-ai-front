@@ -1,4 +1,4 @@
-import {AIMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {AnalysisQuestion} from "@/lib/types/analysis";
 import { ChatOpenAI } from "@langchain/openai";
 import {
@@ -33,6 +33,7 @@ export async function POST(
         });
 
         const textEncoder = new TextEncoder();
+        let accumulatedResponse = "";
 
         try {
           const matchedDocuments = await getMatchedUserDocumentsByFilenameToolOutput(input.question.content, input.filename);
@@ -53,8 +54,10 @@ export async function POST(
               controller.close();
               break;
             }
+            accumulatedResponse += chunk.content;
             controller.enqueue(textEncoder.encode(chunk.content as string));
           }
+          console.log(`Query: ${input.question.content}\nAnswer: ${accumulatedResponse}`);
           controller.close();
         } catch (error) {
           console.error("Error processing tool or LLM response:", error);
