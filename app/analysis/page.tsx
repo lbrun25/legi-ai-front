@@ -4,7 +4,7 @@ import {redirect} from "next/navigation";
 import {AnalysisQuestion, AnalysisQuestionAnswerType} from "@/lib/types/analysis";
 import {Calendar, CheckCircle, FileText, Hash} from "lucide-react";
 import {useAppState} from "@/lib/context/app-state";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {createChunksForFile, ingestChunks} from "@/lib/utils/documents";
 import {streamingFetch} from "@/lib/utils/fetch";
 
@@ -32,7 +32,14 @@ export default function Page(
     ? JSON.parse(searchParams.questions)
     : [];
 
+  const hasExecuted = useRef(false);
+
   useEffect(() => {
+    if (hasExecuted.current) {
+      return;
+    }
+    hasExecuted.current = true;
+    console.log('processDocuments');
     const processDocuments = async () => {
       try {
         await fetch('/api/assistant/files/checkTables', {
