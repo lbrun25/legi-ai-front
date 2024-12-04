@@ -20,16 +20,18 @@ export const getMatchedUserDocumentsByFilenameTool = tool(async (input) => {
 
 export const getMatchedUserDocumentsByFilenameToolOutput = async (input: string, filename: string) => {
   const semanticResponse = await searchMatchedUserDocumentsByFilename(input, filename, NUM_RELEVANT_CHUNKS, 0.2);
-  const fileNames = semanticResponse.map(result => result.filename)
+  // Filter to include only results with the correct filename
+  const filteredSemanticResponse = semanticResponse.filter(result => result.filename === filename);
+  const fileNames = filteredSemanticResponse.map(result => result.filename);
   console.log('semantic files:', fileNames);
-  console.log('semanticResponse nb:', semanticResponse.length);
+  console.log('semanticResponse nb:', filteredSemanticResponse.length);
   console.log('filename:', filename);
   const bm25Results = await ElasticsearchClient.searchUserDocumentsByFilename(input, filename, NUM_RELEVANT_CHUNKS);
   console.log('bm25Results nb:', bm25Results.length);
   // console.log('bm25Results files:', bm25Results.map((result: any) => result.filename));
-  if (semanticResponse.length === 0 || bm25Results.length === 0) {
+  if (filteredSemanticResponse.length === 0 || bm25Results.length === 0) {
     console.warn("no result were found for semantic and BM25 search.");
     return "";
   }
-  return getMatchedUserDocuments(input, semanticResponse, bm25Results);
+  return getMatchedUserDocuments(input, filteredSemanticResponse, bm25Results);
 }
