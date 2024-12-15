@@ -1,6 +1,10 @@
 import {NextResponse} from "next/server";
 import {getUserId} from "@/lib/supabase/utils";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   const input: {
     filesWithBase64: {filename: string; content: string}[];

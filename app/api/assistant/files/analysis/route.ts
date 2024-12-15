@@ -3,6 +3,10 @@ import { ChatOpenAI } from "@langchain/openai";
 import { DocumentAnalysisPrompt } from "@/lib/ai/langgraph/prompt";
 import {AnalysisQuestion} from "@/lib/types/analysis";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   req: Request,
 ) {

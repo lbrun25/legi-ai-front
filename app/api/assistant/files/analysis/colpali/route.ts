@@ -1,6 +1,10 @@
 import {NextResponse} from "next/server";
 import {AnalysisQuestion} from "@/lib/types/analysis";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   const input: {
     filename: string;
