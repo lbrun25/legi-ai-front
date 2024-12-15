@@ -26,11 +26,11 @@ export const getMatchedUserDocuments = async (input: string, semanticResponse: M
     return ""
   }
   const docsRanked: any = await rerankWithVoyageAI(input, docsContent);
-  console.log("docsRanked", docsRanked);
+  // console.log("docsRanked", docsRanked);
   const filteredDocs: any = docsRanked.data.filter((doc: UserDocumentPrecision) => doc.relevance_score >= 0.2);
   const indexes = filteredDocs.map((doc: UserDocumentPrecision) => doc.index).reverse();
   const orderedDocs = indexes.map((index: number) => docsToRank[index]);
-  console.log("orderedDocs:", orderedDocs);
+  // console.log("orderedDocs:", orderedDocs);
   if (!orderedDocs){
     console.warn("no ordered docs.");
     return "";

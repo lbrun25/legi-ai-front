@@ -1,23 +1,20 @@
 import {HumanMessage, SystemMessage} from "@langchain/core/messages";
-import {AnalysisQuestion} from "@/lib/types/analysis";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  getMatchedUserDocumentsByFilenameToolOutput
-} from "@/lib/ai/tools/getMatchedUserDocumentsByFilename";
-import {DocumentAnalysisPrompt} from "@/lib/ai/langgraph/prompt";
+import { DocumentAnalysisPrompt } from "@/lib/ai/langgraph/prompt";
+import {AnalysisQuestion} from "@/lib/types/analysis";
 
 export async function POST(
   req: Request,
 ) {
   const input: {
-    filename: string;
+    answer: string;
     question: AnalysisQuestion;
   } = await req.json();
 
   const { signal } = req;
 
   try {
-    console.log('will analyse', input.filename, "with question:", input.question);
+    console.log('will analyse', "with answer:", input.answer);
 
     const llm = new ChatOpenAI({
       modelName: "gpt-4o-mini",
@@ -36,15 +33,12 @@ export async function POST(
         let accumulatedResponse = "";
 
         try {
-          const matchedDocuments = await getMatchedUserDocumentsByFilenameToolOutput(input.question.content, input.filename);
-
           // Create a stream of responses from the LLM
           const streamWithAccumulation = await llm.stream([
             new SystemMessage(DocumentAnalysisPrompt),
             new HumanMessage(
               `
-              Les morceaux du document pertinents: ${matchedDocuments}\n\n
-              Voici la question: "${input.question.content}". Le type de réponse attendu est: "${input.question.answerType}".`
+              Voici la réponse après l'analyse du document: ${input.answer}\nLe type de réponse attendu est: "${input.question.answerType}".`
             ),
           ]);
 
@@ -57,7 +51,7 @@ export async function POST(
             accumulatedResponse += chunk.content;
             controller.enqueue(textEncoder.encode(chunk.content as string));
           }
-          console.log(`Query: ${input.question.content}\nAnswer: ${accumulatedResponse}\n\nChunks: ${matchedDocuments}`);
+          console.log(`Query: ${input.question.content}\nAnswer: ${accumulatedResponse}\n\nColpali answer: ${input.answer}`);
           controller.close();
         } catch (error) {
           console.error("Error processing tool or LLM response:", error);

@@ -1,9 +1,9 @@
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import {BaseMessage} from "@langchain/core/messages";
-import {getMatchedUserDocumentsTool} from "@/lib/ai/tools/getMatchedUserDocuments";
 import {ToolNode} from "@langchain/langgraph/prebuilt";
 import {ChatOpenAI} from "@langchain/openai";
 import {AnalysisPrompt} from "@/lib/ai/langgraph/prompt";
+import {analysisDocumentsTool} from "@/lib/ai/tools/analysisDocuments";
 
 let cachedApp: any = null;
 
@@ -15,7 +15,7 @@ const AnalysisGraphAnnotation = Annotation.Root({
 })
 
 const createAnalysisGraph = () => {
-  const tools = [getMatchedUserDocumentsTool];
+  const tools = [analysisDocumentsTool];
   const toolNode = new ToolNode(tools);
 
   // TODO: use {tool_choice: "required"} to force call the tool
