@@ -8,3 +8,10 @@ export const formatDate = (dateString: string): string => {
     return "";
   }
 };
+
+export function formatDateToInput(date: string): string {
+  if (!date) return '';
+  const [day, month, year] = date.split('/');
+  if (!day || !month || !year) return '';
+  return `${year}-${month}-${day}`;
+}
