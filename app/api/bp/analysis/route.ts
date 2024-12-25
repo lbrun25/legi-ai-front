@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     - Travail au forfait : Le travail est-il réalisé au forfait ? (ex : Forfait jours, Forfait heures)
     - Nombre d’heures travaillées : Combien d’heures ont été travaillées sur la période de paie ?
     - Absences rémunérées ou non rémunérées : Y a-t-il des absences (maladie, congés sans solde, etc.) et comment sont-elles valorisées ?
-    - Congés payés : Combien de jours de congés payés ont été pris ou indemnisés ?
+    - Congés payés : Combien de jours de congés payés acquis (non pris) ?
     - Autres retenues : Y a-t-il d’autres retenues (ex : mutuelle, avance sur salaire) ?
     - Statut du contrat : Le salarié est-il en CDI, CDD, intérim, ou autre ?
     - Nom du salarié : Comment s'appelle le salarié ? (si disponible)
