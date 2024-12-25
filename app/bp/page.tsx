@@ -280,12 +280,12 @@ export default function Page() {
       {/* Pay Slips Drag Zone */}
       <DragZoneFiles
         onDrop={onDropBps}
-        dragActiveLabel="Drop pay slips here..."
+        dragActiveLabel="Déposez vos bulletins de salaire ici..."
         label={(
           <p className="text-gray-600">
-            {"Drag and drop 1 to 12 pay slips here, or "}
-            <span className="text-blue-500 font-medium underline">{"click"}</span>{" "}
-            {"to select files."}
+            {"Glisser-déposer de 1 à 12 fiches de paie ici, ou "}
+            <span className="text-blue-500 font-medium underline">{"cliquez"}</span>{" "}
+            {"pour sélectionner les fichiers."}
           </p>
         )}
       />
@@ -293,12 +293,12 @@ export default function Page() {
       {/* Collective Agreement Drag Zone */}
       <DragZoneFiles
         onDrop={onDropConvention}
-        dragActiveLabel="Drop your collective agreement here..."
+        dragActiveLabel="Déposez votre convention collective ici..."
         label={(
           <p className="text-gray-600">
-            {"Drag and drop your collective agreement here, or "}
-            <span className="text-blue-500 font-medium underline">{"click"}</span>{" "}
-            {"to select it."}
+            {"Glissez-déposez votre convention collective ici, ou "}
+            <span className="text-blue-500 font-medium underline">{"cliquez"}</span>{" "}
+            {"pour le sélectionner."}
           </p>
         )}
       />
