@@ -8,6 +8,7 @@ import {NewThreadSidebarButton} from "@/components/new-thread-sidebar-button";
 import {VideoMike} from "@/components/video-mike";
 import {TimeSaved} from "@/components/time-saved";
 import {HelpSidebarButton} from "@/components/help-sidebar-button";
+import {BpAnalyzerSidebarButton} from "@/components/bp-analyzer-sidebar-button";
 
 export const Header: React.FC = async () => {
   const supabase = createClient()
@@ -32,6 +33,7 @@ export const Header: React.FC = async () => {
             <HistoryContainer/>
             <NewThreadSidebarButton/>
             <HelpSidebarButton/>
+            <BpAnalyzerSidebarButton />
           </div>
         </div>
         <div
