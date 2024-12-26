@@ -79,7 +79,6 @@ export async function POST(req: Request) {
     - Primes : Des primes ont-elles été versées ? (ex : prime de fin d’année, treizième mois) et quel est leur montant ?
     - Commissions : Y a-t-il eu des commissions perçues ? Si oui quel est leur montant ?
     - Heures supplémentaires : Des heures supplémentaires ont-elles été effectuées ? Si oui combien ? et quel est leur montant si possible ?
-    - Avantages en nature : Quels avantages en nature sont présents ? (ex : voiture de fonction, logement) Si oui quel est leur montant ?
     - Indemnités de congés payés : Y a-t-il eu des indemnités liées aux congés payés ? (Salaire perçu pendant les congés payés, mais pas l’indemnité compensatrice de congés payés.) Si oui quel est leur montant ?
     - Travail au forfait : Le travail est-il réalisé au forfait ? (ex : Forfait jours, Forfait heures)
     - Nombre d’heures travaillées : Combien d’heures ont été travaillées sur la période de paie ?
