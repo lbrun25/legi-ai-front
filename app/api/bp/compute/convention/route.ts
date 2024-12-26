@@ -3,6 +3,9 @@ import {NextResponse} from "next/server";
 import fs from 'fs';
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 

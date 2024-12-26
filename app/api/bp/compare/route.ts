@@ -4,6 +4,10 @@ import OpenAI from "openai";
 
 // const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
