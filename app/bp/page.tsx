@@ -1,5 +1,5 @@
 "use client"
-import React, {useCallback, useState} from 'react'
+import React, {useCallback, useEffect, useState} from 'react'
 import {DragZoneFiles} from "@/components/drag-zone-files";
 import UploadedFilesList from "@/components/uploaded-files-list";
 import {Button} from "@/components/ui/button";
@@ -19,7 +19,7 @@ export default function Page() {
   }, []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bpExtractionResults, setBpExtractionResults] = useState<Record<string, string>>({});
-  const [bpFields, setBpFields] = useState<Record<string, { brut?: string; period?: string; natureAdvantage?: string }>>({});
+  const [bpFields, setBpFields] = useState<Record<string, { brut?: string; period?: string }>>({});
   const [employeeName, setEmployeeName] = useState("");
   const [entryDate, setEntryDate] = useState("");
   const [earnedPaidLeave, setEarnedPaidLeave] = useState("");
@@ -29,13 +29,18 @@ export default function Page() {
   const [isSimulationFinished, setIsSimulationFinished] = useState(false);
   const [isCheckedDataVisible, setIsCheckedDataVisible] = useState(false);
   const [checkedDataMessage, setCheckedDataMessage] = useState<string>("");
+  const [isSafari, setIsSafari] = useState(false);
+
+  useEffect(() => {
+    setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+  }, []);
 
   const handleDeleteFile = (fileToDelete: File) => {
     setBpFiles((prevFiles) => prevFiles.filter((file) => file !== fileToDelete));
   };
 
   const setFieldsForBps = async (results: Record<string, string>) => {
-    const updatedFields: Record<string, { brut?: string; period?: string, natureAdvantage?: string }> = {};
+    const updatedFields: Record<string, { brut?: string; period?: string }> = {};
 
     for (const [fileName, bpResponse] of Object.entries(results)) {
       if (bpResponse.startsWith("Error")) {
@@ -61,8 +66,8 @@ export default function Page() {
           continue;
         }
 
-        const { brut, period, natureAdvantage } = await getBrutFromBpResponse.json();
-        updatedFields[fileName] = { brut, period, natureAdvantage };
+        const { brut, period } = await getBrutFromBpResponse.json();
+        updatedFields[fileName] = { brut, period };
       } catch (error) {
         console.error(`Error extracting data from ${fileName}:`, error);
       }
@@ -411,26 +416,26 @@ export default function Page() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{"Avantage en nature"}</label>
-                <Input
-                  type="text"
-                  name="natureAdvantage"
-                  placeholder=""
-                  value={bpFields[file.name]?.natureAdvantage || ""}
-                  className="pr-14 h-12"
-                  onChange={(e) => {
-                    const updatedValue = e.target.value;
-                    setBpFields((prevFields) => ({
-                      ...prevFields,
-                      [file.name]: {
-                        ...prevFields[file.name],
-                        natureAdvantage: updatedValue,
-                      },
-                    }));
-                  }}
-                />
-              </div>
+              {/*<div>*/}
+              {/*  <label className="block text-sm font-medium text-gray-700">{"Avantage en nature"}</label>*/}
+              {/*  <Input*/}
+              {/*    type="text"*/}
+              {/*    name="natureAdvantage"*/}
+              {/*    placeholder=""*/}
+              {/*    value={bpFields[file.name]?.natureAdvantage || ""}*/}
+              {/*    className="pr-14 h-12"*/}
+              {/*    onChange={(e) => {*/}
+              {/*      const updatedValue = e.target.value;*/}
+              {/*      setBpFields((prevFields) => ({*/}
+              {/*        ...prevFields,*/}
+              {/*        [file.name]: {*/}
+              {/*          ...prevFields[file.name],*/}
+              {/*          natureAdvantage: updatedValue,*/}
+              {/*        },*/}
+              {/*      }));*/}
+              {/*    }}*/}
+              {/*  />*/}
+              {/*</div>*/}
             </div>
           ))}
         </div>

@@ -11,7 +11,7 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   const input: {
-    bpFields: Record<string, { brut?: string; period?: string; natureAdvantage?: string }>;
+    bpFields: Record<string, { brut?: string; period?: string; }>;
     bpAnalysisResponse: string;
     employeeName: string;
     entryDate: string;
@@ -36,7 +36,7 @@ Les informations suivantes doivent remplacer (uniquement si spécifié) les vale
 
 ### Champs individuels à mettre à jour (uniquement si spécifié) :
 ${Object.entries(input.bpFields)
-      .map(([key, { brut, period, natureAdvantage }]) => `- **${key}** : Salaire brut: ${brut || 'Non spécifié'}, Période: ${period || 'Non spécifiée'}, Avantage nature: ${natureAdvantage || 'Non spécifiée'}`)
+      .map(([key, { brut, period }]) => `- **${key}** : Salaire brut: ${brut || 'Non spécifié'}, Période: ${period || 'Non spécifiée'}`)
       .join('\n')}
 
 ### Instructions Importantes :
