@@ -24,7 +24,6 @@ export const decisionsThinkingNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call DecisionsThinkingAgent");
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     async function removeDuplicates(numbers: bigint[]): Promise<bigint[]> {
@@ -35,8 +34,6 @@ export const decisionsThinkingNode = async (
     async function getExpertMessages() {
       const expertMessages: string[] = [];
       let rankFusionIds: bigint[] = [];
-
-      console.timeEnd("[DecisionsThinking] : Start searching decisions in DB.");
 
       const rankFusionIdsPromises = state.queriesDecisionsList.map(async (query) => {
         let rankFusionIdsTemp = await getMatchedDecisions(query);
@@ -54,7 +51,6 @@ export const decisionsThinkingNode = async (
         }
         return rankFusionIdsTemp;
     });
-    console.timeEnd("[DecisionsThinking] : Done searching decisions in DB.");
       const rankFusionIdsResults = await Promise.all(rankFusionIdsPromises);
       rankFusionIdsResults.forEach(result => rankFusionIds.push(...result));
       console.time("[DecisionsThinking] : Cleaning decisions.");

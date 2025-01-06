@@ -20,7 +20,6 @@ const llm = new ChatOpenAI({
 
 export const doctrinesInterpretHydeNode = async (state: typeof GraphAnnotation.State, config?: RunnableConfig,) =>
 {
-    console.timeEnd("Call DoctrinesInterpretHydeAgent");
     async function getDoctrineExpertMessages() {
       const doctrineExpertMessages: string[] = [];
 

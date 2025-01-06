@@ -15,7 +15,7 @@ export const rerankWithVoyageAI = async (query: string, documents: string[]): Pr
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  
+
       // Vérification que chaque document est bien une chaîne de caractères non vide
   const validDocuments = documents.filter(doc => typeof doc === 'string' && doc.trim().length > 0);
   //console.log('doc : ', documents)
@@ -23,7 +23,7 @@ export const rerankWithVoyageAI = async (query: string, documents: string[]): Pr
     console.error("No valid documents provided for reranking.");
     return null;
   }
-  
+
   const body = {
     query: query,
     documents: documents,
@@ -40,13 +40,13 @@ export const rerankWithVoyageAI = async (query: string, documents: string[]): Pr
     const response = await fetch(url, options);
     const responseBody = await response.json();
     if (!response.ok) {
-      console.error("Reranking failed with Voyage AI:", responseBody.detail);
+      console.error("[rerankWithVoyageAI] Reranking failed with Voyage AI:", responseBody.detail);
       return null;
     }
     //console.debug('rerankWithVoyageAI res:', responseBody);
     return responseBody;
   } catch (error) {
-    console.error("Reranking failed with Voyage AI: there was a problem with the fetch operation:", error);
+    console.error("[rerankWithVoyageAI] Reranking failed with Voyage AI: there was a problem with the fetch operation:", error);
     return null;
   }
 };
@@ -58,7 +58,7 @@ export const rerankWithVoyageAIMultiLangual = async (query: string, documents: s
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  
+
       // Vérification que chaque document est bien une chaîne de caractères non vide
   const validDocuments = documents.filter(doc => typeof doc === 'string' && doc.trim().length > 0);
   //console.log('doc : ', documents)
@@ -66,7 +66,7 @@ export const rerankWithVoyageAIMultiLangual = async (query: string, documents: s
     console.error("No valid documents provided for reranking.");
     return null;
   }
-  
+
   const body = {
     query: query,
     documents: documents,
@@ -83,13 +83,13 @@ export const rerankWithVoyageAIMultiLangual = async (query: string, documents: s
     const response = await fetch(url, options);
     const responseBody = await response.json();
     if (!response.ok) {
-      console.error("Reranking failed with Voyage AI:", responseBody.detail);
+      console.error("[rerankWithVoyageAIMultiLangual] Reranking failed with Voyage AI:", responseBody.detail);
       return null;
     }
     //console.debug('rerankWithVoyageAI res:', responseBody);
     return responseBody;
   } catch (error) {
-    console.error("Reranking failed with Voyage AI: there was a problem with the fetch operation:", error);
+    console.error("[rerankWithVoyageAIMultiLangual] Reranking failed with Voyage AI: there was a problem with the fetch operation:", error);
     return null;
   }
 };

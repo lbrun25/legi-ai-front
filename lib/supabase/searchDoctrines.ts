@@ -1,9 +1,6 @@
 "use server"
-import {embeddingWithVoyageLaw, embeddingWithVoyageLawForDoctrines} from "@/lib/ai/voyage/embedding";
-import {supabaseClient} from "@/lib/supabase/supabaseClient";
-import {OpenAI} from "openai";
+import {embeddingWithVoyageLawForDoctrines} from "@/lib/ai/voyage/embedding";
 import {sql} from "@/lib/sql/client";
-import {MatchedDecision} from "@/lib/supabase/searchDecisions";
 
 export interface MatchedDoctrine {
   id: bigint;
@@ -164,28 +161,33 @@ export const searchMatchedDoctrines = async (input: string, limit: number = 5, i
 
 export async function getDoctrinesByIds(ids: bigint[]) {
   let retries = 0;
-  
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   while (retries < 5) {
     try {
-      const { data, error } = await supabaseClient
-        .from("LegalDoctrine")
-        .select('id, contextual_content, paragrapheNumber, bookTitle')
-        .in('id', ids);
-
-      if (error) throw error;
+      const data = await sql.unsafe(
+        `
+          SELECT id, contextual_content, "paragrapheNumber", "bookTitle"
+          FROM "LegalDoctrine"
+          WHERE id = ANY($1::bigint[])
+        `,
+        // @ts-ignore
+        [ids]
+      );
       return data;
-      
     } catch (error) {
       retries++;
-      console.error(`Attempt ${retries}/${3} failed:`, error);
-      
-      if (retries === 3) {
+      console.error(`Attempt ${retries}/5 failed:`, error);
+
+      if (retries === 5) {
         console.error('Max retries reached. Returning null.');
         return null;
       }
-      await new Promise(resolve => setTimeout(resolve, 200 * retries));
+
+      await delay(200 * retries);
     }
   }
-  
+
   return null;
 }

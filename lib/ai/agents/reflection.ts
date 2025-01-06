@@ -30,7 +30,6 @@ export const reflectionChain = reflectionPrompt
   // @ts-ignore
   .pipe(llm.bindTools([summaryTool]))
   .pipe((x) => {
-    console.timeEnd("call reflectionAgent");
     const appel = JSON.stringify(x, null, 2)
     const xParsed = JSON.parse(appel);
     if (xParsed.kwargs.tool_call_chunks.length === 0) {
