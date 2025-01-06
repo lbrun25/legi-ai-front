@@ -33,6 +33,7 @@ export const Suggestions = ({onSuggestionClicked}: SuggestionsProps) => {
       <div className="grid grid-cols-3 gap-4 max-w-xl place-self-center">
         {suggestions.map((suggestion, index) => (
           <button
+            key={suggestion.id}
             id={suggestion.id}
             className="flex flex-col h-full"
             onClick={() => {

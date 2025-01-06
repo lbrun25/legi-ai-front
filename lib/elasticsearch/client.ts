@@ -24,8 +24,8 @@ class ElasticsearchClientSingleton {
   }
 
   public async searchDecisions(query: string, limit: number): Promise<any> {
+    console.time("Elastic decisions search");
     try {
-      console.time("Elastic decisions search")
       const result = await this.client.search<{ ficheArret: string }>({
         index: 'decisions',
         query: {
@@ -35,7 +35,6 @@ class ElasticsearchClientSingleton {
         },
         size: limit
       });
-      console.timeEnd("Elastic decisions search")
       return result.hits.hits.map(hit => {
         return {
           id: hit._id,
@@ -44,6 +43,8 @@ class ElasticsearchClientSingleton {
       });
     } catch (error) {
       console.error("cannot search decisions:", error);
+    } finally {
+      console.timeEnd("Elastic decisions search");
     }
   }
 

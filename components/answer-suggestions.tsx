@@ -57,6 +57,7 @@ export const AnswerSuggestions = ({answer, isGenerating, onSuggestionClicked}: A
       <span className="text-gray-500 text-xs font-medium text-left">{"Suggestions de questions :"}</span>
       {suggestions.map((suggestion, index) => (
         <button
+          key={index}
           className="text-left"
           onClick={() => {
             onSuggestionClicked(suggestion)
