@@ -336,7 +336,7 @@ export default function Page() {
               const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
-                  Authorization: `Token 76b243229a7d0dc8551401edc4890da4`,
+                  Authorization: `Token 381a5daa84bef2487c186cb31f341929`,
                 },
                 body: formData,
               });
@@ -361,7 +361,7 @@ export default function Page() {
                 const statusResponse = await fetch(`${jobStatusUrl}${jobId}`, {
                   method: 'GET',
                   headers: {
-                    Authorization: `Token 76b243229a7d0dc8551401edc4890da4`,
+                    Authorization: `Token 381a5daa84bef2487c186cb31f341929`,
                   },
                 });
 
