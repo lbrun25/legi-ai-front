@@ -29,6 +29,9 @@ ${input.legalIndemnitiesResponse}
 
 ### Calcul de la convention collective :  
 ${input.conventionIndemnitiesResponse}
+
+# Réponse attendue :
+- La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
 `;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent({

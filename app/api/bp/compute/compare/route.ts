@@ -1,8 +1,5 @@
-// import {GoogleGenerativeAI} from "@google/generative-ai";
 import {NextResponse} from "next/server";
 import OpenAI from "openai";
-
-// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -36,17 +33,6 @@ ${input.checkedResponse}
   "severance_pay": "<montant de l'indemnité avec symbole de la monnaie>"
 }
 `;
-    // const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    // const result = await model.generateContent({
-    //   contents: [
-    //     {
-    //       role: "user", parts: [
-    //         {text: prompt},
-    //       ]
-    //     }
-    //   ]
-    // });
-    // const message = result.response.text();
     const gptResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0,

@@ -13,45 +13,43 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
 export async function POST(req: Request) {
   const input: {
     bpAnalysisResponse: string;
     idcc: string;
-    advanceNotice: string;
-    referenceSalary: string;
-    seniority: string;
+    conventionSeniority: string;
   } = await req.json();
 
   try {
-    const query = "Méthode de calcul de l'indemnité de licenciement selon la convention collective.";
+    const query = "Méthode de calcul du salaire de référence selon la convention collective.";
     const relevantArticles = await searchArticlesInCollectiveAgreement(input.idcc, query);
     const relevantArticlesText = relevantArticles.map(article => article.content).join('\n\n');
     const prompt = `
-# Objectif
-Calcul l’indemnité de licenciement en te basant sur les derniers bulletins de paie et sur la collection collective (${input.idcc}) puis effectue une double vérification de tes calculs.
+Objectif :  
+Calcule le salaire de référence du salarié conformément à la convention collective (${input.idcc}).
 
-# Règle de calcul:
-- Utilise toujours un interpréteur Python pour effectuer chacun de tes calculs dans ton raisonnement.
-- Additionner l'ancienneté et le préavis afin de prendre en compte l’ancienneté jusqu’à la date de fin du préavis (si la convention collective l'autorise)
+Règles de calcul :  
+- Analyse les articles de la convention collective pour identifier la méthode spécifique de calcul du salaire de référence.  
+- Prends en compte les périodes d'ancienneté et les bulletins de paie fournis.  
+- Effectue les calculs à l'aide d'un interpréteur Python pour assurer la précision.  
+- Retourne un résultat clair et structuré.
 
-# Données disponibles :
-- Préavis : ${input.advanceNotice}
-- Ancienneté : ${input.seniority}
-- Salaire de référence : ${input.referenceSalary}
+Données disponibles :  
+- Ancienneté du salarié : ${input.conventionSeniority}  
 - Derniers bulletins de paie :
 \`\`\`
 ${input.bpAnalysisResponse}
 \`\`\`
-
-# Articles de la convention collective
-Voici les articles pertinents de la convention collective (${input.idcc}) pour calculer l’indemnité de licenciement du salarié: 
+- Articles pertinents de la convention collective :  
+\`\`\`
 ${relevantArticlesText}
+\`\`\`
 
-# Réponse attendue
-- Retourne le montant final de l'indemnité, accompagné d'une explication claire des étapes de calcul.
+Réponse attendue :
+- Fournis une explication concise du raisonnement utilisé pour déterminer le salaire de référence.  
+- Retourne le salaire de référence calculé sous le format suivant : "Salaire de référence : X euros".
 - La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
-  `;
+`;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent({
       contents: [
@@ -68,13 +66,13 @@ ${relevantArticlesText}
     // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format
     const extractionPrompt = `
 Objectif :
-À partir du texte suivant, extrait uniquement le montant de l'indemnité de licenciement avec le symbole de la monnaie. N'inclus aucun autre texte ou explication.
+À partir du texte suivant, extrait uniquement le montant du salaire de référence. N'inclus aucun autre texte ou explication.
 
 Texte :  
 "${message}"
 
 Réponse attendue :  
-Retourne uniquement le montant de l'indemnité de licenciement avec le symbole de la monnaie.
+Retourne uniquement le montant du salaire de référence avec le symbole de la monnaie.
 `;
     const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -94,7 +92,7 @@ Retourne uniquement le montant de l'indemnité de licenciement avec le symbole d
       value: extractedValue,
     }, { status: 200 });
   } catch (error) {
-    console.error("cannot compute indemnities with convention:", error);
-    return NextResponse.json({ message: 'Failed to compute indemnities with convention' }, { status: 500 });
+    console.error("cannot compute reference salary with convention:", error);
+    return NextResponse.json({ message: 'Failed to compute reference salary with convention' }, { status: 500 });
   }
 }

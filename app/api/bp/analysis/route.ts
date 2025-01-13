@@ -74,19 +74,22 @@ export async function POST(req: Request) {
     - Date d’entrée : Quelle est la date d’entrée dans l’entreprise ?
     - Période de paie : Quelle est la période couverte par ce bulletin ?
     - Classification : Quelle est la classification du salarié ? (exemple: Cadre, Agent de Maitrise, Chargé d’enquête intermittent, Employé, Technicien)
-    - Arrêt de travail : Y a-t-il eu un arrêt de travail ? Si oui de combien de temps ?
+    - Arrêts de travail : Y a-t-il eu un arrêt de travail ? Si oui :
+      1. Périodes d'arrêt maladie : Liste les périodes exactes d'arrêt maladie (exemple : du 01/03/2024 au 10/03/2024).
+        - Si plusieurs périodes existent, affiche-les sous forme de liste numérotée.
+      2. Nombre total de jours cumulés d'arrêt maladie : Calcule et indique le nombre total de jours cumulés pour toutes les périodes d'arrêt maladie identifiées ci-dessus.
+        - Si le nombre total de jours ne peut pas être calculé, indique : "Calcul impossible : données manquantes ou ambiguës".
     - Travail à temps partiel : Est-ce un travail à temps partiel ?
     - Primes : Des primes ont-elles été versées ? (ex : prime de fin d’année, treizième mois) et quel est leur montant ?
     - Commissions : Y a-t-il eu des commissions perçues ? Si oui quel est leur montant ?
     - Heures supplémentaires : Des heures supplémentaires ont-elles été effectuées ? Si oui combien ? et quel est leur montant si possible ?
-    - Indemnités de congés payés : Y a-t-il eu des indemnités liées aux congés payés ? (Salaire perçu pendant les congés payés, mais pas l’indemnité compensatrice de congés payés.) Si oui quel est leur montant ?
     - Travail au forfait : Le travail est-il réalisé au forfait ? (ex : Forfait jours, Forfait heures)
     - Nombre d’heures travaillées : Combien d’heures ont été travaillées sur la période de paie ?
-    - Absences rémunérées ou non rémunérées : Y a-t-il des absences (maladie, congés sans solde, etc.) et comment sont-elles valorisées ?
     - Congés payés : Combien de jours de congés payés acquis (non pris) ?
     - Autres retenues : Y a-t-il d’autres retenues (ex : mutuelle, avance sur salaire) ?
     - Statut du contrat : Le salarié est-il en CDI, CDD, intérim, ou autre ?
     - Nom du salarié : Comment s'appelle le salarié ? (si disponible)
+    - Avantage en nature: Combien en avantage nature ? (logement, voiture de fonction)
     
     ### Format de réponse :
     Structure ta réponse sous cette forme:

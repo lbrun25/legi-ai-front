@@ -49,6 +49,7 @@
     "clsx": "^2.1.0",
     "common-tags": "^1.8.2",
     "d3-array": "^3.2.4",
+    "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.0.0",
     "exa-js": "^1.0.12",
     "jsdom": "^25.0.1",

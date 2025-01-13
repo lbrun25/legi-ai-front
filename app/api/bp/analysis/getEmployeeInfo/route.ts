@@ -23,11 +23,14 @@ Voici les informations extraites des bulletins de paie :
 
 Analyse les données fournies et réponds STRICTEMENT en JSON brut, sans ajout de texte supplémentaire, sans utiliser de balises Markdown, et sans commentaire.
 
+La date d'entrée dans l'entreprise correspond à la séniorité dans l'entreprise. Il est trouvable depuis le champ de texte 'prediction.employment.seniority_date' depuis la réponse des bulletins de paie.
+
 Utilise le format suivant :
 {
   "employee_name": "<nom du salarié>",
   "entry_date": "<date d'entrée>",
-  "earned_paid_leave": <nombre de congés payés acquis à date>
+  "earned_paid_leave": <nombre de congés payés acquis à date>,
+  "last_pay_slip_date": <date du dernier bulletin de paie>
 }
 
 N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de balises Markdown (\`\`\`json).
@@ -48,7 +51,12 @@ N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de
     console.log('message:', message);
     const jsonResponse = JSON.parse(message.content || "{}");
     return NextResponse.json(
-      { employeeName: jsonResponse.employee_name, entryDate: jsonResponse.entry_date, earnedPaidLeave: jsonResponse.earned_paid_leave },
+      {
+        employeeName: jsonResponse.employee_name,
+        entryDate: jsonResponse.entry_date,
+        earnedPaidLeave: jsonResponse.earned_paid_leave,
+        lastPaySlipDate: jsonResponse.last_pay_slip_date,
+      },
       { status: 200 }
     );
   } catch (error) {
