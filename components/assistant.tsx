@@ -25,6 +25,7 @@ import UploadedFilesList from "@/components/uploaded-files-list";
 import {toast} from "sonner";
 import {SelectMode} from "@/components/select-mode";
 import {createChunksForFile, ingestChunks} from "@/lib/utils/documents";
+import {fileToBase64} from "@/lib/utils/file";
 
 interface AssistantProps {
   threadId?: string;
@@ -52,6 +53,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   const [filesUploading, setFilesUploading] = useState(false);
   const [fileIds, setFileIds] = useState<string[]>([]);
   const [fileProgress, setFileProgress] = useState<Record<string, { uploaded: number; total: number }>>({});
+  const [filesWithBase64, setFilesWithBase64] = useState<{ filename: string; content: string }[]>([]);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -87,10 +89,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     const fetchTimeSaved = async () => {
       try {
         const existingThread = await getThread(threadIdParams);
-        console.log('existingThread:', existingThread);
         const existingTimeSaved = existingThread?.time_saved;
         setTimeSaved(existingTimeSaved || 0);
-        console.log('existingTimeSaved:', existingTimeSaved);
       } catch (error) {
         console.error("cannot get thread:", error);
       }
@@ -158,7 +158,8 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
           isFormattingAssistant: false,
           messages: messages,
           fileIds,
-          selectedMode
+          selectedMode,
+          filesWithBase64
         }),
         signal
       });
@@ -372,6 +373,40 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     setFilesUploading(false);
   };
 
+  const handleFileUploadWithColpali = async (selectedFiles: File[]) => {
+    setFiles(selectedFiles);
+    setFilesUploading(true);
+
+    if (selectedFiles.length > 0) {
+      try {
+        const encodedFiles = await Promise.all(
+          selectedFiles.map(async (file) => ({
+            filename: file.name,
+            content: await fileToBase64(file),
+          }))
+        );
+        setFilesWithBase64(encodedFiles);
+
+        console.log('encodedFiles:', encodedFiles)
+        const response = await fetch("/api/assistant/files/ingest/colpali", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({filesWithBase64: encodedFiles}),
+        });
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.message);
+        toast.success("Files uploaded and processed successfully!");
+      } catch (error) {
+        console.error("Error uploading files:", error);
+        toast.error("Échec de l'analyse des fichiers.");
+      }
+    }
+    setFilesUploading(false);
+  };
+
   return (
     <div className="flex flex-col w-full max-w-[700px] pb-[600px] pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
@@ -459,7 +494,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
                   {(selectedMode === "analysis" || selectedMode === "synthesis") && (
                     <UploadFilesButton
                       isGenerating={isGenerating}
-                      onAcceptedFiles={handleFileUpload}
+                      onAcceptedFiles={handleFileUploadWithColpali}
                     />
                   )}
                 </div>
