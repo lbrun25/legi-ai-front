@@ -560,13 +560,13 @@ export default function Page() {
         setIsEditableInfoVisible(true);
         setCurrentStep("simulate");
       } catch (error) {
-        console.error("Error during extraction:", error);
+        console.error("error during extraction:", error);
       }
     } else if (currentStep === "simulate") {
       try {
         await startSimulation();
       } catch (error) {
-        console.error("Error during simulation:", error);
+        console.error("error during simulation:", error);
       }
     }
     setIsProcessing(false);
