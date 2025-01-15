@@ -10,6 +10,8 @@ import * as Accordion from "@radix-ui/react-accordion";
 import {SearchBarAgreements} from "@/components/search-bar-agreements";
 import {toast} from "sonner";
 import {allBps, allBpsRecord} from "@/lib/test/bp";
+import {BpDocumentAiFields} from "@/lib/types/bp";
+import {parseBpDocumentEntities} from "@/lib/utils/bp";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -329,18 +331,6 @@ export default function Page() {
               //   filename: pdfFiles[i].name,
               //   fileBase64: pdfPages[0], // Assume the first page contains the BP
               // };
-              const apiUrl = 'https://api.mindee.net/v1/products/mindee/payslip_fra/v3/predict_async';
-              const jobStatusUrl = 'https://api.mindee.net/v1/products/mindee/payslip_fra/v3/documents/queue/';
-              const formData = new FormData();
-              formData.append('document', pdfFiles[i]);
-              const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Token 381a5daa84bef2487c186cb31f341929`,
-                },
-                body: formData,
-              });
-
               // const response = await fetch("/api/bp/analysis", {
               //   method: "POST",
               //   headers: {
@@ -348,49 +338,43 @@ export default function Page() {
               //   },
               //   body: JSON.stringify(payload),
               // });
-              const bpDataExtraction = await response.json();
+              const pdfFile = pdfFiles[i];
+              const reader = new FileReader();
 
-              const jobId = bpDataExtraction.job.id; // Assuming response contains job ID
-              console.log(`Job ID: ${jobId}`);
+              // Wrap the FileReader logic in a promise for async handling
+              const encodedFileContent = await new Promise((resolve, reject) => {
+                // @ts-ignore
+                reader.onload = () => resolve(reader.result.split(',')[1]); // Base64 content
+                reader.onerror = reject;
+                reader.readAsDataURL(pdfFile); // Read the file as a data URL
+              });
 
-              // Step 2: Poll for the job status until it's no longer "waiting"
-              let jobStatus = 'waiting';
-              let statusData;
+              // Make the POST request to the Next.js API route
+              const response = await fetch('/api/assistant/files/ocr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ encodedFileContent }),
+              });
 
-              while (jobStatus === 'waiting' || jobStatus === 'processing') {
-                const statusResponse = await fetch(`${jobStatusUrl}${jobId}`, {
-                  method: 'GET',
-                  headers: {
-                    Authorization: `Token 381a5daa84bef2487c186cb31f341929`,
-                  },
-                });
-
-                if (!statusResponse.ok) {
-                  throw new Error(`Error fetching status for job ${jobId}: ${statusResponse.statusText}`);
-                }
-
-                statusData = await statusResponse.json();
-                jobStatus = statusData.job.status;
-
-                if (jobStatus === 'waiting' || jobStatus === 'processing') {
-                  console.log(`Job ${jobId} is still waiting. Retrying in 2 seconds...`);
-                  await sleep(2000);
-                }
+              // Check if the response is successful
+              if (!response.ok) {
+                throw new Error(`Failed to process PDF: ${response.statusText}`);
               }
 
-              console.log(`Job ${jobId} completed with status: ${jobStatus}`);
-              if (jobStatus !== 'completed') {
-                throw new Error(`Job ${jobId} failed with status: ${jobStatus}`);
+              // Get the OCR result from the response
+              const documentEntities = await parseBpDocumentEntities(response);
+              console.log('documentEntities:', documentEntities)
+
+              const month = documentEntities.mois_bulletin_de_paie ?? documentEntities.debut_periode_emploi;
+              if (!month) {
+                console.error(`Failed to process ${pdfFiles[i].name}`);
+                return;
               }
-
-              console.log('statusData:', statusData);
-
-              const month = statusData.document.inference.prediction.pay_period.month;
               if (!response.ok) {
                 console.error(`Failed to process ${pdfFiles[i].name}`);
                 results[month] = `Error processing: ${pdfFiles[i].name}`;
               }
-              results[month] = JSON.stringify(statusData.document);
+              results[month] = JSON.stringify(documentEntities);
             } catch (error) {
               console.error(`Error processing ${pdfFiles[i].name}:`, error);
               // results[bpDataExtraction.pay_period.month] = `Error processing: ${pdfFiles[i].name}`;
@@ -932,7 +916,7 @@ export default function Page() {
 
               {/* Sick leave Field */}
               <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700">{"Nombre d'arrêt maladie"}</label>
+                <label className="block text-sm font-medium text-gray-700">{"Nombre d'arrêts maladie"}</label>
                 <Input
                   type="text"
                   name="sickLeaveWorkingDays"
