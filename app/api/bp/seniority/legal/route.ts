@@ -12,35 +12,45 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// TODO: use notification date
+
 export async function POST(req: Request) {
   const input: {
-    bpAnalysisResponse: string;
+    sickDays: number;
+    unjustifiedAbsenceDays: number;
     entryDate: string;
     notificationDate: string;
+    lastPaySlip: string;
   } = await req.json();
+
+  console.log('legal seniority:', `
+    - Date du dernier bulletin de paie : ${input.lastPaySlip}
+    - Date d'entrée du salarié dans l'entreprise : ${input.entryDate}
+    - Date de notification de licenciement : ${input.notificationDate}
+    - Nombre de jours en arrêts maladie : ${input.sickDays}
+    - Nombre de jours d'absence non justifiés : ${input.unjustifiedAbsenceDays}`)
 
   try {
     const prompt = `
     Objectif :
-    Calcule l'ancienneté légale du salarié en te basant sur les données fournies, notamment la date d'entrée du salarié, la date de notification de licenciement et les derniers bulletins de paie. Assure-toi d'effectuer une vérification rigoureuse des calculs.
+    Calcule l'ancienneté légale du salarié en te basant sur les données fournies, notamment la date d'entrée du salarié et la date de notification de licenciement. Assure-toi d'effectuer une vérification rigoureuse des calculs.
+    
+    Réponse attendue :
+    - Répond strictement et uniquement avec cette réponse: "Ancienneté selon la loi : XXXX".
 
     Règles de calcul :
-    - Utilise un interpréteur Python pour effectuer chaque étape du calcul.
+    - Attention si la différence entre la date de notification de licenciement et la date du dernier bulletin de paie du salarié, considère que le salarié a été en arret maladie après la date de son dernier bulletin de paie.
+      Donc tu ne doit pas prendre en compte cette période dans l'ancienneté.
     - L'ancienneté est calculée en années et mois complets entre la date d'entrée et la date de notification de licenciement.
     - Prends en compte uniquement les périodes travaillées effectives et les absences assimilées comme du temps de travail selon les règles légales.
     - Valide la continuité du contrat de travail à l'aide des bulletins de paie pour éviter toute erreur dans les périodes calculées.
     - Vérifie que chaque étape du calcul est cohérente avec les règles du Code du travail.
 
     Données disponibles :
-    - Date d'entrée du salarié : ${input.entryDate}
-    - Date de notification de licenciement : ${input.notificationDate}
-    - Bulletins de paie du salarié : ${input.bpAnalysisResponse}
-
-    Réponse attendue :
-    - Retourne l'ancienneté du salarié sous le format : "X années et Y mois".
-    - Inclue une explication détaillée des calculs effectués, en indiquant les étapes intermédiaires et les hypothèses éventuelles.
-    - Assure-toi que le résultat final est vérifié et précis.
-    - La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
+    - Date d'entrée du salarié dans l'entreprise : ${input.entryDate}
+    - Date de notification de licenciement : ${input.lastPaySlip}
+    - Nombre de jours en arrêts maladie : ${input.sickDays}
+    - Nombre de jours d'absence non justifiés : ${input.unjustifiedAbsenceDays}
     `;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent({

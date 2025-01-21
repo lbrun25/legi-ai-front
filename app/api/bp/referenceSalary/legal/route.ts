@@ -15,7 +15,6 @@ const openai = new OpenAI({
 export async function POST(req: Request) {
   const input: {
     bpAnalysisResponse: string;
-    legalSeniority: string;
   } = await req.json();
 
   try {
@@ -79,9 +78,6 @@ Le salaire de référence est composé :
 • Rémunération des heures supplémentaires effectuées.
 5. **Avantages en Nature**
 • Valeur des avantages en nature (ex. voiture de fonction, logement).
-6. **Indemnités de Congés Payés**
-• Salaire perçu pendant les congés payés, mais pas l’indemnité compensatrice de congés payés.
-Si le salarié a travaillé à temps complet avant de passer à temps partiel (ou inversement), l'indemnité est calculée **proportionnellement** à la durée de chaque période.
 Exemple:
 Un salarié a travaillé 3 ans à temps plein, puis 2 ans à mi-temps. Son salaire brut moyen pendant les 12 derniers mois à mi-temps est de 1 000 € (soit 2 000 € à temps plein). Le calcul de l'indemnité est le suivant  : (2000 x (1/4) x 3) + (1000 x (1/4) x 2) = 2 000 €.
 
@@ -89,40 +85,42 @@ Un salarié a travaillé 3 ans à temps plein, puis 2 ans à mi-temps. Son salai
 Lorsque le salarié a été en arrêt de travail pour maladie au cours des derniers mois, le salaire de référence à prendre en compte est celui des 12 ou des 3 derniers mois précédant l'arrêt.
 
 # Données disponibles :  
-- Ancienneté du salarié : ${input.legalSeniority}  
 - Derniers bulletins de paie :
 \`\`\`
 ${input.bpAnalysisResponse}
 \`\`\`
 
-Réponse attendue :
-- Fournis une explication concise du raisonnement utilisé pour déterminer le salaire de référence.  
-- Retourne le salaire de référence calculé sous le format suivant : "Salaire de référence : X euros".
-- La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
+# Réponse attendue :
+- Tu dois afficher uniquement cette réponse à l'utilisateur :
+"Calcul du salaire de référence 🤑: 
+
+Méthode 12 derniers mois : XXX + XXX + XXX + …. XXX = [montant du salaire de référence 1].
+Méthode 3 derniers mois : XXXX + XXXX + XXXX = [montant du salaire de référence 2].
+Le [montant salaire de référence 1] est plus favorable car [montant du salaire de référence 1] > [montant du salaire de référence 2]. Nous allons retenir celui-ci pour la suite des calculs."
 `;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const result = await model.generateContent({
-      contents: [
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0,
+      messages: [
         {
-          role: "user", parts: [
-            {text: prompt},
-          ]
-        }
-      ]
+          role: "user",
+          content: prompt,
+        },
+      ],
     });
-    const message = result.response.text();
+    const message = response.choices[0].message.content?.trim()
     console.log('message:', message);
 
     // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format
     const extractionPrompt = `
 Objectif :
-À partir du texte suivant, extrait uniquement le montant du salaire de référence. N'inclus aucun autre texte ou explication.
+À partir du texte suivant, extrait uniquement le montant du salaire de référence le plus favorable. N'inclus aucun autre texte ou explication.
 
 Texte :  
 "${message}"
 
 Réponse attendue :  
-Retourne uniquement le montant du salaire de référence avec le symbole de la monnaie.
+Retourne uniquement le montant du salaire de référence le plus favorable avec le symbole de la monnaie.
 `;
     const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",

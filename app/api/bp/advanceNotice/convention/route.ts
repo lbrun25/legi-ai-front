@@ -15,7 +15,6 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   const input: {
-    bpAnalysisResponse: string;
     idcc: string;
     seniority: string;
   } = await req.json();
@@ -24,44 +23,37 @@ export async function POST(req: Request) {
     const query = "Quel est le délai de préavis prévu par la convention collective en cas de licenciement ?"
     const relevantArticles = await searchArticlesInCollectiveAgreement(input.idcc, query);
     const relevantArticlesText = relevantArticles.map(article => article.content).join('\n\n');
+    console.log('seniority convention:', input.seniority);
+    console.log('relevantArticles convention:', relevantArticlesText);
     const prompt = `
 Objectif :
 Détermine le délai de préavis applicable pour un salarié licencié selon les articles pertinents de la convention collective identifiée par l'IDCC ${input.idcc}.
 
-Règles de calcul :
-- Utilise un interpréteur Python pour effectuer et vérifier chaque étape de tes calculs.
+Réponse attendue :
+- Répond strictement et uniquement avec cette réponse: "Durée du préavis selon la convention collective : XXXXX" 
 
 Règles d'interprétation :
 - Analyse les articles fournis de la convention collective pour déterminer la durée du préavis applicable. 
 - Prends en compte l'ancienneté du salarié si elle est mentionnée dans les articles fournis.
 - Si plusieurs règles ou scénarios sont mentionnés, sélectionne le cas qui correspond le mieux à une ancienneté de ${input.seniority}.
 - Retourne la durée du préavis sous forme numérique, suivie du mot "mois" (exemple : "2 mois").
-- Ajoute une brève explication de ton raisonnement, en mentionnant les points clés des articles utilisés pour arriver à ta conclusion.
 
 Données disponibles :
 - IDCC : ${input.idcc}
 - Ancienneté du salarié : ${input.seniority}
-- Articles pertinents de la convention collective :
-\`\`\`
-${relevantArticlesText}
-\`\`\`
-
-Réponse attendue :
-- Retourne la durée du préavis sous le format : "X mois".
-- Ajoute une brève explication du raisonnement qui a conduit à ce résultat.
-- La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
+- Articles pertinents de la convention collective : ${relevantArticlesText}
   `;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const result = await model.generateContent({
-      contents: [
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0,
+      messages: [
         {
-          role: "user", parts: [
-            {text: prompt},
-          ]
-        }
-      ]
+          role: "user",
+          content: prompt,
+        },
+      ],
     });
-    const message = result.response.text();
+    const message = response.choices[0].message.content?.trim()
     console.log('message:', message);
 
     // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format

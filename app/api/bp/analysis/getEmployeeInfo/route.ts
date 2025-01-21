@@ -11,25 +11,23 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   const input: {
-    bpAnalysisResponse: string;
+    entryDate: string;
+    bpPeriods: string[ ]
   } = await req.json();
 
   try {
     const prompt = `
 Tu es un assistant spécialisé dans l'analyse de bulletins de paie.
 
-Voici les informations extraites des bulletins de paie : 
-"${input.bpAnalysisResponse}"
+Voici les informations extraites des bulletins de paie :
+- Date d'entrée: ${input.entryDate}
+- Périodes des bulletins de paie: ${input.bpPeriods.join(', ')} 
 
 Analyse les données fournies et réponds STRICTEMENT en JSON brut, sans ajout de texte supplémentaire, sans utiliser de balises Markdown, et sans commentaire.
 
-La date d'entrée dans l'entreprise correspond à la séniorité dans l'entreprise. Il est trouvable depuis le champ de texte 'prediction.employment.seniority_date' depuis la réponse des bulletins de paie.
-
 Utilise le format suivant :
 {
-  "employee_name": "<nom du salarié>",
   "entry_date": "<date d'entrée>",
-  "earned_paid_leave": <nombre de congés payés acquis à date>,
   "last_pay_slip_date": <date du dernier bulletin de paie>
 }
 

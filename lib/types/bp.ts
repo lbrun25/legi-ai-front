@@ -1,18 +1,37 @@
-export interface BpDocumentAiFields {
-  absence_maladie_montant: number | null; // 123.35 or null if missing
-  avantage_nature_montant: number | null; // -- implies null
-  convention_collective: string | null; // -- implies null
-  date_anciennete: string | null; // Date as string (e.g., "08/06/2020")
-  date_entree_entreprise: string | null; // Date as string (e.g., "08/06/2020")
-  debut_periode_emploi: string | null; // Date as string (e.g., "01/09/2021")
-  fin_periode_emploi: string | null; // Date as string (e.g., "30/09/2021")
-  heure_supplementaires_montant: number | null; // 300.22 or null if missing
-  heure_supplementaires_nombre: number | null; // 27.72 or null if missing
-  mois_bulletin_de_paie: string | null; // Month as string (e.g., "Septembre 2021")
-  nom_salarie: string | null; // -- implies null
-  periode_arret_maladie: string | null; // e.g., "020921-030921"
-  primes_montant: number | null; // -- implies null
-  salaire_base: number | null; // 2102.00 or null if missing
-  salaire_brut_mensuel: number | null; // 2251.15 or null if missing
-  sous_total_salaire_base_montant: number | null; // 2402.22 or null if missing
-}
+export type BpDocumentAiFields = {
+  absence_maladie_montant: number[];
+  avantage_nature_montant: number[];
+  convention_collective: string | null;
+  date_anciennete: string | null;
+  date_entree_entreprise: string | null;
+  debut_periode_emploi: string | null;
+  fin_periode_emploi: string | null;
+  heure_supplementaires_montant: number[];
+  mois_bulletin_de_paie: string | null;
+  nom_salarie: string | null;
+  periode_arret_maladie: string[];
+  primes_montant: number[];
+  salaire_base: number | null;
+  salaire_brut_mensuel: number | null;
+  sous_total_salaire_base_montant: number | null;
+  absence_non_justifie_montant: number[];
+  absence_non_justifie_periode: string[];
+  conge_paye_montant: number[];
+  conge_paye_periode: string[];
+  conge_sans_solde_montant: number[];
+  conge_sans_solde_nombre: number[];
+  nombre_conge_paye: number[];
+  heures_travail: number[];
+  majoration_heures_montant: number[];
+};
+
+export type BpAnalysis = BpDocumentAiFields & {
+  sickLeaveWorkingDays: number;
+  unjustifiedAbsenceWorkingDays: number;
+};
+
+export type ReferenceSalaryCalculationDetails = {
+  method: string;
+  calculationSteps: string;
+  referenceSalary: number;
+};

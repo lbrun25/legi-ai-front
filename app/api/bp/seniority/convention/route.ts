@@ -15,10 +15,12 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   const input: {
-    bpAnalysisResponse: string;
+    sickDays: number;
+    unjustifiedAbsenceDays: number;
     idcc: string;
     entryDate: string;
     notificationDate: string;
+    lastPaySlip: string;
   } = await req.json();
 
   try {
@@ -27,16 +29,18 @@ export async function POST(req: Request) {
     const relevantArticlesText = relevantArticles.map(article => article.content).join('\n\n');
     const prompt = `
 Objectif :
+Réponse attendue :
+- Répond strictement et uniquement avec cette réponse: "Ancienneté selon la convention collective : XXXX".
+
 Détermine avec précision l'ancienneté du salarié en utilisant les informations suivantes :
-- Les derniers bulletins de paie.
 - La date d'entrée du salarié.
 - La date de notification de licenciement.
+- Les absences non justifiés ou les arrets maladie.
 - Les articles pertinents de la convention collective (${input.idcc}).
 
 Effectue ensuite une double vérification de tes calculs pour garantir leur exactitude.
 
 Règles de calcul :
-- Utilise un interpréteur Python pour effectuer et vérifier chaque étape de tes calculs.
 - Prends en compte :
    - Les périodes travaillées effectives.
    - Les absences rémunérées ou assimilées si elles sont précisées dans la convention collective.
@@ -44,27 +48,14 @@ Règles de calcul :
 - Calcule l'ancienneté en années et mois complets, en utilisant avec précision les dates d'entrée et de notification de licenciement.
 
 Données disponibles :
-- **Derniers bulletins de paie :**
-\`\`\`
-${input.bpAnalysisResponse}
-\`\`\`  
-
-- **Date d'entrée du salarié :**  
-${input.entryDate}  
-
-- **Date de notification de licenciement :**
-${input.notificationDate}  
-
-- **Articles pertinents de la convention collective (${input.idcc}) :**
+- Nombre de jours en arrêts maladie : ${input.sickDays}
+- Nombre de jours d'absence non justifiés : ${input.unjustifiedAbsenceDays}
+- Date d'entrée du salarié : ${input.entryDate}
+- Date de notification de licenciement : ${input.notificationDate}
+- Articles pertinents de la convention collective (${input.idcc}) :
 \`\`\`
 ${relevantArticlesText}
 \`\`\`
-
-Réponse attendue :
-- Retourne l'ancienneté du salarié sous le format suivant : "X années et Y mois".
-- Fournis une explication détaillée des calculs, incluant les règles appliquées et les hypothèses éventuelles.
-- Assure-toi que les calculs ont été doublement vérifiés et qu'ils ne contiennent aucune erreur.
-- La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
   `;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent({

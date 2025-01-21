@@ -14,7 +14,6 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   const input: {
-    bpAnalysisResponse: string;
     seniority: string;
   } = await req.json();
 
@@ -23,8 +22,10 @@ export async function POST(req: Request) {
 Objectif :
 Calcule le délai de préavis applicable pour un salarié licencié en suivant les règles légales françaises prévues par le Code du travail.
 
+Réponse attendue :
+- Répond strictement et uniquement avec cette réponse: "Durée du préavis selon la loi : XXXXX" 
+
 Règles de calcul :  
-- Utilise un interpréteur Python pour effectuer et vérifier chaque étape du calcul.
 - Calcule le préavis en fonction de l’ancienneté du salarié, exprimée en années et mois.
 - Assure-toi que chaque étape du calcul respecte les règles générales du Code du travail.
 
@@ -32,19 +33,9 @@ Règles d'interprétation :
 - Si plusieurs scénarios sont possibles selon l'ancienneté, applique la règle correspondant précisément à une ancienneté de ${input.seniority}.
 - Prends en compte uniquement les règles légales standards sans référence à une convention collective ou un accord spécifique.
 - Retourne la durée du préavis sous forme numérique, suivie du mot "mois" (exemple : "2 mois").
-- Ajoute une explication concise de ton raisonnement en mentionnant les articles ou principes clés du Code du travail qui ont guidé ton calcul.
 
 Données disponibles :
 - Ancienneté du salarié : ${input.seniority}
-- Bulletins de paie du salarié :
-\`\`\`
-${input.bpAnalysisResponse}
-\`\`\`
-
-Réponse attendue :
-- Retourne la durée du préavis sous le format : "X mois".
-- Ajoute une explication concise du raisonnement, incluant les articles du Code du travail ou les règles légales appliquées pour arriver au résultat.
-- - La réponse doit être concise, structuré en affichant clairement le montant et l'étape de calcul (sans afficher le résultat calculé par Python) afin qu'un humain comprenne.
 `;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent({
