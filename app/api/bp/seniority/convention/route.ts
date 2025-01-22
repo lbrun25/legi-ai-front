@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {searchArticlesInCollectiveAgreement} from "@/lib/supabase/agreements";
 import {GoogleGenerativeAI} from "@google/generative-ai";
 import OpenAI from "openai";
+import {SeniorityValueResponse} from "@/lib/types/bp";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -78,8 +79,14 @@ Objectif :
 Texte :  
 "${message}"
 
-Réponse attendue :  
-Retourne uniquement la durée sous le format : "X années et Y mois".
+Réponse attendue :
+Retourne un JSON sous ce format:  
+{
+    "total_years": "X",
+    "total_months": "Y"
+    "formatted_duration": "X années et Y mois"
+}
+N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de balises Markdown (\`\`\`json).
 `;
     const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -91,13 +98,30 @@ Retourne uniquement la durée sous le format : "X années et Y mois".
         },
       ],
     });
-    const extractedValue = extractionResponse.choices[0].message.content?.trim() || "Erreur dans l'extraction du modèle";
-    console.log('Extracted value:', extractedValue);
+    const extractedValues = extractionResponse.choices[0].message.content?.trim() || "Erreur dans l'extraction du modèle";
+    console.log('Extracted values:', extractedValues);
 
-    return NextResponse.json({
-      message: message,
-      value: extractedValue,
-    }, { status: 200 });
+    let parsedValues: SeniorityValueResponse;
+    try {
+      parsedValues = JSON.parse(extractedValues) as SeniorityValueResponse;
+      if (
+        typeof parsedValues.total_years !== "number" ||
+        typeof parsedValues.total_months !== "number" ||
+        typeof parsedValues.formatted_duration !== "string"
+      ) {
+        throw new Error("Invalid format in the parsed response.");
+      }
+    } catch (error) {
+      throw new Error("Erreur dans l'extraction du modèle : format JSON invalide.");
+    }
+
+    return NextResponse.json(
+      {
+        message: message,
+        value: parsedValues,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("cannot compute seniority with convention:", error);
     return NextResponse.json({ message: 'Failed to compute seniority with convention' }, { status: 500 });

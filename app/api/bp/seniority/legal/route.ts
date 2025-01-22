@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {GoogleGenerativeAI} from "@google/generative-ai";
 import OpenAI from "openai";
+import {SeniorityValueResponse} from "@/lib/types/bp";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -68,13 +69,19 @@ export async function POST(req: Request) {
     // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format
     const extractionPrompt = `
 Objectif :
-À partir du texte suivant, extrait uniquement la durée de l'ancienneté sous le format "X années et Y mois". N'inclus aucun autre texte ou explication.
+À partir du texte suivant, extrait uniquement la durée de l'ancienneté sous le format strict suivant (sans aucun texte supplémentaire ou caractères non valides) :
 
+{
+"total_years": X,
+"total_months": Y,
+"formatted_duration": "X années et Y mois"
+}
+
+Le format attendu doit être un JSON valide. Si les données ne sont pas disponibles, retourne ce JSON : {"total_years": 0, "total_months": 0, "formatted_duration": "0 années et 0 mois"}.
 Texte :  
 "${message}"
 
-Réponse attendue :  
-Retourne uniquement la durée sous le format : "X années et Y mois".
+Ne retourne rien d'autre que le JSON strict.
 `;
     const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -86,13 +93,30 @@ Retourne uniquement la durée sous le format : "X années et Y mois".
         },
       ],
     });
-    const extractedValue = extractionResponse.choices[0].message.content?.trim() || "Erreur dans l'extraction du modèle";
-    console.log('Extracted value:', extractedValue);
+    const extractedValues = extractionResponse.choices[0].message.content?.trim() || "Erreur dans l'extraction du modèle";
+    console.log('Extracted values:', extractedValues);
 
-    return NextResponse.json({
-      message: message,
-      value: extractedValue,
-    }, { status: 200 });
+    let parsedValues: SeniorityValueResponse;
+    try {
+      parsedValues = JSON.parse(extractedValues) as SeniorityValueResponse;
+      if (
+        typeof parsedValues.total_years !== "number" ||
+        typeof parsedValues.total_months !== "number" ||
+        typeof parsedValues.formatted_duration !== "string"
+      ) {
+        throw new Error("Invalid format in the parsed response.");
+      }
+    } catch (error) {
+      throw new Error("Erreur dans l'extraction du modèle : format JSON invalide.");
+    }
+
+    return NextResponse.json(
+      {
+        message: message,
+        value: parsedValues,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("cannot compute seniority with convention:", error);
     return NextResponse.json({ message: 'Failed to compute seniority with convention' }, { status: 500 });

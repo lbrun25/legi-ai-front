@@ -1,4 +1,9 @@
-import {BpAnalysis, BpDocumentAiFields, ReferenceSalaryCalculationDetails} from "@/lib/types/bp";
+import {
+  BpAnalysis,
+  BpDocumentAiFields,
+  ReferenceSalaryCalculationDetails,
+  SeniorityValueResponse
+} from "@/lib/types/bp";
 import { max } from "mathjs";
 
 export async function parseBpDocumentEntities(response: any): Promise<BpDocumentAiFields> {
@@ -232,3 +237,38 @@ export const removeOverlappingPeriods = (doc: BpDocumentAiFields): BpDocumentAiF
     absence_non_justifie_periode: filteredAbsenceNonJustifiePeriode,
   };
 };
+
+export const getSeniorityWithAdvanceNotice = (seniority: SeniorityValueResponse, advanceNotice: string): string => {
+  const cleanedAdvanceNotice = advanceNotice.replace("mois", "");
+  const advanceNoticeNumber = parseInt(cleanedAdvanceNotice);
+  const totalMonths = seniority.total_months + advanceNoticeNumber;
+  return `${seniority.total_years} ans et ${totalMonths} mois`;
+}
+
+export function calculateLegalSeverancePay(
+  referenceSalary: number,
+  seniority: SeniorityValueResponse
+): number {
+  const { total_years, total_months } = seniority;
+
+  // Calculate full years indemnity
+  const yearsUpToTen = Math.min(total_years, 10); // Up to 10 years
+  const yearsBeyondTen = Math.max(total_years - 10, 0); // Beyond 10 years
+
+  const indemnityForYearsUpToTen = referenceSalary * (1 / 4) * yearsUpToTen;
+  const indemnityForYearsBeyondTen = referenceSalary * (1 / 3) * yearsBeyondTen;
+
+  // Calculate months indemnity (proportional to years up to 10)
+  let monthsIndemnity = 0;
+  if (total_years < 10) {
+    monthsIndemnity = referenceSalary * (1 / 4) * (total_months / 12);
+  } else {
+    monthsIndemnity = referenceSalary * (1 / 3) * (total_months / 12);
+  }
+
+  // Total indemnity
+  const totalIndemnity =
+    indemnityForYearsUpToTen + indemnityForYearsBeyondTen + monthsIndemnity;
+
+  return parseFloat(totalIndemnity.toFixed(2)); // Return with 2 decimal places
+}

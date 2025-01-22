@@ -35,3 +35,9 @@ export type ReferenceSalaryCalculationDetails = {
   calculationSteps: string;
   referenceSalary: number;
 };
+
+export type SeniorityValueResponse = {
+  total_years: number;
+  total_months: number;
+  formatted_duration: string;
+}

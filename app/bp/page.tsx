@@ -9,7 +9,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import {SearchBarAgreements} from "@/components/search-bar-agreements";
 import {toast} from "sonner";
 import {
-  getFavorableReferenceSalary,
+  getFavorableReferenceSalary, getSeniorityWithAdvanceNotice,
   parseBpDocumentEntities, removeOverlappingPeriods,
   sumFringeBenefits,
   sumPrimesMontant
@@ -232,25 +232,25 @@ export default function Page() {
   }
 
 
-  const getSeniorityWithAdvanceNotice = async (seniority: number, advanceNotice: number) => {
-    try {
-      const legalSeniorityResponse = await fetch("/api/bp/seniority/sumAdvanceNotice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          seniority: seniority,
-          advanceNotice: advanceNotice,
-        }),
-      });
-      const legalSeniorityData = await legalSeniorityResponse.json();
-      return legalSeniorityData.message;
-    } catch (error) {
-      console.error("cannot determine the seniority with advance notice:", error);
-      toast.error("Une erreur est survenue lors du calcul de l'ancienneté avec le préavis.");
-    }
-  }
+  // const getSeniorityWithAdvanceNotice = async (seniority: number, advanceNotice: number) => {
+  //   try {
+  //     const legalSeniorityResponse = await fetch("/api/bp/seniority/sumAdvanceNotice", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         seniority: seniority,
+  //         advanceNotice: advanceNotice,
+  //       }),
+  //     });
+  //     const legalSeniorityData = await legalSeniorityResponse.json();
+  //     return legalSeniorityData.message;
+  //   } catch (error) {
+  //     console.error("cannot determine the seniority with advance notice:", error);
+  //     toast.error("Une erreur est survenue lors du calcul de l'ancienneté avec le préavis.");
+  //   }
+  // }
 
   const getFavorableSeniority = async (legalSeniority: string, conventionSeniority: string) => {
     try {
@@ -353,7 +353,7 @@ export default function Page() {
       const referenceSalaryData = await referenceSalaryResponse.json();
       // setReferenceSalaryMessage(referenceSalaryData.message);
       // setReferenceSalary(referenceSalaryData.value);
-      return referenceSalaryData.value;
+      return referenceSalaryData.value.toFixed(2);
     } catch (error) {
       console.error("cannot get legal reference salary:", error);
       toast.error("Une erreur est survenue lors du calcul du salaire de référence légal.");
@@ -566,10 +566,10 @@ export default function Page() {
       // Use last pay slip
       // use sick days and unjustified absence
 
-      messageSteps += "   \n2) Détermination du préavis et de l’ancienneté ⏰:  \n"
+      messageSteps += "   \n  \n2) Détermination du préavis et de l’ancienneté ⏰:"
       const legalSeniorityData = await getLegalSeniority(totalSickDays, unjustifiedAbsenceDays);
       if (!legalSeniorityData) return;
-      messageSteps += "a. Ancienneté :  \n• "
+      messageSteps += "  \n  \na. Ancienneté :  \n• "
       messageSteps += legalSeniorityData.message ?? "Ancienneté selon la loi : Non trouvé";
 
       const conventionSeniorityData = await getConventionSeniority(totalSickDays, selectedAgreementSuggestion.idcc, unjustifiedAbsenceDays);
@@ -579,7 +579,7 @@ export default function Page() {
 
       const legalAdvanceNoticeData = await getLegalAdvanceNotice(legalSeniorityData.value);
       if (!legalAdvanceNoticeData) return;
-      messageSteps += "  \nb. Préavis :  \n• "
+      messageSteps += "  \n  \nb. Préavis :  \n• "
       messageSteps += legalAdvanceNoticeData.message ?? "- Durée du préavis selon la loi : Non trouvé";
 
       const conventionAdvanceNoticeData = await getConventionAdvanceNotice(conventionSeniorityData.value, selectedAgreementSuggestion.idcc);
@@ -589,12 +589,12 @@ export default function Page() {
 
       console.log('messageSteps:', messageSteps)
 
-      const legalSeniorityWithAdvanceNotice = await getSeniorityWithAdvanceNotice(legalSeniorityData.value, legalAdvanceNoticeData.value);
-      messageSteps += "  \nc. Ancienneté + préavis :  \n"
+      const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(legalSeniorityData.value, legalAdvanceNoticeData.value);
+      messageSteps += "  \n  \nc. Ancienneté + préavis :  \n"
       messageSteps += "• Ancienneté selon la loi (incluant préavis) : ancienneté légale + préavis légal : ";
       messageSteps += legalSeniorityWithAdvanceNotice ?? "Non trouvé";
 
-      const conventionSeniorityWithAdvanceNotice = await getSeniorityWithAdvanceNotice(conventionSeniorityData.value, conventionAdvanceNoticeData.value);
+      const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(conventionSeniorityData.value, conventionAdvanceNoticeData.value);
       if (!conventionSeniorityWithAdvanceNotice) return;
       messageSteps += "  \n• Ancienneté selon la convention collective (incluant préavis) : ";
       messageSteps += conventionSeniorityWithAdvanceNotice ?? "Non trouvé";
@@ -647,7 +647,9 @@ export default function Page() {
         conventionResponse.json(),
       ]);
 
-      messageSteps += "   \n3. Détermination de Indemnité Compensatrice de Licenciement 💶:  \n"
+      // TODO: fix arrets maladie (mai is wrong, it takes the whole month, it should be 10 because it is two weeks)
+
+      messageSteps += "   \n  \n3. Détermination de Indemnité Compensatrice de Licenciement 💶:  \n"
       messageSteps += legalData.message;
       messageSteps += "   \n";
       messageSteps += conventionData.message;
@@ -655,6 +657,7 @@ export default function Page() {
       console.log('legalData.value:', legalData.value)
       console.log('conventionData.value:', conventionData.value)
       const legalValue = parseFloat(legalData.value);
+      // const legalValue = calculateLegalSeverancePay(referenceSalaryData.referenceSalary, legalSeniorityData.value)
       const conventionValue = parseFloat(conventionData.value);
       if (legalValue > conventionValue)
         messageSteps += `Le résultat ${legalValue} est le plus favorable car ${legalValue} > ${conventionValue}.\n`;
@@ -662,43 +665,9 @@ export default function Page() {
         messageSteps +=  `Le résultat ${conventionValue} est le plus favorable car ${conventionValue} > ${legalValue}.\n`;
 
       const favorableIndemnity = max(legalValue, conventionValue);
-      setSeverancePay(`${favorableIndemnity.toString()}€`);
-      messageSteps += `\nL’ICL est donc de ${favorableIndemnity.toString()}€.\n`;
+      setSeverancePay(`${favorableIndemnity.toFixed(2).toString()}€`);
+      messageSteps += `\nL’ICL est donc de ${favorableIndemnity.toFixed(2).toString()}€.\n`;
       setDetailsIcl(messageSteps);
-
-      // // Check response
-      // const checkResponse = await fetch("/api/bp/check", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     legalIndemnitiesResponse: legalData.message,
-      //     conventionIndemnitiesResponse: conventionData.message
-      //   }),
-      // });
-      // if (!checkResponse.ok) {
-      //   console.error(`Failed to check indemnities`);
-      //   return;
-      // }
-      // const checkedData = await checkResponse.json();
-      // setCheckedDataMessage(checkedData.message);
-
-      // const compareResponse = await fetch("/api/bp/compute/compare", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     checkedResponse: checkedData.message
-      //   }),
-      // });
-      // if (!compareResponse.ok) {
-      //   console.error(`Failed to compare indemnities`);
-      //   return;
-      // }
-      // const compareData = await compareResponse.json();
-      // setSeverancePay(compareData.severancePay || "Non spécifié");
 
       setIsSimulationFinished(true);
 
@@ -1183,7 +1152,7 @@ export default function Page() {
       {/* Severance Pay Section */}
       {severancePay && (
         <div className="border p-4 rounded-md shadow-md bg-green-50 space-y-4 mt-4">
-          <h3 className="font-medium text-lg text-green-800 mb-2">{"💼 Indemnité de Licenciement"}</h3>
+          <h3 className="font-medium text-lg text-green-800 mb-2">{"💼 ICL"}</h3>
           <p className="text-gray-700 text-lg">
             <strong>Montant : </strong> {severancePay}
           </p>
