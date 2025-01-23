@@ -36,18 +36,18 @@ export const validationNode = async (
     const doctrineInterpretHydeAgentMessage = state.messages.find(
       (msg) => msg.name === "DoctrinesInterpretHydeAgent"
     );
-    const WebSearchAgentAgentMessage = state.messages.find(
-      (msg) => msg.name === "WebSearchAgent"
-    );
+    // const WebSearchAgentAgentMessage = state.messages.find(
+    //   (msg) => msg.name === "WebSearchAgent"
+    // );
 
     // Si l'un des messages attendus n'est pas encore présent, renvoyer un état en attente
-    if (!doctrineInterpretHydeAgentMessage || !decisionsThinkingAgentMessage|| !WebSearchAgentAgentMessage)
+    if (!doctrineInterpretHydeAgentMessage || !decisionsThinkingAgentMessage)
     {
       console.log("[ValidationNODE] : Un ou plusieurs agents n'ont pas encore répondu.");
       return { messages: [] };  // On renvoie une liste vide pour indiquer que le processus continue d'attendre
     }
 
-    const expertMessages = [doctrineInterpretHydeAgentMessage, decisionsThinkingAgentMessage, WebSearchAgentAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
+    const expertMessages = [doctrineInterpretHydeAgentMessage, decisionsThinkingAgentMessage] //, doctrineThinkingAgentMessage]; //, articlesThinkingAgentMessage
     //console.log("[ValidationNODE] Message des experts:\n", expertMessages);
 
     const systemMessage = await SystemMessagePromptTemplate

@@ -36,6 +36,7 @@ N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de
     ],
   });
   const message = gptResponse.choices[0].message;
+  console.log('period:', period);
   console.log('message:', message);
   const jsonResponse = JSON.parse(message.content || "{}");
   return parseFloat(jsonResponse.working_days || "0");

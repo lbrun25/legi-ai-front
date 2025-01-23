@@ -239,6 +239,7 @@ export const removeOverlappingPeriods = (doc: BpDocumentAiFields): BpDocumentAiF
 };
 
 export const getSeniorityWithAdvanceNotice = (seniority: SeniorityValueResponse, advanceNotice: string): string => {
+  console.log('getSeniorityWithAdvanceNotice advanceNotice:', advanceNotice)
   const cleanedAdvanceNotice = advanceNotice.replace("mois", "");
   const advanceNoticeNumber = parseInt(cleanedAdvanceNotice);
   const totalMonths = seniority.total_months + advanceNoticeNumber;
@@ -271,4 +272,12 @@ export function calculateLegalSeverancePay(
     indemnityForYearsUpToTen + indemnityForYearsBeyondTen + monthsIndemnity;
 
   return parseFloat(totalIndemnity.toFixed(2)); // Return with 2 decimal places
+}
+
+export const compareAdvanceNotice = (legalAdvanceNotice: string, conventionAdvanceNotice: string) => {
+  const legalMonthsStr = legalAdvanceNotice.replace("mois", "");
+  const legalAdvanceNoticeNumber = parseInt(legalMonthsStr);
+  const conventionMonthsStr = conventionAdvanceNotice.replace("mois", "");
+  const conventionAdvanceNoticeNumber = parseInt(conventionMonthsStr);
+  return legalAdvanceNoticeNumber > conventionAdvanceNoticeNumber ? legalAdvanceNotice : conventionAdvanceNotice;
 }

@@ -9,12 +9,13 @@ import * as Accordion from "@radix-ui/react-accordion";
 import {SearchBarAgreements} from "@/components/search-bar-agreements";
 import {toast} from "sonner";
 import {
+  compareAdvanceNotice,
   getFavorableReferenceSalary, getSeniorityWithAdvanceNotice,
   parseBpDocumentEntities, removeOverlappingPeriods,
   sumFringeBenefits,
   sumPrimesMontant
 } from "@/lib/utils/bp";
-import {BpAnalysis, BpDocumentAiFields} from "@/lib/types/bp";
+import {BpAnalysis, BpDocumentAiFields, SeniorityResponse, SeniorityValueResponse} from "@/lib/types/bp";
 import { max } from 'mathjs';
 import ReactMarkdown from "react-markdown";
 
@@ -94,6 +95,9 @@ export default function Page() {
       try {
         // Create fetch calls for each sick leave period
         const sickLeaveFetchPromises = sickLeavePeriods.map(async (period) => {
+          if (!period) {
+            return 0;
+          }
           const payload = { sickLeavePeriod: period };
 
           const getSickLeaveDaysResponse = await fetch("/api/bp/analysis/getSickLeaveDays", {
@@ -180,7 +184,7 @@ export default function Page() {
     }
   }
 
-  const getLegalSeniority = async (sickDays: number, unjustifiedAbsenceDays: number) => {
+  const getLegalSeniority = async (sickDays: number, unjustifiedAbsenceDays: number): Promise<SeniorityResponse | undefined> => {
     try {
       const legalSeniorityResponse = await fetch("/api/bp/seniority/legal", {
         method: "POST",
@@ -198,14 +202,15 @@ export default function Page() {
       const legalSeniorityData = await legalSeniorityResponse.json();
       // setLegalSeniorityMessage(legalSeniorityData.message);
       // setLegalSeniority(legalSeniorityData.value);
-      return { value: legalSeniorityData.value, message: legalSeniorityData.message };
+      // @ts-expect-error
+      return { value: legalSeniorityData.value as SeniorityResponse, message: legalSeniorityData.message as string };
     } catch (error) {
       console.error("cannot determine legal seniority:", error);
       toast.error("Une erreur est survenue lors du calcul de l'ancienneté légale.");
     }
   }
 
-  const getConventionSeniority = async (sickDays: number, idcc: string, unjustifiedAbsenceDays: number) => {
+  const getConventionSeniority = async (sickDays: number, idcc: string, unjustifiedAbsenceDays: number): Promise<SeniorityResponse | undefined> => {
     try {
       const conventionSeniorityResponse = await fetch("/api/bp/seniority/convention", {
         method: "POST",
@@ -224,7 +229,8 @@ export default function Page() {
       const conventionSeniorityData = await conventionSeniorityResponse.json();
       // setConventionSeniorityMessage(conventionSeniorityData.message);
       // setConventionSeniority(conventionSeniorityData.value);
-      return { value: conventionSeniorityData.value, message: conventionSeniorityData.message };
+      // @ts-expect-error
+      return { value: conventionSeniorityData.value as SeniorityResponse, message: conventionSeniorityData.message as string };
     } catch (error) {
       console.error("cannot determine convention seniority:", error);
       toast.error("Une erreur est survenue lors du calcul de l'ancienneté conventionnelle.");
@@ -330,6 +336,7 @@ export default function Page() {
         }),
       });
       const advanceNoticeData = await advanceNoticeResponse.json();
+      console.log('advanceNoticeData response:', advanceNoticeData)
       // setAdvanceNotice(advanceNoticeData.value);
       // setAdvanceNoticeMessage(advanceNoticeData.message);
       return advanceNoticeData.value;
@@ -364,12 +371,16 @@ export default function Page() {
     console.log('doc.periode_arret_maladie:', doc.periode_arret_maladie)
     if (doc.periode_arret_maladie.length > 0) {
       if (doc.sous_total_salaire_base_montant) {
+        let brut = doc.sous_total_salaire_base_montant;
+        if (doc.salaire_brut_mensuel) {
+          brut = doc.salaire_brut_mensuel > doc.sous_total_salaire_base_montant ? doc.salaire_brut_mensuel : doc.sous_total_salaire_base_montant;
+        }
         console.log('return doc.sous_total_salaire_base_montant')
         if (doc.absence_non_justifie_periode.length > 0) {
           const totalUnjustifiedAbsence = doc.absence_non_justifie_montant.reduce((sum, amount) => sum + amount, 0);
-          return doc.sous_total_salaire_base_montant - totalUnjustifiedAbsence;
+          return brut - totalUnjustifiedAbsence;
         }
-        return doc.sous_total_salaire_base_montant;
+        return brut;
       }
       if (doc.salaire_brut_mensuel && doc.absence_maladie_montant.length > 0) {
         const totalAbsenceMaladie = doc.absence_maladie_montant.reduce((sum, amount) => sum + amount, 0);
@@ -577,34 +588,34 @@ export default function Page() {
       messageSteps += "\n• "
       messageSteps += conventionSeniorityData.message ?? "Ancienneté selon la convention collective : Non trouvé";
 
-      const legalAdvanceNoticeData = await getLegalAdvanceNotice(legalSeniorityData.value);
+      const legalAdvanceNoticeData = await getLegalAdvanceNotice(legalSeniorityData.value.formatted_duration);
       if (!legalAdvanceNoticeData) return;
       messageSteps += "  \n  \nb. Préavis :  \n• "
       messageSteps += legalAdvanceNoticeData.message ?? "- Durée du préavis selon la loi : Non trouvé";
 
-      const conventionAdvanceNoticeData = await getConventionAdvanceNotice(conventionSeniorityData.value, selectedAgreementSuggestion.idcc);
+      const conventionAdvanceNoticeData = await getConventionAdvanceNotice(conventionSeniorityData.value.formatted_duration, selectedAgreementSuggestion.idcc);
       if (!conventionAdvanceNoticeData) return;
       messageSteps += "\n• "
       messageSteps += conventionAdvanceNoticeData.message ?? "- Durée du préavis selon la convention collective : Non trouvé";
 
-      console.log('messageSteps:', messageSteps)
+      const advanceNotice = compareAdvanceNotice(legalAdvanceNoticeData.value, conventionAdvanceNoticeData.value);
 
-      const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(legalSeniorityData.value, legalAdvanceNoticeData.value);
+      console.log('legalSeniorityData.value:', legalSeniorityData.value)
+      console.log('advanceNotice.value:', advanceNotice)
+      const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(legalSeniorityData.value, advanceNotice);
+      if (!legalSeniorityWithAdvanceNotice) return;
       messageSteps += "  \n  \nc. Ancienneté + préavis :  \n"
       messageSteps += "• Ancienneté selon la loi (incluant préavis) : ancienneté légale + préavis légal : ";
       messageSteps += legalSeniorityWithAdvanceNotice ?? "Non trouvé";
 
-      const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(conventionSeniorityData.value, conventionAdvanceNoticeData.value);
+      console.log('conventionSeniorityData.value:', conventionSeniorityData.value)
+      console.log('advanceNotice.value')
+      const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(conventionSeniorityData.value, advanceNotice);
       if (!conventionSeniorityWithAdvanceNotice) return;
       messageSteps += "  \n• Ancienneté selon la convention collective (incluant préavis) : ";
       messageSteps += conventionSeniorityWithAdvanceNotice ?? "Non trouvé";
 
-
-      // TODO: need favorable  advance notice ?
-      // const advanceNotice = await getFavorableAdvanceNotice(legalAdvanceNoticeData.value, conventionAdvanceNoticeData.value);
-
       // Parallel API Calls: /compute/legal and /compute/convention
-      // TODO: check if seniority should be favorableSeniority
       const legalRequest = fetch("/api/bp/compute/legal", {
         method: "POST",
         headers: {
@@ -612,7 +623,7 @@ export default function Page() {
         },
         body: JSON.stringify({
           referenceSalary: referenceSalaryData.referenceSalary,
-          seniority: legalSeniorityData.value,
+          seniority: legalSeniorityData.value.formatted_duration,
         }),
       });
 
@@ -623,7 +634,7 @@ export default function Page() {
         body: JSON.stringify({
           idcc: selectedAgreementSuggestion.idcc,
           referenceSalary: referenceSalaryData.referenceSalary,
-          seniority: conventionSeniorityData.value,
+          seniority: conventionSeniorityData.value.formatted_duration,
           totalPrimes: totalPrimes,
           totalFringeBenefits: totalFringeBenefits,
         }),

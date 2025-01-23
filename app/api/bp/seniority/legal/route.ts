@@ -44,6 +44,7 @@ export async function POST(req: Request) {
       Donc tu ne doit pas prendre en compte cette période dans l'ancienneté.
     - L'ancienneté est calculée en années et mois complets entre la date d'entrée et la date de notification de licenciement.
     - Prends en compte uniquement les périodes travaillées effectives et les absences assimilées comme du temps de travail selon les règles légales.
+    - Les arrets maladie et les absences non justifiées ne sont pas pris en compte pour l'ancienneté donc soustrait ces jours.
     - Valide la continuité du contrat de travail à l'aide des bulletins de paie pour éviter toute erreur dans les périodes calculées.
     - Vérifie que chaque étape du calcul est cohérente avec les règles du Code du travail.
 

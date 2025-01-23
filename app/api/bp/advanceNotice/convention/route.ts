@@ -19,6 +19,8 @@ export async function POST(req: Request) {
     seniority: string;
   } = await req.json();
 
+  console.log('[convention] input seniority:', input.seniority);
+
   try {
     const query = "Quel est le délai de préavis prévu par la convention collective en cas de licenciement ?"
     const relevantArticles = await searchArticlesInCollectiveAgreement(input.idcc, query);

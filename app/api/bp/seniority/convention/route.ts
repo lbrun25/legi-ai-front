@@ -73,20 +73,19 @@ ${relevantArticlesText}
 
     // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format
     const extractionPrompt = `
-Objectif :
-À partir du texte suivant, extrait uniquement la durée de l'ancienneté sous le format "X années et Y mois". N'inclus aucun autre texte ou explication.
+À partir du texte suivant, extrait uniquement la durée de l'ancienneté sous le format strict suivant (sans aucun texte supplémentaire ou caractères non valides) :
 
+{
+"total_years": X,
+"total_months": Y,
+"formatted_duration": "X années et Y mois"
+}
+
+Le format attendu doit être un JSON valide. Si les données ne sont pas disponibles, retourne ce JSON : {"total_years": 0, "total_months": 0, "formatted_duration": "0 années et 0 mois"}.
 Texte :  
 "${message}"
 
-Réponse attendue :
-Retourne un JSON sous ce format:  
-{
-    "total_years": "X",
-    "total_months": "Y"
-    "formatted_duration": "X années et Y mois"
-}
-N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de balises Markdown (\`\`\`json).
+Ne retourne rien d'autre que le JSON strict.
 `;
     const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",

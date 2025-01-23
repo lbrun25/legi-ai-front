@@ -41,3 +41,8 @@ export type SeniorityValueResponse = {
   total_months: number;
   formatted_duration: string;
 }
+
+export type SeniorityResponse = {
+  value: SeniorityValueResponse;
+  message: string;
+}
