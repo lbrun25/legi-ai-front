@@ -2,6 +2,8 @@ import {GoogleGenerativeAI} from "@google/generative-ai";
 import {NextResponse} from "next/server";
 import {searchArticlesInCollectiveAgreement} from "@/lib/supabase/agreements";
 import OpenAI from "openai";
+import {SeniorityValueResponse} from "@/lib/types/bp";
+import {evaluateMathExpression, parseAndReplace} from "@/lib/utils/bp";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -13,14 +15,13 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
 export async function POST(req: Request) {
   const input: {
     totalPrimes: number;
     totalFringeBenefits: number;
     idcc: string;
-    referenceSalary: string;
-    seniority: string;
+    referenceSalary: number;
+    seniority: SeniorityValueResponse;
   } = await req.json();
 
   console.log('convention compute input.seniority:', input.seniority)
@@ -31,67 +32,54 @@ export async function POST(req: Request) {
     const relevantArticles = await searchArticlesInCollectiveAgreement(input.idcc, query);
     const relevantArticlesText = relevantArticles.map(article => article.content).join('\n\n');
     const prompt = `
-# Objectif
-Calcul l’indemnité de licenciement en te basant sur les données disponibles et sur la collection collective (${input.idcc}).
-
-# Règle de calcul:
-- Utilise toujours un interpréteur Python pour effectuer chacun de tes calculs.
-
-# Données disponibles :
-- Ancienneté : ${input.seniority}
-- Salaire de référence : ${input.referenceSalary}
-- Total des primes : ${input.totalPrimes}
-- Total des avantages natures : ${input.totalFringeBenefits}
-
 # Articles de la convention collective
-Voici les articles pertinents de la convention collective (${input.idcc}) pour calculer l’indemnité de licenciement du salarié: 
+Voici les articles pertinents de la convention collective (${input.idcc}) concernant l’indemnité de licenciement: 
 ${relevantArticlesText}
 
+# Objectif
+Répond uniquement par la formule a calculer pour une ancienneté de ${input.seniority.formatted_duration}.
+
+# Règle de calcul:
+- Additionne les mois restants dans la formule en les convertissant en fraction d’année (mois/12) si ce n'est pas deja fait.
+- N'additionnes pas les primes et les avantages natures si la convention collective ne les indique pas.
+- Si des informations sont à inclure dans la formule, utilise des placeholders de type [PLACEHOLDER]:
+    - Si salaire de reference à inclure: [REFERENCE]
+    - Si primes à inclure: [PRIMES]
+    - Si avantages natures à inclure: [BENEFITS]
+
 # Réponse attendue
-- Retourne le montant final de l'indemnité, accompagné accompagné de la formule et d'une brève explication claire de ton raisonnement.
-- N'affiche pas le code Python dans ta réponse car ce n'est pas une réponse claire à donner à l'utilisateur.
-- Réponds uniquement par cette réponse : "Selon la convention collective : [FORMULE SELON LA CONVENTION Collective] = [Résultat]"
+- Retourne uniquement la formule a calculer en réponse, n'ajoute pas d'autre texte.
   `;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user", parts: [
-            {text: prompt},
-          ]
-        }
-      ]
-    });
-    const message = result.response.text();
-    console.log('message:', message);
-
-    // 🔹 Second LLM Call: Extract Only the Value in "X mois" Format
-    const extractionPrompt = `
-Objectif :
-À partir du texte suivant, extrait uniquement le montant (le nombre) de l'indemnité de licenciement. N'inclus aucun autre texte ou explication.
-
-Texte :  
-"${message}"
-
-Réponse attendue :  
-Retourne uniquement le montant de l'indemnité de licenciement.
-`;
-    const extractionResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
       temperature: 0,
       messages: [
         {
           role: "user",
-          content: extractionPrompt,
+          content: prompt,
         },
       ],
     });
-    const extractedValue = extractionResponse.choices[0].message.content?.trim() || "Erreur dans l'extraction du modèle";
-    console.log('Extracted value:', extractedValue);
+    const message = response.choices[0].message.content?.trim()
+    console.log('message:', message);
+
+    if (!message || message?.length === 0) {
+      console.error('collective convention formula is empty');
+      return;
+    }
+
+    const replacements = {
+      REFERENCE: input.referenceSalary,
+      PRIMES: input.totalPrimes,
+      BENEFITS: input.totalFringeBenefits,
+    };
+    const parsedExpression = parseAndReplace(message, replacements);
+    const result = evaluateMathExpression(parsedExpression);
+    console.log("Résultat de l'expression:", result);
 
     return NextResponse.json({
       message: message,
-      value: extractedValue,
+      value: result,
     }, { status: 200 });
   } catch (error) {
     console.error("cannot compute indemnities with convention:", error);

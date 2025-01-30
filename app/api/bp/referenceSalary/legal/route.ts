@@ -99,7 +99,7 @@ Méthode 3 derniers mois : XXXX + XXXX + XXXX = [montant du salaire de référen
 Le [montant salaire de référence 1] est plus favorable car [montant du salaire de référence 1] > [montant du salaire de référence 2]. Nous allons retenir celui-ci pour la suite des calculs."
 `;
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       temperature: 0,
       messages: [
         {

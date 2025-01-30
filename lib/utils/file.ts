@@ -1,4 +1,6 @@
 import {DocumentProcessorServiceClient} from "@google-cloud/documentai";
+import { PDFDocument } from 'pdf-lib';
+import fs from 'fs/promises';
 
 export const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -55,4 +57,23 @@ export function fileToBlob(file: File): Promise<Blob> {
     // Read the file as an ArrayBuffer
     reader.readAsArrayBuffer(file);
   });
+}
+
+export async function extractFirstPageAsBase64(pdfFile: File): Promise<string> {
+  // Convert File to ArrayBuffer
+  const arrayBuffer = await pdfFile.arrayBuffer();
+
+  // Load original PDF
+  const originalPdf = await PDFDocument.load(arrayBuffer);
+
+  // Create new PDF
+  const newPdf = await PDFDocument.create();
+
+  // Copy the first page from original PDF to new PDF
+  const [copiedPage] = await newPdf.copyPages(originalPdf, [0]); // <-- Fix is here
+  newPdf.addPage(copiedPage);
+
+  // Convert to Base64
+  const newPdfBytes = await newPdf.save();
+  return Buffer.from(newPdfBytes).toString('base64');
 }

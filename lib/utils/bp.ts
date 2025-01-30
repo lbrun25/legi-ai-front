@@ -39,32 +39,33 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
 
   if (document && document.entities) {
     document.entities.forEach((entity: any) => {
-      const { type: type_, mentionText } = entity;
+      const { type: type_, mentionText, normalizedValue } = entity;
+      const normalizedText = normalizedValue?.text;
 
       switch (type_) {
         case 'absence_maladie_montant':
-          if (mentionText) defaultFields.absence_maladie_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.absence_maladie_montant.push(parseFloat(normalizedText));
           break;
         case 'absence_non_justifie_montant':
-          if (mentionText) defaultFields.absence_non_justifie_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.absence_non_justifie_montant.push(parseFloat(normalizedText));
           break;
         case 'absence_non_justifie_periode':
           if (mentionText) defaultFields.absence_non_justifie_periode.push(mentionText);
           break;
         case 'avantage_nature_montant':
-          if (mentionText) defaultFields.avantage_nature_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.avantage_nature_montant.push(parseFloat(normalizedText));
           break;
         case 'conge_paye_montant':
-          if (mentionText) defaultFields.conge_paye_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.conge_paye_montant.push(parseFloat(normalizedText));
           break;
         case 'conge_paye_periode':
           if (mentionText) defaultFields.conge_paye_periode.push(mentionText);
           break;
         case 'conge_sans_solde_montant':
-          if (mentionText) defaultFields.conge_sans_solde_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.conge_sans_solde_montant.push(parseFloat(normalizedText));
           break;
         case 'conge_sans_solde_nombre':
-          if (mentionText) defaultFields.conge_sans_solde_nombre.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.conge_sans_solde_nombre.push(parseFloat(normalizedText));
           break;
         case 'convention_collective':
           defaultFields.convention_collective = mentionText || null;
@@ -82,13 +83,13 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
           defaultFields.fin_periode_emploi = mentionText || null;
           break;
         case 'heure_supplementaires_montant':
-          if (mentionText) defaultFields.heure_supplementaires_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.heure_supplementaires_montant.push(parseFloat(normalizedText));
           break;
         case 'heures_travail':
-          if (mentionText) defaultFields.heures_travail.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.heures_travail.push(parseFloat(normalizedText));
           break;
         case 'majoration_heures_montant':
-          if (mentionText) defaultFields.majoration_heures_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.majoration_heures_montant.push(parseFloat(normalizedText));
           break;
         case 'mois_bulletin_de_paie':
           defaultFields.mois_bulletin_de_paie = mentionText || null;
@@ -97,22 +98,22 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
           defaultFields.nom_salarie = mentionText || null;
           break;
         case 'nombre_conge_paye':
-          if (mentionText) defaultFields.nombre_conge_paye.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.nombre_conge_paye.push(parseFloat(normalizedText));
           break;
         case 'periode_arret_maladie':
           if (mentionText) defaultFields.periode_arret_maladie.push(mentionText);
           break;
         case 'primes_montant':
-          if (mentionText) defaultFields.primes_montant.push(parseFloat(mentionText));
+          if (normalizedText) defaultFields.primes_montant.push(parseFloat(normalizedText));
           break;
         case 'salaire_base':
-          defaultFields.salaire_base = parseFloat(mentionText) || null;
+          defaultFields.salaire_base = parseFloat(normalizedText) || null;
           break;
         case 'salaire_brut_mensuel':
-          defaultFields.salaire_brut_mensuel = parseFloat(mentionText) || null;
+          defaultFields.salaire_brut_mensuel = parseFloat(normalizedText) || null;
           break;
         case 'sous_total_salaire_base_montant':
-          defaultFields.sous_total_salaire_base_montant = parseFloat(mentionText) || null;
+          defaultFields.sous_total_salaire_base_montant = parseFloat(normalizedText) || null;
           break;
         default:
           console.warn(`Unknown field type: ${type_}`);
@@ -238,12 +239,16 @@ export const removeOverlappingPeriods = (doc: BpDocumentAiFields): BpDocumentAiF
   };
 };
 
-export const getSeniorityWithAdvanceNotice = (seniority: SeniorityValueResponse, advanceNotice: string): string => {
+export const getSeniorityWithAdvanceNotice = (seniority: SeniorityValueResponse, advanceNotice: string): SeniorityValueResponse => {
   console.log('getSeniorityWithAdvanceNotice advanceNotice:', advanceNotice)
   const cleanedAdvanceNotice = advanceNotice.replace("mois", "");
   const advanceNoticeNumber = parseInt(cleanedAdvanceNotice);
   const totalMonths = seniority.total_months + advanceNoticeNumber;
-  return `${seniority.total_years} ans et ${totalMonths} mois`;
+  return {
+    total_years: seniority.total_years,
+    total_months: totalMonths,
+    formatted_duration: `${seniority.total_years} ans et ${totalMonths} mois`,
+  }
 }
 
 export function calculateLegalSeverancePay(
@@ -280,4 +285,110 @@ export const compareAdvanceNotice = (legalAdvanceNotice: string, conventionAdvan
   const conventionMonthsStr = conventionAdvanceNotice.replace("mois", "");
   const conventionAdvanceNoticeNumber = parseInt(conventionMonthsStr);
   return legalAdvanceNoticeNumber > conventionAdvanceNoticeNumber ? legalAdvanceNotice : conventionAdvanceNotice;
+}
+
+// Helper function to parse date strings in "DD/MM/YYYY" format
+function parseDate(str: string): Date {
+  const [day, month, year] = str.split('/').map((num) => parseInt(num, 10));
+  return new Date(year, month - 1, day); // Note: month is zero-based
+}
+
+// Helper function to calculate seniority in years and months
+export function calculateSeniority(endDate: Date, startDate: Date): SeniorityValueResponse {
+  let totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12;
+  totalMonths += endDate.getMonth() - startDate.getMonth();
+
+  if (endDate.getDate() < startDate.getDate()) {
+    totalMonths--;
+  }
+
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+
+  const formattedDuration = `${years} ans et ${months} mois`;
+
+  return { total_years: years, total_months: months, formatted_duration: formattedDuration };
+}
+
+// Helper function to convert seniority to total days
+function seniorityToDays(seniority: SeniorityValueResponse): number {
+  const totalYearsInDays = seniority.total_years * 365; // Approximate with 365 days in a year
+  const totalMonthsInDays = seniority.total_months * 30; // Approximate with 30 days in a month
+  return totalYearsInDays + totalMonthsInDays;
+}
+
+// Helper function to convert total days to seniority (years and months)
+function daysToSeniority(totalDays: number): SeniorityValueResponse {
+  const totalMonths = Math.floor(totalDays / 30); // Convert total days to months
+  const years = Math.floor(totalMonths / 12); // Convert months to years
+  const months = totalMonths % 12; // Remaining months
+  const formattedDuration = `${years} ans et ${months} mois`;
+  return { total_years: years, total_months: months, formatted_duration: formattedDuration };
+}
+
+const normalizeDate = (dateStr: string): string => {
+  if (dateStr.includes('-')) {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`; // Convert to DD/MM/YYYY format
+  }
+  return dateStr; // Return as-is if already in desired format
+};
+
+// Main function to calculate seniority with absences
+export function calculateSeniorityWithAbsences(
+  endDateStr: string,
+  startDateStr: string,
+  absenceDays: number
+): SeniorityValueResponse {
+  // Normalize and parse the dates
+  startDateStr = normalizeDate(startDateStr);
+  endDateStr = normalizeDate(endDateStr);
+  console.log('endDateStr:', endDateStr)
+  console.log('startDateStr:', startDateStr)
+  let startDate = parseDate(startDateStr);
+  let endDate = parseDate(endDateStr);
+  console.log('startDate:', startDate)
+  console.log('endDate:', endDate)
+
+  // Ensure startDate is earlier than endDate; swap if necessary
+  if (startDate > endDate) {
+    [startDate, endDate] = [endDate, startDate];
+  }
+
+  // Calculate initial seniority
+  const initialSeniority = calculateSeniority(endDate, startDate);
+
+  // Convert seniority to days and subtract absence days
+  const totalDays = seniorityToDays(initialSeniority);
+  console.log('totalDays:', totalDays)
+  const adjustedTotalDays = Math.max(0, totalDays - absenceDays); // Ensure no negative days
+  console.log('adjustedTotalDays:', adjustedTotalDays)
+
+  // Convert back to seniority
+  const adjustedSeniority = daysToSeniority(adjustedTotalDays);
+
+  return adjustedSeniority;
+}
+
+export function parseAndReplace(expression: string, replacements: Record<string, number>): string {
+  // Replace placeholders [PLACEHOLDER] with their corresponding values
+  const replacedExpression = expression.replace(/\[([A-Z_]+)\]/g, (_, placeholder) => {
+    if (replacements[placeholder] !== undefined) {
+      return replacements[placeholder].toString();
+    } else {
+      throw new Error(`Valeur manquante pour le placeholder: [${placeholder}]`);
+    }
+  });
+
+  // Replace all commas with dots in the entire result string
+  return replacedExpression.replace(/,/g, '.');
+}
+
+export function evaluateMathExpression(expression: string): number {
+  // Utiliser Function pour évaluer l'expression mathématique
+  try {
+    return new Function(`return (${expression});`)();
+  } catch (error) {
+    throw new Error(`Erreur lors de l'évaluation de l'expression: ${expression}`);
+  }
 }

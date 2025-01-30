@@ -9,8 +9,10 @@ import * as Accordion from "@radix-ui/react-accordion";
 import {SearchBarAgreements} from "@/components/search-bar-agreements";
 import {toast} from "sonner";
 import {
-  compareAdvanceNotice,
-  getFavorableReferenceSalary, getSeniorityWithAdvanceNotice,
+  calculateLegalSeverancePay,
+  calculateSeniority, calculateSeniorityWithAbsences,
+  compareAdvanceNotice, evaluateMathExpression,
+  getFavorableReferenceSalary, getSeniorityWithAdvanceNotice, parseAndReplace,
   parseBpDocumentEntities, removeOverlappingPeriods,
   sumFringeBenefits,
   sumPrimesMontant
@@ -18,6 +20,7 @@ import {
 import {BpAnalysis, BpDocumentAiFields, SeniorityResponse, SeniorityValueResponse} from "@/lib/types/bp";
 import { max } from 'mathjs';
 import ReactMarkdown from "react-markdown";
+import {extractFirstPageAsBase64} from "@/lib/utils/file";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -46,6 +49,7 @@ export default function Page() {
   const [conventionSeveranceEligibilityMessage, setConventionSeveranceEligibilityMessage] = useState("");
   const [isLegalSeveranceEligibilityMessageVisible, setIsLegalSeveranceEligibilityMessageVisible] = useState(false);
   const [isConventionSeveranceEligibilityMessageVisible, setIsConventionSeveranceEligibilityMessageVisible] = useState(false);
+  const [isSickAfterLastBp, setIsSickAfterLastBp] = useState("")
 
   // const [legalSeniorityMessage, setLegalSeniorityMessage] = useState("");
   // const [conventionSeniorityMessage, setConventionSeniorityMessage] = useState("");
@@ -75,6 +79,29 @@ export default function Page() {
   useEffect(() => {
     // TODO: fix default placeholder is new Date() on Safari
     setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+
+    const seniority = calculateSeniorityWithAbsences("01/01/2024", "08/06/2020", 0)
+    console.log('seniority:', seniority)
+
+    const legalValue = calculateLegalSeverancePay(2675.01, {
+      total_years: 1,
+      total_months: 2,
+      formatted_duration: "1 an et 2 mois",
+    })
+    console.log('legalValue:', legalValue);
+
+    const replacements = {
+      REFERENCE: 2675.01,
+      PRIMES: 0,
+      BENEFITS: 0,
+    };
+    const parsedExpression = parseAndReplace("(2,5/10) * 3 * [REFERENCE]", replacements);
+    console.log("Expression:", parsedExpression);
+    const result = evaluateMathExpression(parsedExpression);
+    console.log("Résultat de l'expression:", result);
+
+    const conventionSeniorityData = calculateSeniorityWithAbsences("01/01/2024", "08/06/2020", 0)
+    console.log('conventionSeniorityData:', conventionSeniorityData)
   }, []);
 
   const handleDeleteFile = (fileToDelete: File) => {
@@ -378,8 +405,10 @@ export default function Page() {
         console.log('return doc.sous_total_salaire_base_montant')
         if (doc.absence_non_justifie_periode.length > 0) {
           const totalUnjustifiedAbsence = doc.absence_non_justifie_montant.reduce((sum, amount) => sum + amount, 0);
+          console.log('return brut - totalUnjustifiedAbsence:', brut - totalUnjustifiedAbsence)
           return brut - totalUnjustifiedAbsence;
         }
+        console.log('return brut:', brut)
         return brut;
       }
       if (doc.salaire_brut_mensuel && doc.absence_maladie_montant.length > 0) {
@@ -388,6 +417,7 @@ export default function Page() {
         return doc.salaire_brut_mensuel - totalAbsenceMaladie;
       }
     }
+    console.log('return doc.salaire_brut_mensuel:', doc.salaire_brut_mensuel)
     return doc.salaire_brut_mensuel;
   };
 
@@ -414,9 +444,6 @@ export default function Page() {
   }
 
   const extractBps = async () => {
-    if (!selectedAgreementSuggestion) {
-      throw new Error("No selected agreement suggestion.");
-    }
     const results: Record<string, BpDocumentAiFields> = {};
     const pdfFiles = bpFiles.filter(file => file.name.toLowerCase().endsWith(".pdf"));
     if (pdfFiles.length === 0) {
@@ -443,15 +470,7 @@ export default function Page() {
               //   body: JSON.stringify(payload),
               // });
               const pdfFile = pdfFiles[i];
-              const reader = new FileReader();
-
-              // Wrap the FileReader logic in a promise for async handling
-              const encodedFileContent = await new Promise((resolve, reject) => {
-                // @ts-ignore
-                reader.onload = () => resolve(reader.result.split(',')[1]); // Base64 content
-                reader.onerror = reject;
-                reader.readAsDataURL(pdfFile); // Read the file as a data URL
-              });
+              const encodedFileContent = await extractFirstPageAsBase64(pdfFile)
 
               // Make the POST request to the Next.js API route
               const response = await fetch('/api/assistant/files/ocr', {
@@ -524,6 +543,15 @@ export default function Page() {
       setLastPaySlipDate(employeeInfoData.lastPaySlipDate || "");
       console.log('employeeInfoData:', employeeInfoData)
       setEmployeeName(bpAnalysisResponses[0].nom_salarie || "");
+
+      // Set convention if found
+      const collectiveAgreementQuery = bpAnalysisResponses[0].convention_collective;
+      if (collectiveAgreementQuery && collectiveAgreementQuery?.length > 0) {
+        const collectiveAgreementSuggestions = await fetchSuggestions(collectiveAgreementQuery);
+        if (collectiveAgreementSuggestions && collectiveAgreementSuggestions?.length > 0) {
+          setSelectedAgreementSuggestion(collectiveAgreementSuggestions[0]);
+        }
+      }
     } catch (error) {
       console.error("Error during extraction:", error);
       throw error;
@@ -531,6 +559,21 @@ export default function Page() {
       setBpExtractionResults(results);
     }
   }
+
+  const fetchSuggestions = async (query: string): Promise<{title: string, idcc: string}[] | undefined> => {
+    try {
+      const response = await fetch(
+        `/api/collectiveAgreements/search?query=${encodeURIComponent(query)}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch suggestions");
+      }
+      console.log('fetchSuggestions with query:', query);
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to fetch suggestions:", error);
+    }
+  };
 
   const getSickDays = () => {
      // Use Object.values to get the array of all values in bpFields
@@ -578,55 +621,55 @@ export default function Page() {
       // use sick days and unjustified absence
 
       messageSteps += "   \n  \n2) Détermination du préavis et de l’ancienneté ⏰:"
-      const legalSeniorityData = await getLegalSeniority(totalSickDays, unjustifiedAbsenceDays);
-      if (!legalSeniorityData) return;
+      // const legalSeniorityData = await getLegalSeniority(totalSickDays, unjustifiedAbsenceDays);
+      // if (!legalSeniorityData) return;
+
+      // sickDays: sickDays,
+      //   unjustifiedAbsenceDays: unjustifiedAbsenceDays,
+      //   notificationDate: notificationDate,
+      //   entryDate: entryDate,
+      //   lastPaySlip: lastPaySlipDate,
+      console.log('lastPaySlipDate:', lastPaySlipDate);
+
       messageSteps += "  \n  \na. Ancienneté :  \n• "
-      messageSteps += legalSeniorityData.message ?? "Ancienneté selon la loi : Non trouvé";
+      const legalEndDate = isSickAfterLastBp === "OUI" ? lastPaySlipDate : notificationDate;
+      const legalSeniorityData = calculateSeniorityWithAbsences(legalEndDate, entryDate, unjustifiedAbsenceDays + totalSickDays);
+      messageSteps += `Ancienneté selon la loi : ${legalSeniorityData.formatted_duration}` ?? "Ancienneté selon la loi : Non trouvé";
 
-      const conventionSeniorityData = await getConventionSeniority(totalSickDays, selectedAgreementSuggestion.idcc, unjustifiedAbsenceDays);
-      if (!conventionSeniorityData) return;
+      // const conventionSeniorityData = await getConventionSeniority(totalSickDays, selectedAgreementSuggestion.idcc, unjustifiedAbsenceDays);
+      // if (!conventionSeniorityData) return;
+      console.log('notificationDate:', notificationDate)
+      const conventionSeniorityData = calculateSeniorityWithAbsences(notificationDate, entryDate, unjustifiedAbsenceDays)
       messageSteps += "\n• "
-      messageSteps += conventionSeniorityData.message ?? "Ancienneté selon la convention collective : Non trouvé";
+      messageSteps += `Ancienneté selon la convention collective : ${conventionSeniorityData.formatted_duration}` ?? "Ancienneté selon la convention collective : Non trouvé";
 
-      const legalAdvanceNoticeData = await getLegalAdvanceNotice(legalSeniorityData.value.formatted_duration);
+      const legalAdvanceNoticeData = await getLegalAdvanceNotice(legalSeniorityData.formatted_duration);
       if (!legalAdvanceNoticeData) return;
       messageSteps += "  \n  \nb. Préavis :  \n• "
       messageSteps += legalAdvanceNoticeData.message ?? "- Durée du préavis selon la loi : Non trouvé";
 
-      const conventionAdvanceNoticeData = await getConventionAdvanceNotice(conventionSeniorityData.value.formatted_duration, selectedAgreementSuggestion.idcc);
+      const conventionAdvanceNoticeData = await getConventionAdvanceNotice(conventionSeniorityData.formatted_duration, selectedAgreementSuggestion.idcc);
       if (!conventionAdvanceNoticeData) return;
       messageSteps += "\n• "
       messageSteps += conventionAdvanceNoticeData.message ?? "- Durée du préavis selon la convention collective : Non trouvé";
 
       const advanceNotice = compareAdvanceNotice(legalAdvanceNoticeData.value, conventionAdvanceNoticeData.value);
 
-      console.log('legalSeniorityData.value:', legalSeniorityData.value)
       console.log('advanceNotice.value:', advanceNotice)
-      const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(legalSeniorityData.value, advanceNotice);
+      const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(legalSeniorityData, advanceNotice);
       if (!legalSeniorityWithAdvanceNotice) return;
       messageSteps += "  \n  \nc. Ancienneté + préavis :  \n"
       messageSteps += "• Ancienneté selon la loi (incluant préavis) : ancienneté légale + préavis légal : ";
-      messageSteps += legalSeniorityWithAdvanceNotice ?? "Non trouvé";
+      messageSteps += legalSeniorityWithAdvanceNotice.formatted_duration ?? "Non trouvé";
 
-      console.log('conventionSeniorityData.value:', conventionSeniorityData.value)
+      console.log('conventionSeniorityData:', conventionSeniorityData)
       console.log('advanceNotice.value')
-      const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(conventionSeniorityData.value, advanceNotice);
+      const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(conventionSeniorityData, advanceNotice);
       if (!conventionSeniorityWithAdvanceNotice) return;
       messageSteps += "  \n• Ancienneté selon la convention collective (incluant préavis) : ";
-      messageSteps += conventionSeniorityWithAdvanceNotice ?? "Non trouvé";
+      messageSteps += conventionSeniorityWithAdvanceNotice.formatted_duration ?? "Non trouvé";
 
       // Parallel API Calls: /compute/legal and /compute/convention
-      const legalRequest = fetch("/api/bp/compute/legal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          referenceSalary: referenceSalaryData.referenceSalary,
-          seniority: legalSeniorityData.value.formatted_duration,
-        }),
-      });
-
       const totalPrimes = sumPrimesMontant(bpAnalysisResponses);
       const totalFringeBenefits = sumFringeBenefits(bpAnalysisResponses);
       const conventionRequest = fetch("/api/bp/compute/convention", {
@@ -634,41 +677,30 @@ export default function Page() {
         body: JSON.stringify({
           idcc: selectedAgreementSuggestion.idcc,
           referenceSalary: referenceSalaryData.referenceSalary,
-          seniority: conventionSeniorityData.value.formatted_duration,
+          seniority: conventionSeniorityWithAdvanceNotice,
           totalPrimes: totalPrimes,
           totalFringeBenefits: totalFringeBenefits,
         }),
       });
 
-      const [legalResponse, conventionResponse] = await Promise.all([
-        legalRequest,
+      const [conventionResponse] = await Promise.all([
         conventionRequest,
       ]);
-      if (!legalResponse.ok) {
-        console.error(`Failed to compute legal indemnities`);
-        return;
-      }
       if (!conventionResponse.ok) {
         console.error(`Failed to compute indemnities with the convention`);
         return;
       }
-
-      const [legalData, conventionData] = await Promise.all([
-        legalResponse.json(),
+      const [conventionData] = await Promise.all([
         conventionResponse.json(),
       ]);
 
-      // TODO: fix arrets maladie (mai is wrong, it takes the whole month, it should be 10 because it is two weeks)
+      const legalValue = calculateLegalSeverancePay(referenceSalaryData.referenceSalary, legalSeniorityWithAdvanceNotice)
 
       messageSteps += "   \n  \n3. Détermination de Indemnité Compensatrice de Licenciement 💶:  \n"
-      messageSteps += legalData.message;
+      messageSteps += `Selon la loi: ${legalValue}`;
       messageSteps += "   \n";
-      messageSteps += conventionData.message;
+      messageSteps +=  `Selon la convention collective :` + conventionData.message;
 
-      console.log('legalData.value:', legalData.value)
-      console.log('conventionData.value:', conventionData.value)
-      const legalValue = parseFloat(legalData.value);
-      // const legalValue = calculateLegalSeverancePay(referenceSalaryData.referenceSalary, legalSeniorityData.value)
       const conventionValue = parseFloat(conventionData.value);
       if (legalValue > conventionValue)
         messageSteps += `Le résultat ${legalValue} est le plus favorable car ${legalValue} > ${conventionValue}.\n`;
@@ -744,26 +776,6 @@ export default function Page() {
         )}
       />
 
-      <div
-        className="flex flex-col w-full max-w-prose py-8 mx-auto space-y-6 rounded-3xl bg-gray-50 dark:bg-gray-900 px-8">
-        <h2 className="text-lg font-medium">{"🔍 Rechercher une Convention Collective"}</h2>
-        <SearchBarAgreements onSelect={handleSuggestionSelect}/>
-        {selectedAgreementSuggestion && (
-          <div
-            className="text-sm mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
-            <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-1">
-              {"Convention collective sélectionnée:"}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              <strong>IDCC:</strong> {selectedAgreementSuggestion.idcc}
-            </p>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              <strong>Titre:</strong> {selectedAgreementSuggestion.title}
-            </p>
-          </div>
-        )}
-      </div>
-
       {/* List of Uploaded Files */}
       <UploadedFilesList
         files={[...bpFiles]}
@@ -771,6 +783,28 @@ export default function Page() {
         uploading={false}
         progress={{}}
       />
+
+      {isEditableInfoVisible && (
+        <div
+          className="flex flex-col w-full max-w-prose py-8 mx-auto space-y-6 rounded-3xl bg-gray-50 dark:bg-gray-900 px-8">
+          <h2 className="text-lg font-medium">{"🔍 Rechercher une Convention Collective"}</h2>
+          <SearchBarAgreements onSelect={handleSuggestionSelect}/>
+          {selectedAgreementSuggestion && (
+            <div
+              className="text-sm mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                {"Convention collective sélectionnée:"}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <strong>IDCC:</strong> {selectedAgreementSuggestion.idcc}
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <strong>Titre:</strong> {selectedAgreementSuggestion.title}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Employee Information Section */}
       {isEditableInfoVisible && (
@@ -826,7 +860,23 @@ export default function Page() {
               value={notificationDate}
               onChange={(e) => setNotificationDate(e.target.value)}
               className="pr-14 h-12"
+              required
             />
+          </div>
+
+          {/* Arrêt après le dernier bulletin de paie */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{"Le salarié a-t-il été à l'arrêt après le dernier bulletin de paie ?"}</label>
+            <select
+              name="arreteApresBulletin"
+              value={isSickAfterLastBp}
+              onChange={(e) => setIsSickAfterLastBp(e.target.value)}
+              className="mt-1 block w-full p-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="">Sélectionnez</option>
+              <option value="OUI">OUI</option>
+              <option value="NON">NON</option>
+            </select>
           </div>
 
           {/* Période de sortie */}

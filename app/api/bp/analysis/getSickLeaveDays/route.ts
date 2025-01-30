@@ -24,7 +24,7 @@ N'inclus aucun texte avant ou après le JSON, pas de texte explicatif, et pas de
   `;
   console.log('prompt:', prompt);
   const gptResponse = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     temperature: 0,
     messages: [
       {
