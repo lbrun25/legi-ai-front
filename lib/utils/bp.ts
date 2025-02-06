@@ -5,16 +5,16 @@ import {
   SeniorityValueResponse
 } from "@/lib/types/bp";
 import { max } from "mathjs";
+import {extractFirstPageAsBase64} from "@/lib/utils/file";
 
-export async function parseBpDocumentEntities(response: any): Promise<BpDocumentAiFields> {
-  const { document } = await response.json();
+export async function parseBpDocumentEntities(document: any): Promise<BpDocumentAiFields> {
   console.log(`Processed document:`, document);
 
   const defaultFields: BpDocumentAiFields = {
-    absence_maladie_montant: [], // Multiple
-    absence_non_justifie_montant: [], // Multiple
+    absences_maladie_montant: [], // Multiple
+    absences_non_justifiees_montant: [], // Multiple
     absence_non_justifie_periode: [], // Multiple
-    avantage_nature_montant: [], // Multiple
+    avantage_en_nature_montant: [], // Multiple
     conge_paye_montant: [], // Multiple
     conge_paye_periode: [], // Multiple
     conge_sans_solde_montant: [], // Multiple
@@ -22,19 +22,19 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
     convention_collective: null, // Unique
     date_anciennete: null, // Unique
     date_entree_entreprise: null, // Unique
-    debut_periode_emploi: null, // Unique
-    fin_periode_emploi: null, // Unique
-    heure_supplementaires_montant: [], // Multiple
+    debut_periode_paie_date: null, // Unique
+    fin_periode_paie_date: null, // Unique
+    heures_supplementaires_montant: [], // Multiple
     heures_travail: [], // Multiple
     majoration_heures_montant: [], // Multiple
     mois_bulletin_de_paie: null, // Unique
     nom_salarie: null, // Unique
     nombre_conge_paye: [], // Multiple
     periode_arret_maladie: [], // Multiple
-    primes_montant: [], // Multiple
-    salaire_base: null, // Unique
-    salaire_brut_mensuel: null, // Unique
-    sous_total_salaire_base_montant: null, // Unique
+    primes_montant_valeur: [], // Multiple
+    salaire_de_base_montant: null, // Unique
+    salaire_brut_montant: null, // Unique
+    salaire_de_base_avant_absences_montant: null, // Unique
   };
 
   if (document && document.entities) {
@@ -43,20 +43,31 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
       const normalizedText = normalizedValue?.text;
 
       switch (type_) {
-        case 'absence_maladie_montant':
-          if (normalizedText) defaultFields.absence_maladie_montant.push(parseFloat(normalizedText));
+        case 'absences_maladie_montant':
+          if (normalizedText) defaultFields.absences_maladie_montant.push(parseFloat(normalizedText));
           break;
-        case 'absence_non_justifie_montant':
-          if (normalizedText) defaultFields.absence_non_justifie_montant.push(parseFloat(normalizedText));
+        case 'absences_non_justifiees_montant':
+          if (normalizedText) defaultFields.absences_non_justifiees_montant.push(parseFloat(normalizedText));
           break;
         case 'absence_non_justifie_periode':
           if (mentionText) defaultFields.absence_non_justifie_periode.push(mentionText);
           break;
-        case 'avantage_nature_montant':
-          if (normalizedText) defaultFields.avantage_nature_montant.push(parseFloat(normalizedText));
+        case 'avantage_en_nature_montant':
+          if (normalizedText) {
+            const value = parseFloat(normalizedText);
+            if (!defaultFields.avantage_en_nature_montant.includes(value)) {
+              defaultFields.avantage_en_nature_montant.push(value);
+            }
+          }
           break;
         case 'conge_paye_montant':
-          if (normalizedText) defaultFields.conge_paye_montant.push(parseFloat(normalizedText));
+          // TODO: delete the condition when the OCR is more accurate (do not confond conge paye indemnities and conge paye absence)
+          if (normalizedText) {
+            const value = parseFloat(normalizedText);
+            if (!defaultFields.conge_paye_montant.includes(value)) {
+              defaultFields.conge_paye_montant.push(value);
+            }
+          }
           break;
         case 'conge_paye_periode':
           if (mentionText) defaultFields.conge_paye_periode.push(mentionText);
@@ -71,19 +82,19 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
           defaultFields.convention_collective = mentionText || null;
           break;
         case 'date_anciennete':
-          defaultFields.date_anciennete = mentionText || null;
+          if (normalizedText) defaultFields.date_anciennete = new Date(normalizedText);
           break;
         case 'date_entree_entreprise':
-          defaultFields.date_entree_entreprise = mentionText || null;
+          if (normalizedText) defaultFields.date_entree_entreprise = new Date(normalizedText);
           break;
-        case 'debut_periode_emploi':
-          defaultFields.debut_periode_emploi = mentionText || null;
+        case 'debut_periode_paie_date':
+          if (normalizedText) defaultFields.debut_periode_paie_date = new Date(normalizedText);
           break;
-        case 'fin_periode_emploi':
-          defaultFields.fin_periode_emploi = mentionText || null;
+        case 'fin_periode_paie_date':
+          if (normalizedText) defaultFields.fin_periode_paie_date = new Date(normalizedText);
           break;
-        case 'heure_supplementaires_montant':
-          if (normalizedText) defaultFields.heure_supplementaires_montant.push(parseFloat(normalizedText));
+        case 'heures_supplementaires_montant':
+          if (normalizedText) defaultFields.heures_supplementaires_montant.push(parseFloat(normalizedText));
           break;
         case 'heures_travail':
           if (normalizedText) defaultFields.heures_travail.push(parseFloat(normalizedText));
@@ -103,17 +114,17 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
         case 'periode_arret_maladie':
           if (mentionText) defaultFields.periode_arret_maladie.push(mentionText);
           break;
-        case 'primes_montant':
-          if (normalizedText) defaultFields.primes_montant.push(parseFloat(normalizedText));
+        case 'primes_montant_valeur':
+          if (normalizedText) defaultFields.primes_montant_valeur.push(parseFloat(normalizedText));
           break;
-        case 'salaire_base':
-          defaultFields.salaire_base = parseFloat(normalizedText) || null;
+        case 'salaire_de_base_montant':
+          defaultFields.salaire_de_base_montant = parseFloat(normalizedText) || null;
           break;
-        case 'salaire_brut_mensuel':
-          defaultFields.salaire_brut_mensuel = parseFloat(normalizedText) || null;
+        case 'salaire_brut_montant':
+          defaultFields.salaire_brut_montant = parseFloat(normalizedText) || null;
           break;
-        case 'sous_total_salaire_base_montant':
-          defaultFields.sous_total_salaire_base_montant = parseFloat(normalizedText) || null;
+        case 'salaire_de_base_avant_absences_montant':
+          defaultFields.salaire_de_base_avant_absences_montant = parseFloat(normalizedText) || null;
           break;
         default:
           console.warn(`Unknown field type: ${type_}`);
@@ -127,7 +138,7 @@ export async function parseBpDocumentEntities(response: any): Promise<BpDocument
 }
 
 const getReferenceSalary12MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSalaryCalculationDetails => {
-  const validResponses = bpResponses.filter((response) => response.salaire_brut_mensuel !== null);
+  const validResponses = bpResponses.filter((response) => response.salaire_brut_montant !== null);
 
   if (validResponses.length < 12) {
     throw new Error("Insufficient data: Less than 12 months of valid salary data.");
@@ -135,7 +146,7 @@ const getReferenceSalary12MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceS
 
   const last12MonthsSalaries = validResponses
     .slice(-12)
-    .map((response) => response.salaire_brut_mensuel as number);
+    .map((response) => response.salaire_brut_montant as number);
 
   const totalSalary12Months = last12MonthsSalaries.reduce((sum, salary) => sum + salary, 0);
   const averageMonthlySalary = totalSalary12Months / 12;
@@ -152,7 +163,7 @@ const getReferenceSalary12MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceS
 };
 
 const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSalaryCalculationDetails => {
-  const validResponses = bpResponses.filter((response) => response.salaire_brut_mensuel !== null);
+  const validResponses = bpResponses.filter((response) => response.salaire_brut_montant !== null);
 
   if (validResponses.length < 3) {
     throw new Error("Insufficient data: Less than 3 months of valid salary data.");
@@ -160,10 +171,10 @@ const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSa
 
   const lastThreeMonthsSalaries = validResponses
     .slice(-3)
-    .map((response) => response.salaire_brut_mensuel as number);
+    .map((response) => response.salaire_brut_montant as number);
 
   const totalAnnualBonus = bpResponses.reduce((sum, response) => {
-    const bonus = response.primes_montant?.reduce((bonusSum, prime) => bonusSum + prime, 0) || 0;
+    const bonus = response.primes_montant_valeur?.reduce((bonusSum, prime) => bonusSum + prime, 0) || 0;
     return sum + bonus;
   }, 0);
 
@@ -188,15 +199,16 @@ export const getFavorableReferenceSalary = (bpResponses: BpAnalysis[]): Referenc
   const details12Months = getReferenceSalary12MonthsMethod(bpResponses);
   const details3Months = getReferenceSalary3MonthsMethod(bpResponses);
 
-  let favorableSalaryMessage = `1) Calcul du salaire de référence 🤑: \n\n\n`;
-  favorableSalaryMessage += `Méthode 12 derniers mois : ${details12Months.calculationSteps} = ${details12Months.referenceSalary.toFixed(2)} \n\n`;
-  favorableSalaryMessage += `Méthode 3 derniers mois : ${details3Months.calculationSteps} = ${details3Months.referenceSalary.toFixed(2)} \n\n`;
+  const favorableSalaryMessage = `
+- **Méthode 12 derniers mois :** ${details12Months.calculationSteps} = ${details12Months.referenceSalary.toFixed(2)}
+- **Méthode 3 derniers mois :** ${details3Months.calculationSteps} = ${details3Months.referenceSalary.toFixed(2)}
 
-  if (details12Months.referenceSalary > details3Months.referenceSalary) {
-    favorableSalaryMessage += `Le salaire de référence ${details12Months.referenceSalary.toFixed(2)} est plus favorable car ${details12Months.referenceSalary.toFixed(2)} > ${details3Months.referenceSalary.toFixed(2)}. Nous allons retenir celui-ci pour la suite des calculs.`;
-  } else {
-    favorableSalaryMessage += `Le salaire de référence ${details3Months.referenceSalary.toFixed(2)} est plus favorable car ${details3Months.referenceSalary.toFixed(2)} > ${details12Months.referenceSalary.toFixed(2)}. Nous allons retenir celui-ci pour la suite des calculs.`;
+${
+    details12Months.referenceSalary > details3Months.referenceSalary
+      ? `Le salaire de référence **${details12Months.referenceSalary.toFixed(2)}** est plus favorable car **${details12Months.referenceSalary.toFixed(2)} > ${details3Months.referenceSalary.toFixed(2)}**. Nous allons retenir celui-ci pour la suite des calculs.`
+      : `Le salaire de référence **${details3Months.referenceSalary.toFixed(2)}** est plus favorable car **${details3Months.referenceSalary.toFixed(2)} > ${details12Months.referenceSalary.toFixed(2)}**. Nous allons retenir celui-ci pour la suite des calculs.`
   }
+  `.trim();
 
   const favorableReferenceSalary = max(details12Months.referenceSalary, details3Months.referenceSalary);
 
@@ -209,14 +221,14 @@ export const getFavorableReferenceSalary = (bpResponses: BpAnalysis[]): Referenc
 
 export const sumPrimesMontant = (documents: BpDocumentAiFields[]): number => {
   return documents.reduce((total, doc) => {
-    const primesSum = doc.primes_montant?.reduce((sum, prime) => sum + prime, 0) || 0;
+    const primesSum = doc.primes_montant_valeur?.reduce((sum, prime) => sum + prime, 0) || 0;
     return total + primesSum;
   }, 0);
 };
 
 export const sumFringeBenefits = (documents: BpDocumentAiFields[]): number => {
   return documents.reduce((total, doc) => {
-    const fringeBenefitsSum = doc.avantage_nature_montant?.reduce((sum, benefit) => sum + benefit, 0) || 0;
+    const fringeBenefitsSum = doc.avantage_en_nature_montant?.reduce((sum, benefit) => sum + benefit, 0) || 0;
     return total + fringeBenefitsSum;
   }, 0);
 };
@@ -251,32 +263,45 @@ export const getSeniorityWithAdvanceNotice = (seniority: SeniorityValueResponse,
   }
 }
 
+export type LegalSeverancePayResult = {
+  value: number;
+  calculationSteps: string;
+};
+
 export function calculateLegalSeverancePay(
   referenceSalary: number,
-  seniority: SeniorityValueResponse
-): number {
+  seniority: { total_years: number; total_months: number }
+): LegalSeverancePayResult {
   const { total_years, total_months } = seniority;
 
-  // Calculate full years indemnity
-  const yearsUpToTen = Math.min(total_years, 10); // Up to 10 years
-  const yearsBeyondTen = Math.max(total_years - 10, 0); // Beyond 10 years
+  // Define fixed rates
+  const rateForYearsUpToTen = 1 / 4;
+  const rateForYearsBeyondTen = 1 / 3;
+  const rateForMonths = total_years < 10 ? 1 / 4 : 1 / 3;
 
-  const indemnityForYearsUpToTen = referenceSalary * (1 / 4) * yearsUpToTen;
-  const indemnityForYearsBeyondTen = referenceSalary * (1 / 3) * yearsBeyondTen;
+  // Determine the number of full years in each bracket
+  const yearsUpToTen = Math.min(total_years, 10);
+  const yearsBeyondTen = Math.max(total_years - 10, 0);
 
-  // Calculate months indemnity (proportional to years up to 10)
-  let monthsIndemnity = 0;
-  if (total_years < 10) {
-    monthsIndemnity = referenceSalary * (1 / 4) * (total_months / 12);
-  } else {
-    monthsIndemnity = referenceSalary * (1 / 3) * (total_months / 12);
-  }
+  // Calculate each indemnity component
+  const indemnityForYearsUpToTen = referenceSalary * rateForYearsUpToTen * yearsUpToTen;
+  const indemnityForYearsBeyondTen = referenceSalary * rateForYearsBeyondTen * yearsBeyondTen;
+  const indemnityForMonths = referenceSalary * rateForMonths * (total_months / 12);
 
-  // Total indemnity
-  const totalIndemnity =
-    indemnityForYearsUpToTen + indemnityForYearsBeyondTen + monthsIndemnity;
+  // Total indemnity rounded to 2 decimals
+  const totalIndemnity = indemnityForYearsUpToTen + indemnityForYearsBeyondTen + indemnityForMonths;
+  const roundedValue = Math.round(totalIndemnity * 100) / 100;
 
-  return parseFloat(totalIndemnity.toFixed(2)); // Return with 2 decimal places
+  // Prepare string representations for the rates (rounded to 2 decimals for clarity)
+  const rateYearsUpToTenStr = rateForYearsUpToTen.toFixed(2); // "0.25"
+  const rateYearsBeyondTenStr = rateForYearsBeyondTen.toFixed(2); // "0.33"
+  const rateMonthsStr = rateForMonths.toFixed(2); // "0.25" or "0.33"
+
+  // Build a concise formula string with the actual computed values:
+  const calculationSteps =
+    `${referenceSalary} × [ (${rateYearsUpToTenStr} × ${yearsUpToTen}) + (${rateYearsBeyondTenStr} × ${yearsBeyondTen}) + (${rateMonthsStr} × (${total_months} / 12)) ]`;
+
+  return { value: roundedValue, calculationSteps };
 }
 
 export const compareAdvanceNotice = (legalAdvanceNotice: string, conventionAdvanceNotice: string) => {
@@ -336,23 +361,12 @@ const normalizeDate = (dateStr: string): string => {
 
 // Main function to calculate seniority with absences
 export function calculateSeniorityWithAbsences(
-  endDateStr: string,
-  startDateStr: string,
+  endDate: Date,
+  startDate: Date,
   absenceDays: number
 ): SeniorityValueResponse {
-  // Normalize and parse the dates
-  startDateStr = normalizeDate(startDateStr);
-  endDateStr = normalizeDate(endDateStr);
-  console.log('endDateStr:', endDateStr)
-  console.log('startDateStr:', startDateStr)
-  let startDate = parseDate(startDateStr);
-  let endDate = parseDate(endDateStr);
-  console.log('startDate:', startDate)
-  console.log('endDate:', endDate)
-
-  // Ensure startDate is earlier than endDate; swap if necessary
   if (startDate > endDate) {
-    [startDate, endDate] = [endDate, startDate];
+    throw new Error('startDate must be earlier than endDate');
   }
 
   // Calculate initial seniority
@@ -392,3 +406,279 @@ export function evaluateMathExpression(expression: string): number {
     throw new Error(`Erreur lors de l'évaluation de l'expression: ${expression}`);
   }
 }
+
+// Utility function to fetch working days.
+// 'extractDays' is a function to extract the desired field from the API response.
+export async function fetchWorkingDays(
+  payload: object,
+  errorMessage: string,
+  extractDays: (data: any) => number
+): Promise<number> {
+  const response = await fetch("/api/bp/analysis/getSickLeaveDays", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    console.error(errorMessage);
+    return 0;
+  }
+
+  const data = await response.json();
+  return extractDays(data) || 0;
+}
+
+const getTotalWorkingDays = async (
+  periods: any[],
+  bpName: string,
+  payloadKey: string,
+  extractKey: string
+): Promise<number> => {
+  const fetchPromises = periods.map((period) => {
+    if (!period) return Promise.resolve(0);
+    const payload = { [payloadKey]: period };
+    const errorMessage = `Failed to extract ${extractKey} for period: ${period} in ${bpName}`;
+    return fetchWorkingDays(payload, errorMessage, (data) => data[extractKey]);
+  });
+  const daysArray = await Promise.all(fetchPromises);
+  return daysArray.reduce((total, days) => total + days, 0);
+};
+
+
+export function getBpName(bp: BpDocumentAiFields): string {
+  if (bp.mois_bulletin_de_paie) {
+    return `${bp.mois_bulletin_de_paie}`;
+  }
+  return `Du ${bp.debut_periode_paie_date?.toLocaleDateString("fr-FR")} au ${bp.fin_periode_paie_date?.toLocaleDateString("fr-FR")}`;
+}
+
+export async function processBpInfos(results: BpDocumentAiFields[]): Promise<BpAnalysis[]> {
+  const updatedInfos: BpAnalysis[] = [];
+
+  const fetchPromises = results.map(async (bp) => {
+    if (!bp) return;
+    const bpName = getBpName(bp);
+    const sickLeavePeriods = bp.periode_arret_maladie || [];
+    const unjustifiedAbsencePeriods = bp.absence_non_justifie_periode || [];
+
+    try {
+      // Calculate totals for each period type using the helper.
+      const totalSickLeaveWorkingDays = await getTotalWorkingDays(
+        sickLeavePeriods,
+        bpName,
+        "sickLeavePeriod",
+        "sickLeaveWorkingDays"
+      );
+      const totalUnjustifiedAbsenceWorkingDays = await getTotalWorkingDays(
+        unjustifiedAbsencePeriods,
+        bpName,
+        "unjustifiedAbsencePeriod",
+        "unjustifiedAbsenceWorkingDays"
+      );
+
+      // Build the updated BpAnalysis object.
+      updatedInfos.push({
+        ...bp,
+        sickLeaveWorkingDays: totalSickLeaveWorkingDays,
+        unjustifiedAbsenceWorkingDays: totalUnjustifiedAbsenceWorkingDays,
+      });
+    } catch (error) {
+      console.error(`Error processing file ${bpName}:`, error);
+    }
+  });
+
+  // Wait for all processing to finish.
+  await Promise.all(fetchPromises);
+
+  return updatedInfos;
+}
+
+export const computeEarnedPaidLeave = (doc: BpDocumentAiFields[]): number => {
+  // Reduce over the array to sum up all values in `nombre_conge_paye` arrays, ignoring null or empty arrays
+  return doc.reduce((total, field) => {
+    const totalPaidLeave = field.nombre_conge_paye?.reduce((sum, leave) => sum + leave, 0) || 0;
+    return total + totalPaidLeave;
+  }, 0);
+};
+
+export const getBrutDuringSickLeavePeriod = (doc: BpDocumentAiFields): number | null => {
+  console.log('doc.periode_arret_maladie:', doc.periode_arret_maladie)
+  if (doc.periode_arret_maladie.length > 0) {
+    if (doc.salaire_de_base_avant_absences_montant) {
+      let brut = doc.salaire_de_base_avant_absences_montant;
+      if (doc.salaire_brut_montant) {
+        brut = doc.salaire_brut_montant > doc.salaire_de_base_avant_absences_montant ? doc.salaire_brut_montant : doc.salaire_de_base_avant_absences_montant;
+      }
+      console.log('return doc.sous_total_salaire_base_montant')
+      if (doc.absence_non_justifie_periode.length > 0) {
+        const totalUnjustifiedAbsence = doc.absences_non_justifiees_montant.reduce((sum, amount) => sum + amount, 0);
+        console.log('return brut - totalUnjustifiedAbsence:', brut - totalUnjustifiedAbsence)
+        return brut - totalUnjustifiedAbsence;
+      }
+      console.log('return brut:', brut)
+      return brut;
+    }
+    if (doc.salaire_brut_montant && doc.absences_maladie_montant.length > 0) {
+      const totalAbsenceMaladie = doc.absences_maladie_montant.reduce((sum, amount) => sum + amount, 0);
+      console.log('return oc.salaire_brut_mensuel - totalAbsenceMaladie:', doc.salaire_brut_montant - totalAbsenceMaladie)
+      return doc.salaire_brut_montant - totalAbsenceMaladie;
+    }
+  }
+  console.log('return doc.salaire_brut_mensuel:', doc.salaire_brut_montant)
+  return doc.salaire_brut_montant;
+};
+
+/**
+ * Processes a single PDF file and returns its extracted BP document.
+ */
+export async function processPdfFile(pdfFile: File): Promise<BpDocumentAiFields | null> {
+  const getCacheKey = (file: File) => `ocr_${file.name}`;
+  const cacheKey = getCacheKey(pdfFile);
+  // const isDevelopment = process.env.NODE_ENV === "development";
+  // let cachedDocument = isDevelopment ? localStorage.getItem(cacheKey) : null;
+  const isDevelopment = false;
+  let cachedDocument = null;
+
+  if (!cachedDocument) {
+    // Extract the first page as Base64
+    const encodedFileContent = await extractFirstPageAsBase64(pdfFile);
+    const response = await fetch("/api/assistant/files/ocr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ encodedFileContent }),
+    });
+    if (!response.ok) {
+      throw new Error(`OCR API error for ${pdfFile.name}: ${response.statusText}`);
+    }
+    const { document } = await response.json();
+    // Assume the response body is text or JSON that you need to process.
+    // Adjust accordingly if you expect JSON.
+    cachedDocument = document;
+    if (isDevelopment) {
+      localStorage.setItem(cacheKey, JSON.stringify(cachedDocument));
+    }
+  }
+
+  console.log("response ocr document:", cachedDocument);
+  let documentEntities = await parseBpDocumentEntities(cachedDocument);
+  documentEntities = removeOverlappingPeriods(documentEntities);
+
+  // Determine a "month" identifier for this document.
+  const month =
+    documentEntities.mois_bulletin_de_paie ??
+    `${documentEntities.debut_periode_paie_date?.toLocaleDateString("fr-FR")}-${documentEntities.fin_periode_paie_date?.toLocaleDateString("fr-FR")}`;
+
+  if (!month) {
+    console.error(`Month not found in document for ${pdfFile.name}`);
+    return null;
+  }
+
+  // Optionally, you could attach the month to the document if needed:
+  // documentEntities.month = month;
+
+  // Adjust the salary during sick leave if needed.
+  if (documentEntities.absences_maladie_montant || documentEntities.periode_arret_maladie) {
+    const brut = parseFloat(
+      (getBrutDuringSickLeavePeriod(documentEntities)?.toFixed(2) ?? "0")
+    );
+    if (brut) {
+      console.log(
+        `Changing salaire_brut_mensuel from ${documentEntities.salaire_brut_montant} to ${brut}`
+      );
+      documentEntities.salaire_brut_montant = brut;
+    }
+  }
+  return documentEntities;
+}
+
+export function getEntryDate(bps: BpDocumentAiFields[]): Date | null {
+  for (const bp of bps) {
+    if (bp.date_entree_entreprise !== null) {
+      return bp.date_entree_entreprise;
+    }
+  }
+  return null;
+}
+
+export function getLastPaySlipDate(bps: BpDocumentAiFields[]): Date | null {
+  // Filter out entries that have both required fields defined
+  const validEntries = bps.filter(bp => bp.mois_bulletin_de_paie !== null && bp.fin_periode_paie_date !== null);
+
+  if (validEntries.length === 0) {
+    return null;
+  }
+
+  // Use reduce to find the entry with the latest fin_periode_emploi
+  const lastEntry = validEntries.reduce((latest, bp) => {
+    // Since both dates are non-null here, it's safe to compare them
+    return latest.fin_periode_paie_date! < bp.fin_periode_paie_date! ? bp : latest;
+  });
+
+  return lastEntry.fin_periode_paie_date;
+}
+
+export function getEmployeeName(bps: BpDocumentAiFields[]): string | null {
+  for (const bp of bps) {
+    if (bp.nom_salarie !== null) {
+      return bp.nom_salarie;
+    }
+  }
+  return null;
+}
+
+const fetchSuggestions = async (query: string): Promise<{title: string, idcc: string}[] | undefined> => {
+  try {
+    const response = await fetch(
+      `/api/collectiveAgreements/search?query=${encodeURIComponent(query)}`
+    );
+    if (!response.ok) {
+      throw new Error("Failed to fetch suggestions");
+    }
+    const data = await response.json();
+    return data.suggestions || [];
+  } catch (error) {
+    console.error("Failed to fetch suggestions:", error);
+  }
+};
+
+export async function getCollectiveConvention(bps: BpDocumentAiFields[]) {
+  for (const bp of bps) {
+    if (bp.convention_collective !== null && bp?.convention_collective?.length > 0) {
+      const collectiveAgreementSuggestions = await fetchSuggestions(bp.convention_collective);
+      if (collectiveAgreementSuggestions && collectiveAgreementSuggestions?.length > 0) {
+        return collectiveAgreementSuggestions[0];
+      }
+    }
+  }
+}
+
+export function sortBpsByDate(bps: BpAnalysis[]): BpAnalysis[] {
+  // Use slice() to avoid mutating the original array.
+  return bps.slice().sort((a, b) => {
+    // Convert dates to numeric values for comparison.
+    // If the date is null, assign it Infinity so that it comes last.
+    const timeA = a.debut_periode_paie_date ? a.debut_periode_paie_date.getTime() : Infinity;
+    const timeB = b.debut_periode_paie_date ? b.debut_periode_paie_date.getTime() : Infinity;
+
+    return timeA - timeB;
+  });
+}
+
+export const getSickDays = (bpInfos: BpAnalysis[]) => {
+  // Use Object.values to get the array of all values in bpInfos
+  // Start with an initial sum of 0
+  return Object.values(bpInfos).reduce((sum, field) => {
+    const sickDays = field.sickLeaveWorkingDays;
+    return sum + (isNaN(sickDays) ? 0 : sickDays); // Ensure to add only valid numbers
+  }, 0);
+};
+
+export const getUnjustifiedAbsenceDays = (bpInfos: BpAnalysis[]) => {
+  return Object.values(bpInfos).reduce((sum, field) => {
+    const unjustifiedAbsenceWorkingDays = field.unjustifiedAbsenceWorkingDays;
+    return sum + (isNaN(unjustifiedAbsenceWorkingDays) ? 0 : unjustifiedAbsenceWorkingDays);
+  }, 0);
+};

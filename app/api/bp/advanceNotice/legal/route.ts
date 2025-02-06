@@ -23,7 +23,7 @@ Objectif :
 Calcule le délai de préavis applicable pour un salarié licencié en suivant les règles légales françaises prévues par le Code du travail.
 
 Réponse attendue :
-- Répond strictement et uniquement avec cette réponse: "Durée du préavis selon la loi : XXXXX" 
+- Répond strictement et uniquement avec cette réponse: "X mois"
 
 Règles de calcul :  
 - Calcule le préavis en fonction de l’ancienneté du salarié, exprimée en années et mois.

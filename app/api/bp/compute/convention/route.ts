@@ -78,7 +78,7 @@ Répond uniquement par la formule a calculer pour une ancienneté de ${input.sen
     console.log("Résultat de l'expression:", result);
 
     return NextResponse.json({
-      message: message,
+      message: parsedExpression,
       value: result,
     }, { status: 200 });
   } catch (error) {

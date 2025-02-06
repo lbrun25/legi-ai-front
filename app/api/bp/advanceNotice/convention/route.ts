@@ -32,7 +32,7 @@ Objectif :
 Détermine le délai de préavis applicable pour un salarié licencié selon les articles pertinents de la convention collective identifiée par l'IDCC ${input.idcc}.
 
 Réponse attendue :
-- Répond strictement et uniquement avec cette réponse: "Durée du préavis selon la convention collective : XXXXX" 
+- Répond strictement et uniquement avec cette réponse: "X mois"
 
 Règles d'interprétation :
 - Analyse les articles fournis de la convention collective pour déterminer la durée du préavis applicable. 
