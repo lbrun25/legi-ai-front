@@ -444,7 +444,7 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
 
           {/* Arrêt après le dernier bulletin de paie */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">{"Le salarié a-t-il été à l'arrêt après le dernier bulletin de paie ?"}</label>
+            <label className="block text-sm font-medium text-gray-700">{"Le salarié a-t-il été en arrêt après le dernier bulletin de paie ?"}</label>
             <select
               name="arreteApresBulletin"
               value={isSickAfterLastBp}
