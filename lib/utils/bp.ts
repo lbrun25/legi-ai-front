@@ -196,9 +196,9 @@ const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSa
   const totalAdjustedSalary = adjustedSalaries.reduce((sum, salary) => sum + salary, 0);
   const referenceSalary = totalAdjustedSalary / 3;
 
-  const calculationSteps = lastThreeMonthsSalaries
-    .map((salary, i) => `${salary.toFixed(2)} + ${monthlyBonus.toFixed(2)} = ${(salary + monthlyBonus).toFixed(2)}`)
-    .join(" ➕ ") + ` ➗ 3 = ${referenceSalary.toFixed(2)}`;
+  const calculationSteps = `(${lastThreeMonthsSalaries
+    .map((salary) => `${salary.toFixed(2)} + ${monthlyBonus.toFixed(2)}`)
+    .join(") ➕ (")}) ➗ 3 = ${referenceSalary.toFixed(2)}`;
 
   return {
     method: "3 derniers mois",

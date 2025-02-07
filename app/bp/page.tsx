@@ -167,15 +167,13 @@ export default function Page() {
       throw new Error("No entry date.");
 
     try {
-      const bpAnalysisResponses = Object.values(bpInfos);
-
       // 1) Reference Salary Calculation
       const totalSickDays = getSickDays(bpInfos);
       const unjustifiedAbsenceDays = getUnjustifiedAbsenceDays(bpInfos);
       console.log("totalSickDays:", totalSickDays);
       console.log("unjustifiedAbsenceDays:", unjustifiedAbsenceDays);
 
-      const referenceSalaryData = getFavorableReferenceSalary(bpAnalysisResponses);
+      const referenceSalaryData = getFavorableReferenceSalary(bpInfos);
       console.log("referenceSalaryData:", referenceSalaryData);
 
       // 2) Seniority and Advance Notice Calculations
@@ -226,8 +224,8 @@ export default function Page() {
       if (!conventionSeniorityWithAdvanceNotice) return;
 
       // 3) Indemnity Calculations
-      const totalPrimes = sumPrimesMontant(bpAnalysisResponses);
-      const totalFringeBenefits = sumFringeBenefits(bpAnalysisResponses);
+      const totalPrimes = sumPrimesMontant(bpInfos);
+      const totalFringeBenefits = sumFringeBenefits(bpInfos);
       const conventionRequest = fetch("/api/bp/compute/convention", {
         method: "POST",
         body: JSON.stringify({
