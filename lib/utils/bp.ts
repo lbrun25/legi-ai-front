@@ -4,8 +4,10 @@ import {
   ReferenceSalaryCalculationDetails,
   SeniorityValueResponse
 } from "@/lib/types/bp";
-import { max } from "mathjs";
+import {max} from "mathjs";
 import {extractFirstPageAsBase64} from "@/lib/utils/file";
+import moment from "moment";
+import "moment/locale/fr";
 
 export async function parseBpDocumentEntities(document: any): Promise<BpDocumentAiFields> {
   console.log(`Processed document:`, document);
@@ -132,6 +134,16 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
     });
   } else {
     console.log('No entities found in the document.');
+  }
+
+  // Convert mois_bulletin_de_paie to debut_periode_paie_date if debut_periode_paie_date is undefined (which is necessary to sort BPs)
+  if (!document.debut_periode_paie_date && document.mois_bulletin_de_paie) {
+    const momentDate = moment(document.mois_bulletin_de_paie, "MMMM YYYY", "fr");
+    if (momentDate.isValid()) {
+      document.debut_periode_paie_date = momentDate.toDate();
+    } else {
+      console.error("Invalid date format:", document.mois_bulletin_de_paie);
+    }
   }
 
   return defaultFields;
