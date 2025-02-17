@@ -11,7 +11,7 @@ import {
   calculateLegalSeverancePay,
   calculateSeniorityWithAbsences,
   compareAdvanceNotice,
-  computeEarnedPaidLeave,
+  computeEarnedPaidLeave, getAdvanceNoticeNumber,
   getBpName, getCollectiveConvention,
   getEmployeeName,
   getEntryDate,
@@ -181,6 +181,10 @@ export default function Page() {
       const legalEndDate =
         isSickAfterLastBp === "OUI" ? lastPaySlipDate : notificationDate;
 
+      console.log("legalEndDate:", legalEndDate);
+      console.log("entryDate:", entryDate);
+      console.log('unjustifiedAbsenceDays:', unjustifiedAbsenceDays);
+      console.log('totalSickDays:', totalSickDays);
       const legalSeniorityData = calculateSeniorityWithAbsences(
         legalEndDate,
         entryDate,
@@ -205,21 +209,20 @@ export default function Page() {
       );
       if (!conventionAdvanceNoticeData) return;
 
-      const advanceNotice = compareAdvanceNotice(
-        legalAdvanceNoticeData.value,
-        conventionAdvanceNoticeData.value
-      );
-      console.log("advanceNotice.value:", advanceNotice);
+      // const advanceNotice = compareAdvanceNotice(
+      //   legalAdvanceNoticeData.value,
+      //   conventionAdvanceNoticeData.value
+      // );
 
       const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(
         legalSeniorityData,
-        advanceNotice
+        legalAdvanceNoticeData.value
       );
       if (!legalSeniorityWithAdvanceNotice) return;
 
       const conventionSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(
         conventionSeniorityData,
-        advanceNotice
+        conventionAdvanceNoticeData.value
       );
       if (!conventionSeniorityWithAdvanceNotice) return;
 

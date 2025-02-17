@@ -316,6 +316,11 @@ export function calculateLegalSeverancePay(
   return { value: roundedValue, calculationSteps };
 }
 
+export const getAdvanceNoticeNumber = (advanceNotice: string) => {
+  const monthsStr = advanceNotice.replace("mois", "");
+  return parseInt(monthsStr);
+}
+
 export const compareAdvanceNotice = (legalAdvanceNotice: string, conventionAdvanceNotice: string) => {
   const legalMonthsStr = legalAdvanceNotice.replace("mois", "");
   const legalAdvanceNoticeNumber = parseInt(legalMonthsStr);
@@ -331,17 +336,34 @@ function parseDate(str: string): Date {
 }
 
 // Helper function to calculate seniority in years and months
+// avec la règle : "au-delà d'une semaine, c'est un mois complet"
 export function calculateSeniority(endDate: Date, startDate: Date): SeniorityValueResponse {
-  let totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12;
-  totalMonths += endDate.getMonth() - startDate.getMonth();
+  // Calcul initial en mois (basé sur la différence d'années et de mois)
+  let baseMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12
+    + (endDate.getMonth() - startDate.getMonth());
 
-  if (endDate.getDate() < startDate.getDate()) {
-    totalMonths--;
+  // Construire la date anniversaire = startDate + baseMonths mois
+  let anniversary = new Date(startDate);
+  anniversary.setMonth(anniversary.getMonth() + baseMonths);
+
+  // Si l'anniversaire dépasse la date de fin, on retire un mois
+  if (anniversary > endDate) {
+    baseMonths--;
+    anniversary = new Date(startDate);
+    anniversary.setMonth(anniversary.getMonth() + baseMonths);
   }
 
-  const years = Math.floor(totalMonths / 12);
-  const months = totalMonths % 12;
+  // Calculer la différence en jours entre la date anniversaire et la date de fin
+  const diffTime = endDate.getTime() - anniversary.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
+  // Si le reste est d'au moins 7 jours, on considère ce mois comme complet
+  if (diffDays >= 7) {
+    baseMonths++;
+  }
+
+  const years = Math.floor(baseMonths / 12);
+  const months = baseMonths % 12;
   const formattedDuration = `${years} ans et ${months} mois`;
 
   return { total_years: years, total_months: months, formatted_duration: formattedDuration };
@@ -349,16 +371,17 @@ export function calculateSeniority(endDate: Date, startDate: Date): SeniorityVal
 
 // Helper function to convert seniority to total days
 function seniorityToDays(seniority: SeniorityValueResponse): number {
-  const totalYearsInDays = seniority.total_years * 365; // Approximate with 365 days in a year
-  const totalMonthsInDays = seniority.total_months * 30; // Approximate with 30 days in a month
+  const totalYearsInDays = seniority.total_years * 365; // Approximation : 365 jours par an
+  const totalMonthsInDays = seniority.total_months * 30;  // Approximation : 30 jours par mois
   return totalYearsInDays + totalMonthsInDays;
 }
 
 // Helper function to convert total days to seniority (years and months)
 function daysToSeniority(totalDays: number): SeniorityValueResponse {
-  const totalMonths = Math.floor(totalDays / 30); // Convert total days to months
-  const years = Math.floor(totalMonths / 12); // Convert months to years
-  const months = totalMonths % 12; // Remaining months
+  console.log('totalDays', totalDays);
+  const totalMonths = Math.floor(totalDays / 30); // Conversion des jours en mois (approximation)
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
   const formattedDuration = `${years} ans et ${months} mois`;
   return { total_years: years, total_months: months, formatted_duration: formattedDuration };
 }
@@ -381,16 +404,16 @@ export function calculateSeniorityWithAbsences(
     throw new Error('startDate must be earlier than endDate');
   }
 
-  // Calculate initial seniority
+  // Calculer la séniorité initiale en tenant compte de la nouvelle règle
   const initialSeniority = calculateSeniority(endDate, startDate);
 
-  // Convert seniority to days and subtract absence days
+  // Convertir la séniorité en jours et soustraire les jours d'absence
   const totalDays = seniorityToDays(initialSeniority);
-  console.log('totalDays:', totalDays)
-  const adjustedTotalDays = Math.max(0, totalDays - absenceDays); // Ensure no negative days
-  console.log('adjustedTotalDays:', adjustedTotalDays)
+  console.log('totalDays:', totalDays);
+  const adjustedTotalDays = Math.max(0, totalDays - absenceDays); // Éviter les jours négatifs
+  console.log('adjustedTotalDays:', adjustedTotalDays);
 
-  // Convert back to seniority
+  // Conversion du total de jours ajusté en séniorité
   const adjustedSeniority = daysToSeniority(adjustedTotalDays);
 
   return adjustedSeniority;
