@@ -145,6 +145,17 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
       console.error("Invalid date format:", document.mois_bulletin_de_paie);
     }
   }
+  // Convert mois_bulletin_de_paie to fin_periode_paie_date if fin_periode_paie_date is undefined (should be the last day of the month)
+  if (!document.fin_periode_paie_date && document.mois_bulletin_de_paie) {
+    const momentDate = moment(document.mois_bulletin_de_paie, "MMMM YYYY", "fr");
+    if (momentDate.isValid()) {
+      // Set the date to the end of the month (handles 28/29/30/31 days automatically)
+      document.fin_periode_paie_date = momentDate.endOf('month').toDate();
+    } else {
+      console.error("Invalid date format:", document.mois_bulletin_de_paie);
+    }
+  }
+
 
   return defaultFields;
 }
@@ -556,11 +567,11 @@ export const getBrutDuringSickLeavePeriod = (doc: BpDocumentAiFields): number | 
       console.log('return brut:', brut)
       return brut;
     }
-    if (doc.salaire_brut_montant && doc.absences_maladie_montant.length > 0) {
-      const totalAbsenceMaladie = doc.absences_maladie_montant.reduce((sum, amount) => sum + amount, 0);
-      console.log('return oc.salaire_brut_mensuel - totalAbsenceMaladie:', doc.salaire_brut_montant - totalAbsenceMaladie)
-      return doc.salaire_brut_montant - totalAbsenceMaladie;
-    }
+    // if (doc.salaire_brut_montant && doc.absences_maladie_montant.length > 0) {
+    //   const totalAbsenceMaladie = doc.absences_maladie_montant.reduce((sum, amount) => sum + amount, 0);
+    //   console.log('return oc.salaire_brut_mensuel - totalAbsenceMaladie:', doc.salaire_brut_montant - totalAbsenceMaladie)
+    //   return doc.salaire_brut_montant - totalAbsenceMaladie;
+    // }
   }
   console.log('return doc.salaire_brut_mensuel:', doc.salaire_brut_montant)
   return doc.salaire_brut_montant;
@@ -640,7 +651,7 @@ export function getEntryDate(bps: BpDocumentAiFields[]): Date | null {
 
 export function getLastPaySlipDate(bps: BpDocumentAiFields[]): Date | null {
   // Filter out entries that have both required fields defined
-  const validEntries = bps.filter(bp => bp.mois_bulletin_de_paie !== null && bp.fin_periode_paie_date !== null);
+  const validEntries = bps.filter(bp => bp.fin_periode_paie_date !== null);
 
   if (validEntries.length === 0) {
     return null;
