@@ -37,6 +37,7 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
     salaire_de_base_montant: null, // Unique
     salaire_brut_montant: null, // Unique
     salaire_de_base_avant_absences_montant: null, // Unique
+    primes_annuelles_regulieres: []
   };
 
   if (document && document.entities) {
