@@ -23,6 +23,7 @@ export type BpDocumentAiFields = {
   nombre_conge_paye: number[];
   heures_travail: number[];
   majoration_heures_montant: number[];
+  primes_annuelles_regulieres: number[];
 };
 
 export type BpAnalysis = BpDocumentAiFields & {

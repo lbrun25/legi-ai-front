@@ -128,6 +128,9 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
         case 'salaire_de_base_avant_absences_montant':
           defaultFields.salaire_de_base_avant_absences_montant = parseFloat(normalizedText) || null;
           break;
+        case 'primes_annuelles_regulieres':
+          if (normalizedText) defaultFields.primes_annuelles_regulieres.push(parseFloat(normalizedText));
+          break;
         default:
           console.warn(`Unknown field type: ${type_}`);
       }
@@ -197,7 +200,7 @@ const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSa
     .map((response) => response.salaire_brut_montant as number);
 
   const totalAnnualBonus = bpResponses.reduce((sum, response) => {
-    const bonus = response.primes_montant_valeur?.reduce((bonusSum, prime) => bonusSum + prime, 0) || 0;
+    const bonus = response.primes_annuelles_regulieres?.reduce((bonusSum, prime) => bonusSum + prime, 0) || 0;
     return sum + bonus;
   }, 0);
 
