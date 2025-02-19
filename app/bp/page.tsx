@@ -12,8 +12,8 @@ import {
   calculateSeniorityWithAbsences,
   compareAdvanceNotice,
   computeEarnedPaidLeave, getAdvanceNoticeNumber,
-  getBpName, getCollectiveConvention,
-  getEmployeeName,
+  getBpName, getCollectiveConvention, getEmployeeClassificationLevel,
+  getEmployeeName, getEmployeeQualification,
   getEntryDate,
   getFavorableReferenceSalary,
   getLastPaySlipDate,
@@ -40,6 +40,8 @@ export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bpInfos, setBpInfos] = useState<BpAnalysis[]>([]);
   const [employeeName, setEmployeeName] = useState("");
+  const [employeeQualification, setEmployeeQualification] = useState<string | null>(null);
+  const [employeeClassificationLevel, setEmployeeClassificationLevel] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState<Date | null>(null);
   const [earnedPaidLeave, setEarnedPaidLeave] = useState<number | null>(null);
   const [lastPaySlipDate, setLastPaySlipDate] = useState<Date | null>(null);
@@ -148,6 +150,10 @@ export default function Page() {
     setLastPaySlipDate(lastPaySlipDate);
     const employeeName = getEmployeeName(results);
     setEmployeeName(employeeName || "");
+    const employeeQualification = getEmployeeQualification(results);
+    setEmployeeQualification(employeeQualification);
+    const employeeClassificationLevel = getEmployeeClassificationLevel(results);
+    setEmployeeClassificationLevel(employeeClassificationLevel);
 
     // Set convention if found
     const collectiveConvention = await getCollectiveConvention(results);
@@ -237,6 +243,8 @@ export default function Page() {
           seniority: conventionSeniorityWithAdvanceNotice,
           totalPrimes: totalPrimes,
           totalFringeBenefits: totalFringeBenefits,
+          employeeQualification: employeeQualification,
+          employeeClassificationLevel: employeeClassificationLevel,
         }),
       });
       const [conventionResponse] = await Promise.all([conventionRequest]);

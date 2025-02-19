@@ -24,6 +24,8 @@ export type BpDocumentAiFields = {
   heures_travail: number[];
   majoration_heures_montant: number[];
   primes_annuelles_regulieres: number[];
+  employee_qualification: string | null;
+  employee_classification_level: string | null;
 };
 
 export type BpAnalysis = BpDocumentAiFields & {

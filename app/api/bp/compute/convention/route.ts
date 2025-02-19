@@ -22,10 +22,14 @@ export async function POST(req: Request) {
     idcc: string;
     referenceSalary: number;
     seniority: SeniorityValueResponse;
+    employeeQualification: string | null;
+    employeeClassificationLevel: string | null;
   } = await req.json();
 
   console.log('convention compute input.seniority:', input.seniority)
   console.log('convention compute input.referenceSalary:', input.referenceSalary)
+  console.log('convention compute input.employeeQualification:', input.employeeQualification)
+  console.log('convention compute input.employeeClassificationLevel:', input.employeeClassificationLevel)
 
   try {
     const query = "Méthode de calcul de l'indemnité de licenciement selon la convention collective.";
@@ -37,9 +41,14 @@ Voici les articles pertinents de la convention collective (${input.idcc}) concer
 ${relevantArticlesText}
 
 # Objectif
-Répond uniquement par la formule a calculer pour une ancienneté de ${input.seniority.formatted_duration}.
+Répond uniquement par la formule a calculer pour:
+- une ancienneté de ${input.seniority.formatted_duration}.
+${input.employeeQualification && `- une qualification: ${input.employeeQualification}`}
+${input.employeeClassificationLevel && `- un niveau de classification: ${input.employeeClassificationLevel}`}
 
 # Règle de calcul:
+- Prends en compte la qualification du salarié, si il est cadre, la formule peut etre différente par exemple.
+- Ne soustrait pas des années d'ancienneté.
 - Additionne les mois restants dans la formule en les convertissant en fraction d’année (mois/12) si ce n'est pas deja fait.
 - N'additionnes pas les primes et les avantages natures si la convention collective ne les indique pas.
 - Si des informations sont à inclure dans la formule, utilise des placeholders de type [PLACEHOLDER]:
@@ -48,11 +57,11 @@ Répond uniquement par la formule a calculer pour une ancienneté de ${input.sen
     - Si avantages natures à inclure: [BENEFITS]
 
 # Réponse attendue
-- Retourne uniquement la formule a calculer en réponse, n'ajoute pas d'autre texte.
+- Retourne uniquement la formule à calculer en réponse, en notation arithmétique standard (uniquement des chiffres, opérateurs arithmétiques et parenthèses), sans aucun formatage LaTeX.
   `;
+    console.log('prompt:', prompt)
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0,
+      model: "o3-mini",
       messages: [
         {
           role: "user",

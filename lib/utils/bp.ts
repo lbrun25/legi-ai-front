@@ -37,7 +37,9 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
     salaire_de_base_montant: null, // Unique
     salaire_brut_montant: null, // Unique
     salaire_de_base_avant_absences_montant: null, // Unique
-    primes_annuelles_regulieres: []
+    primes_annuelles_regulieres: [],
+    employee_qualification: null,
+    employee_classification_level: null,
   };
 
   if (document && document.entities) {
@@ -131,6 +133,12 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
           break;
         case 'primes_annuelles_regulieres':
           if (normalizedText) defaultFields.primes_annuelles_regulieres.push(parseFloat(normalizedText));
+          break;
+        case 'employee_qualification':
+          defaultFields.employee_qualification = mentionText || null;
+          break;
+        case 'employee_classification_level':
+          defaultFields.employee_classification_level = mentionText || null;
           break;
         default:
           console.warn(`Unknown field type: ${type_}`);
@@ -547,9 +555,13 @@ export async function processBpInfos(results: BpDocumentAiFields[]): Promise<BpA
 }
 
 export const computeEarnedPaidLeave = (doc: BpDocumentAiFields[]): number => {
-  // Reduce over the array to sum up all values in `nombre_conge_paye` arrays, ignoring null or empty arrays
   return doc.reduce((total, field) => {
-    const totalPaidLeave = field.nombre_conge_paye?.reduce((sum, leave) => sum + leave, 0) || 0;
+    if (!field.nombre_conge_paye || field.nombre_conge_paye.length === 0) return total;
+    // Déduplique le tableau en utilisant un Set
+    console.log('field.debut_periode_paie_date', field.debut_periode_paie_date)
+    console.log('field.nombre_conge_paye:', field.nombre_conge_paye)
+    const uniquePaidLeaves = Array.from(new Set(field.nombre_conge_paye));
+    const totalPaidLeave = uniquePaidLeaves.reduce((sum, leave) => sum + leave, 0);
     return total + totalPaidLeave;
   }, 0);
 };
@@ -674,6 +686,24 @@ export function getEmployeeName(bps: BpDocumentAiFields[]): string | null {
   for (const bp of bps) {
     if (bp.nom_salarie !== null) {
       return bp.nom_salarie;
+    }
+  }
+  return null;
+}
+
+export function getEmployeeQualification(bps: BpDocumentAiFields[]): string | null {
+  for (const bp of bps) {
+    if (bp.employee_qualification !== null) {
+      return bp.employee_qualification;
+    }
+  }
+  return null;
+}
+
+export function getEmployeeClassificationLevel(bps: BpDocumentAiFields[]): string | null {
+  for (const bp of bps) {
+    if (bp.employee_classification_level !== null) {
+      return bp.employee_classification_level;
     }
   }
   return null;
