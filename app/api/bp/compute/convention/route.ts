@@ -89,6 +89,7 @@ ${input.employeeClassificationLevel && `- un niveau de classification: ${input.e
     return NextResponse.json({
       message: parsedExpression,
       value: result,
+      relevantArticles: relevantArticles,
     }, { status: 200 });
   } catch (error) {
     console.error("cannot compute indemnities with convention:", error);

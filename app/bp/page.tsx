@@ -31,6 +31,12 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import bpAnalysisMock from "@/lib/test/bp";
 import rehypeRaw from "rehype-raw";
+import type {Element} from "hast";
+import {extractArticleNumber, extractArticleSource} from "@/lib/utils/article";
+import {Dialog, DialogTrigger} from "@/components/ui/dialog";
+import {ArticleDialogContent} from "@/components/article-dialog-content";
+import {ConventionArticlesDialogContent} from "@/components/convention-articles-dialog-content";
+import {MatchedCollectiveAgreementDocument} from "@/lib/supabase/agreements";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -58,6 +64,7 @@ export default function Page() {
   const [isLegalSeveranceEligibilityMessageVisible, setIsLegalSeveranceEligibilityMessageVisible] = useState(false);
   const [isConventionSeveranceEligibilityMessageVisible, setIsConventionSeveranceEligibilityMessageVisible] = useState(false);
   const [isSickAfterLastBp, setIsSickAfterLastBp] = useState("")
+  const [relevantConventionArticles, setRelevantConventionArticles] = useState<MatchedCollectiveAgreementDocument[]>([]);
 
   const [detailsIcl, setDetailsIcl] = useState<string | null>(null);
 
@@ -263,6 +270,8 @@ export default function Page() {
       const conventionValue = conventionData.value;
       const conventionDisplayValue = conventionData.value.toFixed(2);
 
+      setRelevantConventionArticles(conventionData.relevantArticles);
+
       const favorableIndemnity = max(legalValue, conventionValue);
 
       // Build the Markdown message as one final template literal.
@@ -290,7 +299,7 @@ c. **Ancienneté + préavis** :
 <u>**3) Détermination de l'Indemnité Compensatrice de Licenciement 💶**</u>
 
 - Selon la loi : ${legalData.calculationSteps} = ${legalDisplayValue}
-- Selon la convention collective : ${conventionData.message ?? "Aucune formule"} = ${conventionDisplayValue}
+- Selon la <mark>convention collective</mark> : ${conventionData.message ?? "Aucune formule"} = ${conventionDisplayValue}
 
 ${legalValue > conventionValue ? `- Le résultat **${legalDisplayValue}** est le plus favorable car **${legalDisplayValue} > ${conventionDisplayValue}**.` : ""}
 ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** est le plus favorable car **${conventionDisplayValue} > ${legalDisplayValue}**.` : ""}
@@ -345,6 +354,28 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  const renderConventionArticles = (node: Element | undefined, props: any) => {
+    if (!node) return null;
+    if (node.children.length === 0 || node.children[0]?.type !== "text") return null;
+    const markedArticle = node.children[0].value;
+    try {
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <button>
+              <mark className="bg-blue-700 p-0.5 text-white rounded" {...props} />
+            </button>
+          </DialogTrigger>
+          <ConventionArticlesDialogContent articles={relevantConventionArticles} />
+        </Dialog>
+      )
+    } catch (error) {
+      // can be triggered during streaming when the source has not yet been shown
+      // console.error("cannot render marked article:", error);
+      return markedArticle;
+    }
+  }
 
   return (
     <div className="flex flex-col w-full max-w-prose py-24 mx-auto space-y-6">
@@ -577,12 +608,12 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
               </div>
 
               {/* Primes Field */}
-              {bp.primes_montant_valeur && bp.primes_montant_valeur.length > 0 && (
+              {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
                 <div className="mb-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Primes
                   </label>
-                  {bp.primes_montant_valeur.map((prime, primeIndex) => (
+                  {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
                     <Input
                       key={primeIndex}
                       type="number"
@@ -597,7 +628,7 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
                             if (i === index) {
                               return {
                                 ...item,
-                                primes_montant_valeur: item.primes_montant_valeur.map((p, j) =>
+                                primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
                                   j === primeIndex ? updatedValue : p
                                 ),
                               };
@@ -686,7 +717,12 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
               <div className="mt-2 p-4 border rounded-md bg-gray-100">
                 <h4 className="text-md font-medium mb-2">📝 Détails</h4>
                 <div className="prose prose-sm max-w-none text-gray-800 overflow-auto p-4 bg-white rounded shadow">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      mark: ({node, ...props}) => renderConventionArticles(node, props),
+                    }}
+                  >
                     {detailsIcl}
                   </ReactMarkdown>
                 </div>

@@ -173,6 +173,8 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
 }
 
 const getReferenceSalary12MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSalaryCalculationDetails => {
+  console.log('getReferenceSalary12MonthsMethod bpResponses.length:', bpResponses.length);
+  console.log('getReferenceSalary12MonthsMethod bpResponses:', bpResponses);
   const validResponses = bpResponses.filter((response) => response.salaire_brut_montant !== null);
 
   if (validResponses.length < 12) {
@@ -204,11 +206,13 @@ const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSa
     throw new Error("Insufficient data: Less than 3 months of valid salary data.");
   }
 
-  const lastThreeMonthsSalaries = validResponses
-    .slice(-3)
-    .map((response) => response.salaire_brut_montant as number);
+  const lastThreeMonthsResponses = validResponses.slice(-3);
 
-  const totalAnnualBonus = bpResponses.reduce((sum, response) => {
+  const lastThreeMonthsSalaries = lastThreeMonthsResponses.map(
+    (response) => response.salaire_brut_montant as number
+  );
+
+  const totalAnnualBonus = lastThreeMonthsResponses.reduce((sum, response) => {
     const bonus = response.primes_annuelles_regulieres?.reduce((bonusSum, prime) => bonusSum + prime, 0) || 0;
     return sum + bonus;
   }, 0);
@@ -574,8 +578,9 @@ export const getBrutDuringSickLeavePeriod = (doc: BpDocumentAiFields): number | 
       if (doc.salaire_brut_montant) {
         brut = doc.salaire_brut_montant > doc.salaire_de_base_avant_absences_montant ? doc.salaire_brut_montant : doc.salaire_de_base_avant_absences_montant;
       }
-      console.log('return doc.sous_total_salaire_base_montant')
-      if (doc.absence_non_justifie_periode.length > 0) {
+      console.log('return doc.sous_total_salaire_base_montant for:', doc.mois_bulletin_de_paie);
+      console.log('doc.absences_non_justifiees_montant:', doc.absences_non_justifiees_montant);
+      if (doc.absences_non_justifiees_montant.length > 0) {
         const totalUnjustifiedAbsence = doc.absences_non_justifiees_montant.reduce((sum, amount) => sum + amount, 0);
         console.log('return brut - totalUnjustifiedAbsence:', brut - totalUnjustifiedAbsence)
         return brut - totalUnjustifiedAbsence;
