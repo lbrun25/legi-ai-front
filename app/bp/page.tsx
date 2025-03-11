@@ -497,6 +497,36 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
             </select>
           </div>
 
+          {/* Catégorie de l'employée */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {"Catégorie de l'employée"}
+            </label>
+            <Input
+              type="text"
+              name="employeeClassification"
+              placeholder="Cadre, salarié, stagiaire..."
+              value={employeeQualification || ""}
+              onChange={(e) => setEmployeeQualification(e.target.value)}
+              className="pr-14 h-12"
+            />
+          </div>
+
+          {/* Classification de l'employée */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {"Classification de l'employée"}
+            </label>
+            <Input
+              type="text"
+              name="employeeClassificationLevel"
+              placeholder="Niveau 2, Échelon 3..."
+              value={employeeClassificationLevel || ""}
+              onChange={(e) => setEmployeeClassificationLevel(e.target.value)}
+              className="pr-14 h-12"
+            />
+          </div>
+
           {/* Période de sortie */}
           {/*<div>*/}
           {/*  <label className="block text-sm font-medium text-gray-700">{"Préavis"}</label>*/}
