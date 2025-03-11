@@ -10,12 +10,12 @@ import {toast} from "sonner";
 import {
   calculateLegalSeverancePay,
   calculateSeniorityWithAbsences,
-  compareAdvanceNotice,
-  computeEarnedPaidLeave, getAdvanceNoticeNumber,
+  computeEarnedPaidLeave,
   getBpName, getCollectiveConvention, getEmployeeClassificationLevel,
   getEmployeeName, getEmployeeQualification,
   getEntryDate,
   getFavorableReferenceSalary,
+  getIclDetailsMessage,
   getLastPaySlipDate,
   getSeniorityWithAdvanceNotice, getSickDays, getUnjustifiedAbsenceDays,
   processBpInfos,
@@ -24,19 +24,18 @@ import {
   sumFringeBenefits,
   sumPrimesMontant
 } from "@/lib/utils/bp";
-import {BpAnalysis, BpDocumentAiFields} from "@/lib/types/bp";
+import {BpAnalysis, BpDocumentAiFields, IclFormData, SeniorityValueResponse} from "@/lib/types/bp";
 import { max } from 'mathjs';
 import ReactMarkdown from "react-markdown";
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import bpAnalysisMock from "@/lib/test/bp";
 import rehypeRaw from "rehype-raw";
 import type {Element} from "hast";
-import {extractArticleNumber, extractArticleSource} from "@/lib/utils/article";
 import {Dialog, DialogTrigger} from "@/components/ui/dialog";
-import {ArticleDialogContent} from "@/components/article-dialog-content";
 import {ConventionArticlesDialogContent} from "@/components/convention-articles-dialog-content";
 import {MatchedCollectiveAgreementDocument} from "@/lib/supabase/agreements";
+import {Pencil} from "lucide-react";
+import {EditIclDialogContent} from "@/components/edit-icl-dialog-content";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -59,14 +58,45 @@ export default function Page() {
   const [notificationDate, setNotificationDate] = useState<Date | null>(null);
   const [selectedAgreementSuggestion, setSelectedAgreementSuggestion] = useState<{ title: string; idcc: string } | null>(null);
   const [isSeveranceEligible, setIsSeveranceEligible] = useState<boolean | null>(null);
-  const [legalSeveranceEligibilityMessage, setLegalSeveranceEligibilityMessage] = useState("");
-  const [conventionSeveranceEligibilityMessage, setConventionSeveranceEligibilityMessage] = useState("");
-  const [isLegalSeveranceEligibilityMessageVisible, setIsLegalSeveranceEligibilityMessageVisible] = useState(false);
-  const [isConventionSeveranceEligibilityMessageVisible, setIsConventionSeveranceEligibilityMessageVisible] = useState(false);
   const [isSickAfterLastBp, setIsSickAfterLastBp] = useState("")
   const [relevantConventionArticles, setRelevantConventionArticles] = useState<MatchedCollectiveAgreementDocument[]>([]);
 
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSimulationLoading, setIsSimulationLoading] = useState(false);
   const [detailsIcl, setDetailsIcl] = useState<string | null>(null);
+
+  const [iclFormData, setIclFormData] = useState<IclFormData | null>(null);
+
+  const handleIclForm = (field: string, value: number) => {
+    setIclFormData((prev) => {
+      if (!prev) return prev;
+      if (field === "legalSeniorityTotalYears") {
+        return {
+          ...prev,
+          legalSeniority: { ...prev.legalSeniority, total_years: value },
+        };
+      }
+      if (field === "legalSeniorityTotalMonths") {
+        return {
+          ...prev,
+          legalSeniority: { ...prev.legalSeniority, total_months: value },
+        };
+      }
+      if (field === "conventionSeniorityTotalYears") {
+        return {
+          ...prev,
+          conventionSeniority: { ...prev.conventionSeniority, total_years: value },
+        };
+      }
+      if (field === "conventionSeniorityTotalMonths") {
+        return {
+          ...prev,
+          conventionSeniority: { ...prev.conventionSeniority, total_months: value },
+        };
+      }
+      return { ...prev, [field]: value };
+    });
+  };
 
   useEffect(() => {
     // TODO: fix default placeholder is new Date() on Safari
@@ -183,50 +213,46 @@ export default function Page() {
       // 1) Reference Salary Calculation
       const totalSickDays = getSickDays(bpInfos);
       const unjustifiedAbsenceDays = getUnjustifiedAbsenceDays(bpInfos);
-      console.log("totalSickDays:", totalSickDays);
-      console.log("unjustifiedAbsenceDays:", unjustifiedAbsenceDays);
-
       const referenceSalaryData = getFavorableReferenceSalary(bpInfos);
-      console.log("referenceSalaryData:", referenceSalaryData);
+      referenceSalaryData.referenceSalary = iclFormData?.referenceSalary ?? referenceSalaryData.referenceSalary;
 
-      // 2) Seniority and Advance Notice Calculations
-      console.log("lastPaySlipDate:", lastPaySlipDate);
+      // 2) Seniority calculations
       const legalEndDate =
         isSickAfterLastBp === "OUI" ? lastPaySlipDate : notificationDate;
 
-      console.log("legalEndDate:", legalEndDate);
-      console.log("entryDate:", entryDate);
-      console.log('unjustifiedAbsenceDays:', unjustifiedAbsenceDays);
-      console.log('totalSickDays:', totalSickDays);
       const legalSeniorityData = calculateSeniorityWithAbsences(
         legalEndDate,
         entryDate,
         unjustifiedAbsenceDays + totalSickDays
       );
+      legalSeniorityData.total_months = iclFormData?.legalSeniority?.total_months ?? legalSeniorityData.total_months;
+      legalSeniorityData.total_years = iclFormData?.legalSeniority?.total_years ?? legalSeniorityData.total_years;
+      legalSeniorityData.formatted_duration = iclFormData?.legalSeniority ? `${iclFormData.legalSeniority.total_years} ans et ${iclFormData.legalSeniority.total_months} mois` : legalSeniorityData.formatted_duration;
 
-      console.log("notificationDate:", notificationDate);
       const conventionSeniorityData = calculateSeniorityWithAbsences(
         notificationDate,
         entryDate,
         unjustifiedAbsenceDays
       );
+      conventionSeniorityData.total_months = iclFormData?.conventionSeniority?.total_months ?? conventionSeniorityData.total_months;
+      conventionSeniorityData.total_years = iclFormData?.conventionSeniority?.total_years ?? conventionSeniorityData.total_years;
+      conventionSeniorityData.formatted_duration = iclFormData?.conventionSeniority ? `${iclFormData.conventionSeniority.total_years} ans et ${iclFormData.conventionSeniority.total_months} mois` : conventionSeniorityData.formatted_duration;
 
+      // 3) Advance Notice calculations
       const legalAdvanceNoticeData = await getLegalAdvanceNotice(
         legalSeniorityData.formatted_duration
       );
       if (!legalAdvanceNoticeData) return;
+      legalAdvanceNoticeData.value = iclFormData?.legalAdvanceNotice ? `${iclFormData?.legalAdvanceNotice} mois` : legalAdvanceNoticeData.value;
 
       const conventionAdvanceNoticeData = await getConventionAdvanceNotice(
         conventionSeniorityData.formatted_duration,
         selectedAgreementSuggestion.idcc
       );
       if (!conventionAdvanceNoticeData) return;
+      conventionAdvanceNoticeData.value = iclFormData?.conventionAdvanceNotice ? `${iclFormData?.conventionAdvanceNotice} mois` : conventionAdvanceNoticeData.value;
 
-      // const advanceNotice = compareAdvanceNotice(
-      //   legalAdvanceNoticeData.value,
-      //   conventionAdvanceNoticeData.value
-      // );
-
+      // 4) Seniority + Advance Notice calculations
       const legalSeniorityWithAdvanceNotice = getSeniorityWithAdvanceNotice(
         legalSeniorityData,
         legalAdvanceNoticeData.value
@@ -239,7 +265,7 @@ export default function Page() {
       );
       if (!conventionSeniorityWithAdvanceNotice) return;
 
-      // 3) Indemnity Calculations
+      // 5) Indemnity Calculations
       const totalPrimes = sumPrimesMontant(bpInfos);
       const totalFringeBenefits = sumFringeBenefits(bpInfos);
       const conventionRequest = fetch("/api/bp/compute/convention", {
@@ -265,50 +291,37 @@ export default function Page() {
         referenceSalaryData.referenceSalary,
         legalSeniorityWithAdvanceNotice
       );
-      const legalValue = legalData.value;
-      const legalDisplayValue = legalValue.toFixed(2);
-      const conventionValue = conventionData.value;
-      const conventionDisplayValue = conventionData.value.toFixed(2);
+      const favorableIndemnity = max(legalData.value, conventionData.value);
 
-      setRelevantConventionArticles(conventionData.relevantArticles);
-
-      const favorableIndemnity = max(legalValue, conventionValue);
-
-      // Build the Markdown message as one final template literal.
-      const messageSteps = `
-<u>**1) Calcul du salaire de référence 🤑**</u>
-${referenceSalaryData.calculationSteps}
-
-<u>**2) Détermination du préavis et de l’ancienneté ⏰**</u>
-
-a. **Ancienneté** :
-
-- Ancienneté selon la loi : ${legalSeniorityData.formatted_duration ?? "Non trouvé"}
-- Ancienneté selon la convention collective : ${conventionSeniorityData.formatted_duration ?? "Non trouvé"}
-
-b. **Préavis** :
-
-- Durée du préavis selon la loi : ${legalAdvanceNoticeData.message ?? "Non trouvé"}
-- Durée du préavis selon la convention collective : ${conventionAdvanceNoticeData.message ?? "Non trouvé"}
-
-c. **Ancienneté + préavis** :
-
-- Ancienneté (loi + préavis légal) : ${legalSeniorityWithAdvanceNotice.formatted_duration ?? "Non trouvé"}
-- Ancienneté (convention + préavis conventionnelle) : ${conventionSeniorityWithAdvanceNotice.formatted_duration ?? "Non trouvé"}
-
-<u>**3) Détermination de l'Indemnité Compensatrice de Licenciement 💶**</u>
-
-- Selon la loi : ${legalData.calculationSteps} = ${legalDisplayValue}
-- Selon la <mark>convention collective</mark> : ${conventionData.message ?? "Aucune formule"} = ${conventionDisplayValue}
-
-${legalValue > conventionValue ? `- Le résultat **${legalDisplayValue}** est le plus favorable car **${legalDisplayValue} > ${conventionDisplayValue}**.` : ""}
-${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** est le plus favorable car **${conventionDisplayValue} > ${legalDisplayValue}**.` : ""}
-
-**L’ICL est donc de ${favorableIndemnity.toFixed(2)}€.**
-`;
-
+      const iclDetailsMessage = getIclDetailsMessage(
+        referenceSalaryData,
+        legalSeniorityData.formatted_duration,
+        conventionSeniorityData.formatted_duration,
+        legalAdvanceNoticeData.value,
+        conventionAdvanceNoticeData.value,
+        legalSeniorityWithAdvanceNotice.formatted_duration,
+        conventionSeniorityWithAdvanceNotice.formatted_duration,
+        legalData,
+        conventionData,
+        favorableIndemnity,
+        iclFormData?.referenceSalary !== null && iclFormData?.referenceSalary !== undefined,
+      );
+      setIclFormData({
+        referenceSalary: referenceSalaryData.referenceSalary,
+        legalSeniority: {
+          total_years: legalSeniorityData.total_years,
+          total_months: legalSeniorityData.total_months,
+        },
+        conventionSeniority: {
+          total_years: conventionSeniorityData.total_years,
+          total_months: conventionSeniorityData.total_months,
+        },
+        legalAdvanceNotice: parseInt(legalAdvanceNoticeData?.value?.replace("mois", "")),
+        conventionAdvanceNotice: parseInt(conventionAdvanceNoticeData?.value?.replace("mois", ""))
+      })
       setSeverancePay(`${favorableIndemnity.toFixed(2)}€`);
-      setDetailsIcl(messageSteps);
+      setDetailsIcl(iclDetailsMessage);
+      setRelevantConventionArticles(conventionData.relevantArticles);
       setIsSimulationFinished(true);
     } catch (error) {
       console.error("Error during simulation:", error);
@@ -344,15 +357,6 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
     if (suggestion) {
       setSelectedAgreementSuggestion(suggestion);
     }
-  };
-
-  // A helper to format a Date as YYYY-MM-DD for the input value.
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    // Ensure month and day are two digits.
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   const renderConventionArticles = (node: Element | undefined, props: any) => {
@@ -526,19 +530,6 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
               className="pr-14 h-12"
             />
           </div>
-
-          {/* Période de sortie */}
-          {/*<div>*/}
-          {/*  <label className="block text-sm font-medium text-gray-700">{"Préavis"}</label>*/}
-          {/*  <Input*/}
-          {/*    type="text"*/}
-          {/*    name="advanceNotice"*/}
-          {/*    placeholder="2 mois"*/}
-          {/*    value={advanceNotice}*/}
-          {/*    onChange={(e) => setAdvanceNotice(e.target.value)}*/}
-          {/*    className="pr-14 h-12"*/}
-          {/*  />*/}
-          {/*</div>*/}
         </div>
       )}
 
@@ -738,23 +729,70 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
           <Accordion.Item value="checkedDataDetails">
             <Accordion.Header>
               <Accordion.Trigger
-                className="flex justify-between items-center w-full py-2 px-4 border rounded-md bg-gray-50 hover:bg-gray-100">
+                className="flex justify-between items-center w-full py-2 px-4 border rounded-md bg-gray-50 hover:bg-gray-100"
+              >
                 📝 Afficher les détails
                 <span>▼</span>
               </Accordion.Trigger>
             </Accordion.Header>
             <Accordion.Content>
               <div className="mt-2 p-4 border rounded-md bg-gray-100">
-                <h4 className="text-md font-medium mb-2">📝 Détails</h4>
-                <div className="prose prose-sm max-w-none text-gray-800 overflow-auto p-4 bg-white rounded shadow">
-                  <ReactMarkdown
-                    rehypePlugins={[rehypeRaw]}
-                    components={{
-                      mark: ({node, ...props}) => renderConventionArticles(node, props),
-                    }}
+                {/* Title with Edit Icon */}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-md font-medium">📝 Détails</h4>
+                  <button
+                    className="text-gray-500 hover:text-gray-800 transition"
+                    aria-label="Toggle edit mode"
+                    onClick={() => setIsEditMode(!isEditMode)}
                   >
-                    {detailsIcl}
-                  </ReactMarkdown>
+                    <Pencil size={18}/>
+                  </button>
+                </div>
+
+                <div className="prose prose-sm max-w-none text-gray-800 overflow-auto p-4 bg-white rounded shadow">
+                  {isSimulationLoading ? (
+                    // Loader Spinner
+                    <div className="flex justify-center items-center py-10">
+                      <div
+                        className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <>
+                      {isEditMode ? (
+                        <div>
+                          <EditIclDialogContent
+                            referenceSalary={iclFormData?.referenceSalary || 0}
+                            legalSeniority={iclFormData?.legalSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
+                            conventionSeniority={iclFormData?.conventionSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
+                            legalAdvanceNotice={iclFormData?.legalAdvanceNotice || 0}
+                            conventionAdvanceNotice={iclFormData?.conventionAdvanceNotice || 0}
+                            onChange={handleIclForm}
+                          />
+                          <Button
+                            variant="default"
+                            className="mt-2"
+                            onClick={async () => {
+                              setIsSimulationLoading(true);
+                              setIsEditMode(false);
+                              await startSimulation();
+                              setIsSimulationLoading(false);
+                            }}
+                          >
+                            {"Sauvegarder"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <ReactMarkdown
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                            mark: ({node, ...props}) => renderConventionArticles(node, props),
+                          }}
+                        >
+                          {detailsIcl}
+                        </ReactMarkdown>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </Accordion.Content>
@@ -762,7 +800,7 @@ ${conventionValue > legalValue ? `- Le résultat **${conventionDisplayValue}** e
         </Accordion.Root>
       )}
       {/* Severance Pay Section */}
-      {severancePay && (
+      {(severancePay && !isSimulationLoading) && (
         <div className="border p-4 rounded-md shadow-md bg-green-50 space-y-4 mt-4">
           <h3 className="font-medium text-lg text-green-800 mb-2">{"💼 ICL"}</h3>
           <p className="text-gray-700 text-lg">

@@ -39,6 +39,13 @@ export type ReferenceSalaryCalculationDetails = {
   referenceSalary: number;
 };
 
+export type FavorableReferenceSalaryCalculationDetails = {
+  method: string;
+  calculationDetails12Months: ReferenceSalaryCalculationDetails;
+  calculationDetails3Months: ReferenceSalaryCalculationDetails;
+  referenceSalary: number;
+}
+
 export type SeniorityValueResponse = {
   total_years: number;
   total_months: number;
@@ -48,4 +55,13 @@ export type SeniorityValueResponse = {
 export type SeniorityResponse = {
   value: SeniorityValueResponse;
   message: string;
+}
+
+
+export type IclFormData = {
+  referenceSalary: number,
+  legalSeniority: { total_years: number, total_months: number },
+  conventionSeniority: { total_years: number, total_months: number },
+  legalAdvanceNotice: number,
+  conventionAdvanceNotice: number,
 }

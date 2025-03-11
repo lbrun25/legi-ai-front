@@ -1,6 +1,7 @@
 import {
   BpAnalysis,
   BpDocumentAiFields,
+  FavorableReferenceSalaryCalculationDetails,
   ReferenceSalaryCalculationDetails,
   SeniorityValueResponse
 } from "@/lib/types/bp";
@@ -8,6 +9,7 @@ import {max} from "mathjs";
 import {extractFirstPageAsBase64} from "@/lib/utils/file";
 import moment from "moment";
 import "moment/locale/fr";
+import { MatchedCollectiveAgreementDocument } from "../supabase/agreements";
 
 export async function parseBpDocumentEntities(document: any): Promise<BpDocumentAiFields> {
   console.log(`Processed document:`, document);
@@ -234,26 +236,16 @@ const getReferenceSalary3MonthsMethod = (bpResponses: BpAnalysis[]): ReferenceSa
   };
 };
 
-export const getFavorableReferenceSalary = (bpResponses: BpAnalysis[]): ReferenceSalaryCalculationDetails => {
+export const getFavorableReferenceSalary = (bpResponses: BpAnalysis[]): FavorableReferenceSalaryCalculationDetails => {
   const details12Months = getReferenceSalary12MonthsMethod(bpResponses);
   const details3Months = getReferenceSalary3MonthsMethod(bpResponses);
-
-  const favorableSalaryMessage = `
-- **Méthode 12 derniers mois :** ${details12Months.calculationSteps} = ${details12Months.referenceSalary.toFixed(2)}
-- **Méthode 3 derniers mois :** ${details3Months.calculationSteps} = ${details3Months.referenceSalary.toFixed(2)}
-
-${
-    details12Months.referenceSalary > details3Months.referenceSalary
-      ? `Le salaire de référence **${details12Months.referenceSalary.toFixed(2)}** est plus favorable car **${details12Months.referenceSalary.toFixed(2)} > ${details3Months.referenceSalary.toFixed(2)}**. Nous allons retenir celui-ci pour la suite des calculs.`
-      : `Le salaire de référence **${details3Months.referenceSalary.toFixed(2)}** est plus favorable car **${details3Months.referenceSalary.toFixed(2)} > ${details12Months.referenceSalary.toFixed(2)}**. Nous allons retenir celui-ci pour la suite des calculs.`
-  }
-  `.trim();
 
   const favorableReferenceSalary = max(details12Months.referenceSalary, details3Months.referenceSalary);
 
   return {
     method: "favorable",
-    calculationSteps: favorableSalaryMessage,
+    calculationDetails12Months: details12Months,
+    calculationDetails3Months: details3Months,
     referenceSalary: favorableReferenceSalary,
   };
 };
@@ -306,6 +298,12 @@ export type LegalSeverancePayResult = {
   value: number;
   calculationSteps: string;
 };
+
+export type ConventionSeverancePayResult = {
+  message: string,
+  value: number,
+  relevantArticles: MatchedCollectiveAgreementDocument[],
+}
 
 export function calculateLegalSeverancePay(
   referenceSalary: number,
@@ -767,3 +765,73 @@ export const getUnjustifiedAbsenceDays = (bpInfos: BpAnalysis[]) => {
     return sum + (isNaN(unjustifiedAbsenceWorkingDays) ? 0 : unjustifiedAbsenceWorkingDays);
   }, 0);
 };
+
+export const getIclDetailsMessage = (
+  referenceSalaryData: FavorableReferenceSalaryCalculationDetails,
+  legalSeniorityFormattedDuration: string | null,
+  conventionSeniorityFormattedDuration: string | null,
+  legalAdvanceNoticeFormattedDuration: string | null,
+  conventionAdvanceNoticeFormattedDuration: string | null,
+  legalSeniorityWithAdvanceNoticeFormattedDuration: string | null,
+  conventionSeniorityWithAdvanceNoticeFormattedDuration: string | null,
+  legalIclData: LegalSeverancePayResult,
+  conventionIclData: ConventionSeverancePayResult,
+  favorableIcl: number,
+  isReferenceSalaryFromIclForm: boolean,
+) => {
+  const referenceSalary12Months = referenceSalaryData.calculationDetails12Months.referenceSalary.toFixed(2);
+  const calculationSteps12Months = referenceSalaryData.calculationDetails12Months.calculationSteps;
+  const referenceSalary3Months = referenceSalaryData.calculationDetails3Months.referenceSalary.toFixed(2);
+  const calculationSteps3Months = referenceSalaryData.calculationDetails3Months.calculationSteps;
+
+  let favorableSalaryMessage: string;
+  if (isReferenceSalaryFromIclForm) {
+    favorableSalaryMessage = `
+Le salaire de référence est de **${referenceSalaryData.referenceSalary}** selon vos modifications. Nous allons retenir celui-ci pour la suite des calculs.`
+  } else {
+    favorableSalaryMessage = `
+- **Méthode 12 derniers mois :** ${calculationSteps12Months} = ${referenceSalary12Months}
+- **Méthode 3 derniers mois :** ${calculationSteps3Months} = ${referenceSalary3Months}
+
+${
+      referenceSalary12Months > referenceSalary3Months
+        ? `Le salaire de référence **${referenceSalary12Months}** est plus favorable car **${referenceSalary12Months} > ${referenceSalary3Months}**. Nous allons retenir celui-ci pour la suite des calculs.`
+        : `Le salaire de référence **${referenceSalary3Months}** est plus favorable car **${referenceSalary3Months} > ${referenceSalary12Months}**. Nous allons retenir celui-ci pour la suite des calculs.`
+    }
+  `.trim();
+  }
+  const legalSeverancePay = parseFloat(legalIclData.value.toFixed(2));
+  const conventionSeverancePay = parseFloat(conventionIclData.value.toFixed(2));
+
+  return `
+<u>**1) Calcul du salaire de référence 🤑**</u>
+${favorableSalaryMessage}
+
+<u>**2) Détermination du préavis et de l’ancienneté ⏰**</u>
+
+a. **Ancienneté** :
+
+- Ancienneté selon la loi : ${legalSeniorityFormattedDuration ?? "Non trouvé"}
+- Ancienneté selon la convention collective : ${conventionSeniorityFormattedDuration ?? "Non trouvé"}
+
+b. **Préavis** :
+
+- Durée du préavis selon la loi : ${legalAdvanceNoticeFormattedDuration ?? "Non trouvé"}
+- Durée du préavis selon la convention collective : ${conventionAdvanceNoticeFormattedDuration ?? "Non trouvé"}
+
+c. **Ancienneté + préavis** :
+
+- Ancienneté (loi + préavis légal) : ${legalSeniorityWithAdvanceNoticeFormattedDuration ?? "Non trouvé"}
+- Ancienneté (convention + préavis conventionnelle) : ${conventionSeniorityWithAdvanceNoticeFormattedDuration ?? "Non trouvé"}
+
+<u>**3) Détermination de l'Indemnité Compensatrice de Licenciement 💶**</u>
+
+- Selon la loi : ${legalIclData.calculationSteps} = ${legalSeverancePay}
+- Selon la <mark>convention collective</mark> : ${conventionIclData.message ?? "Aucune formule"} = ${conventionSeverancePay}
+
+${legalSeverancePay > conventionSeverancePay ? `- Le résultat **${legalSeverancePay}** est le plus favorable car **${legalSeverancePay} > ${conventionSeverancePay}**.` : ""}
+${conventionSeverancePay > legalSeverancePay ? `- Le résultat **${conventionSeverancePay}** est le plus favorable car **${conventionSeverancePay} > ${legalSeverancePay}**.` : ""}
+
+**L’ICL est donc de ${favorableIcl.toFixed(2)}€.**
+`
+}
