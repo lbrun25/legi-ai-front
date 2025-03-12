@@ -16,6 +16,7 @@
     "@ai-sdk/openai": "^0.0.31",
     "@elastic/elasticsearch": "^8.15.2",
     "@google-cloud/documentai": "^8.12.0",
+    "@google-cloud/storage": "^7.15.2",
     "@google/generative-ai": "^0.21.0",
     "@langchain/community": "^0.3.13",
     "@langchain/core": "^0.3.18",

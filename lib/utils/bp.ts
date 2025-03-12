@@ -835,3 +835,26 @@ ${conventionSeverancePay > legalSeverancePay ? `- Le résultat **${conventionSev
 **L’ICL est donc de ${favorableIcl.toFixed(2)}€.**
 `
 }
+
+export const uploadBpFilesToGoogleCloud = (files: File[]) => {
+  const uploadPromises = files.map(async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      await fetch("/api/bp/upload", {
+        method: "POST",
+        body: formData,
+      });
+    } catch (error) {
+      console.error(`Error uploading ${file.name}:`, error);
+    }
+  });
+  Promise.allSettled(uploadPromises).then((results) => {
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.error(`Upload failed for ${files[index].name}:`, result.reason);
+      }
+    });
+  });
+};

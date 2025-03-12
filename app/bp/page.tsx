@@ -22,7 +22,8 @@ import {
   processPdfFile,
   sortBpsByDate,
   sumFringeBenefits,
-  sumPrimesMontant
+  sumPrimesMontant,
+  uploadBpFilesToGoogleCloud
 } from "@/lib/utils/bp";
 import {BpAnalysis, BpDocumentAiFields, IclFormData, SeniorityValueResponse} from "@/lib/types/bp";
 import { max } from 'mathjs';
@@ -39,9 +40,6 @@ import {EditIclDialogContent} from "@/components/edit-icl-dialog-content";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
-  const onDropBps = useCallback((acceptedFiles: File[]) => {
-    setBpFiles(acceptedFiles);
-  }, []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bpInfos, setBpInfos] = useState<BpAnalysis[]>([]);
   const [employeeName, setEmployeeName] = useState("");
@@ -97,6 +95,10 @@ export default function Page() {
       return { ...prev, [field]: value };
     });
   };
+
+  const onDropBps = useCallback((acceptedFiles: File[]) => {
+    setBpFiles(acceptedFiles);
+  }, []);
 
   useEffect(() => {
     // TODO: fix default placeholder is new Date() on Safari
@@ -333,6 +335,7 @@ export default function Page() {
     setIsProcessing(true);
     if (currentStep === "extract") {
       try {
+        uploadBpFilesToGoogleCloud(bpFiles);
         await extractBps();
         console.log('extractBps finished')
         setIsEditableInfoVisible(true);
