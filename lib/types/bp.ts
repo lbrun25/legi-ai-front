@@ -26,6 +26,7 @@ export type BpDocumentAiFields = {
   primes_annuelles_regulieres: number[];
   employee_qualification: string | null;
   employee_classification_level: string | null;
+  boundingBoxes: Record<string, { page: number, normalizedVertices: { x: number, y: number }[] }[]>
 };
 
 export type BpAnalysis = BpDocumentAiFields & {

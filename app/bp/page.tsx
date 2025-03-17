@@ -37,6 +37,7 @@ import {ConventionArticlesDialogContent} from "@/components/convention-articles-
 import {MatchedCollectiveAgreementDocument} from "@/lib/supabase/agreements";
 import {Pencil} from "lucide-react";
 import {EditIclDialogContent} from "@/components/edit-icl-dialog-content";
+import PdfViewerIframe from "@/components/pdf-viewer";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -64,6 +65,9 @@ export default function Page() {
   const [detailsIcl, setDetailsIcl] = useState<string | null>(null);
 
   const [iclFormData, setIclFormData] = useState<IclFormData | null>(null);
+
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [selectedBpIndex, setSelectedBpIndex] = useState<number | null>(null);
 
   const handleIclForm = (field: string, value: number) => {
     setIclFormData((prev) => {
@@ -149,8 +153,7 @@ export default function Page() {
   }
 
   const extractBps = async () => {
-    // const results: BpDocumentAiFields[] = bpAnalysisMock;
-    const results: BpDocumentAiFields[] = [];
+    const fileDocPairs: { file: File; doc: BpDocumentAiFields }[] = [];
 
     // Filter to only include PDF files.
     const pdfFiles = bpFiles.filter((file) =>
@@ -163,9 +166,9 @@ export default function Page() {
     // Process each PDF file concurrently.
     const processingTasks = pdfFiles.map(async (pdfFile) => {
       try {
-        const documentEntities = await processPdfFile(pdfFile);
-        if (documentEntities) {
-          results.push(documentEntities);
+        const parsedDoc = await processPdfFile(pdfFile);
+        if (parsedDoc) {
+          fileDocPairs.push({ file: pdfFile, doc: parsedDoc });
         }
       } catch (error) {
         console.error(`Error processing ${pdfFile.name}:`, error);
@@ -174,32 +177,38 @@ export default function Page() {
     await Promise.all(processingTasks);
 
     // Process the BP documents to calculate working days, etc.
-    const updatedInfos = await processBpInfos(results);
-    const sortedResults = sortBpsByDate(updatedInfos);
-    setBpInfos(sortedResults);
+    const allDocs = fileDocPairs.map((pair) => pair.doc);
+    const updatedInfos = await processBpInfos(allDocs);
+    const sortedInfos = sortBpsByDate(updatedInfos);
 
-    // Get and set earned paid leave
-    const earnedPaidLeaveBp = computeEarnedPaidLeave(results);
+    // Sort fileDocPairs to match the sorted order of BpAnalysis.
+    const getDebutDate = (doc: BpDocumentAiFields) =>
+      doc.debut_periode_paie_date ? new Date(doc.debut_periode_paie_date).getTime() : 0;
+    fileDocPairs.sort((a, b) => getDebutDate(a.doc) - getDebutDate(b.doc));
+
+    setBpInfos(sortedInfos);
+    setBpFiles(fileDocPairs.map((pair) => pair.file));
+
+    const sortedDocs = fileDocPairs.map((pair) => pair.doc);
+    const earnedPaidLeaveBp = computeEarnedPaidLeave(sortedDocs);
     setEarnedPaidLeave(earnedPaidLeaveBp);
 
-    // Get and set employee info
-    const entryDate = getEntryDate(results);
+    const entryDate = getEntryDate(sortedDocs);
     setEntryDate(entryDate);
-    const lastPaySlipDate = getLastPaySlipDate(results);
+    const lastPaySlipDate = getLastPaySlipDate(sortedDocs);
     setLastPaySlipDate(lastPaySlipDate);
-    const employeeName = getEmployeeName(results);
+    const employeeName = getEmployeeName(sortedDocs);
     setEmployeeName(employeeName || "");
-    const employeeQualification = getEmployeeQualification(results);
+    const employeeQualification = getEmployeeQualification(sortedDocs);
     setEmployeeQualification(employeeQualification);
-    const employeeClassificationLevel = getEmployeeClassificationLevel(results);
+    const employeeClassificationLevel = getEmployeeClassificationLevel(sortedDocs);
     setEmployeeClassificationLevel(employeeClassificationLevel);
 
-    // Set convention if found
-    const collectiveConvention = await getCollectiveConvention(results);
+    const collectiveConvention = await getCollectiveConvention(sortedDocs);
     if (collectiveConvention) {
       setSelectedAgreementSuggestion(collectiveConvention);
     }
-  }
+  };
 
   const startSimulation = async () => {
     if (!selectedAgreementSuggestion)
@@ -491,7 +500,9 @@ export default function Page() {
 
           {/* Arrêt après le dernier bulletin de paie */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">{"Le salarié a-t-il été en arrêt après le dernier bulletin de paie ?"}</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {"Le salarié a-t-il été en arrêt après le dernier bulletin de paie ?"}
+            </label>
             <select
               name="arreteApresBulletin"
               value={isSickAfterLastBp}
@@ -573,131 +584,143 @@ export default function Page() {
       {isEditableInfoVisible && (
         <div className="space-y-4 mt-4">
           {bpInfos.map((bp, index) => (
-            <div
-              key={index}
-              className="border p-4 rounded-md shadow-md bg-gray-50"
-            >
-              <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
-
-              {/* Gross Salary Field */}
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Salaire brut
-                </label>
-                <Input
-                  type="text"
-                  name="grossSalary"
-                  placeholder="Salaire brut"
-                  value={bp.salaire_brut_montant || ""}
-                  className="pr-14 h-12"
-                  onChange={(e) => {
-                    const updatedValue = parseFloat(e.target.value || "0");
-                    setBpInfos((prevBpInfos) =>
-                      prevBpInfos.map((item, i) =>
-                        i === index
-                          ? { ...item, salaire_brut_montant: updatedValue }
-                          : item
-                      )
-                    );
+            <div key={index} className="border p-4 rounded-md shadow-md bg-gray-50">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
+                {/* PDF Preview Component next to the title */}
+                <Button
+                  onClick={() => {
+                    setSelectedBpIndex(index);
+                    setIsPdfModalOpen(true);
                   }}
-                />
+                  variant="ghost"
+                  className="ml-4"
+                >
+                  {"Voir PDF"}
+                </Button>
               </div>
-
-              {/* Sick Leave Field */}
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Nombre d'arrêts maladie
-                </label>
-                <Input
-                  type="number"
-                  name="sickLeaveWorkingDays"
-                  placeholder="0"
-                  value={bp.sickLeaveWorkingDays || 0}
-                  className="pr-14 h-12"
-                  onChange={(e) => {
-                    const updatedValue = parseFloat(e.target.value);
-                    if (isNaN(updatedValue)) {
-                      console.warn("Invalid number entered");
-                      return;
-                    }
-                    setBpInfos((prevBpInfos) =>
-                      prevBpInfos.map((item, i) =>
-                        i === index
-                          ? { ...item, sickLeaveWorkingDays: updatedValue }
-                          : item
-                      )
-                    );
-                  }}
-                />
-              </div>
-
-              {/* Primes Field */}
-              {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
+              {/* Other BP fields can be rendered below */}
+              <div className="mt-4">
+                {/* Gross Salary Field */}
                 <div className="mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Primes
+                    Salaire brut
                   </label>
-                  {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
-                    <Input
-                      key={primeIndex}
-                      type="number"
-                      name={`premium-${primeIndex}`}
-                      placeholder="0"
-                      value={prime || ""}
-                      className="pr-14 h-12"
-                      onChange={(e) => {
-                        const updatedValue = parseFloat(e.target.value || "0");
-                        setBpInfos((prevBpInfos) =>
-                          prevBpInfos.map((item, i) => {
-                            if (i === index) {
-                              return {
-                                ...item,
-                                primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
-                                  j === primeIndex ? updatedValue : p
-                                ),
-                              };
-                            }
-                            return item;
-                          })
-                        );
-                      }}
-                    />
-                  ))}
+                  <Input
+                    type="text"
+                    name="grossSalary"
+                    placeholder="Salaire brut"
+                    value={bp.salaire_brut_montant || ""}
+                    className="pr-14 h-12"
+                    onChange={(e) => {
+                      const updatedValue = parseFloat(e.target.value || "0");
+                      setBpInfos((prevBpInfos) =>
+                        prevBpInfos.map((item, i) =>
+                          i === index
+                            ? {...item, salaire_brut_montant: updatedValue}
+                            : item
+                        )
+                      );
+                    }}
+                  />
                 </div>
-              )}
-              {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
+
+                {/* Sick Leave Field */}
                 <div className="mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Avantage en nature
+                    Nombre d'arrêts maladie
                   </label>
-                  {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
-                    <Input
-                      key={advIndex}
-                      type="number"
-                      name={`natureAdvantage-${advIndex}`}
-                      placeholder="0"
-                      value={advantage || ""}
-                      className="pr-14 h-12"
-                      onChange={(e) => {
-                        const updatedValue = parseFloat(e.target.value || "0");
-                        setBpInfos((prevBpInfos) =>
-                          prevBpInfos.map((item, i) => {
-                            if (i === index) {
-                              return {
-                                ...item,
-                                avantage_en_nature_montant: item.avantage_en_nature_montant.map(
-                                  (a, j) => (j === advIndex ? updatedValue : a)
-                                ),
-                              };
-                            }
-                            return item;
-                          })
-                        );
-                      }}
-                    />
-                  ))}
+                  <Input
+                    type="number"
+                    name="sickLeaveWorkingDays"
+                    placeholder="0"
+                    value={bp.sickLeaveWorkingDays || 0}
+                    className="pr-14 h-12"
+                    onChange={(e) => {
+                      const updatedValue = parseFloat(e.target.value);
+                      if (isNaN(updatedValue)) {
+                        console.warn("Invalid number entered");
+                        return;
+                      }
+                      setBpInfos((prevBpInfos) =>
+                        prevBpInfos.map((item, i) =>
+                          i === index
+                            ? {...item, sickLeaveWorkingDays: updatedValue}
+                            : item
+                        )
+                      );
+                    }}
+                  />
                 </div>
-              )}
+
+                {/* Primes Field */}
+                {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Primes
+                    </label>
+                    {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
+                      <Input
+                        key={primeIndex}
+                        type="number"
+                        name={`premium-${primeIndex}`}
+                        placeholder="0"
+                        value={prime || ""}
+                        className="pr-14 h-12"
+                        onChange={(e) => {
+                          const updatedValue = parseFloat(e.target.value || "0");
+                          setBpInfos((prevBpInfos) =>
+                            prevBpInfos.map((item, i) => {
+                              if (i === index) {
+                                return {
+                                  ...item,
+                                  primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
+                                    j === primeIndex ? updatedValue : p
+                                  ),
+                                };
+                              }
+                              return item;
+                            })
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Avantage en nature
+                    </label>
+                    {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
+                      <Input
+                        key={advIndex}
+                        type="number"
+                        name={`natureAdvantage-${advIndex}`}
+                        placeholder="0"
+                        value={advantage || ""}
+                        className="pr-14 h-12"
+                        onChange={(e) => {
+                          const updatedValue = parseFloat(e.target.value || "0");
+                          setBpInfos((prevBpInfos) =>
+                            prevBpInfos.map((item, i) => {
+                              if (i === index) {
+                                return {
+                                  ...item,
+                                  avantage_en_nature_montant: item.avantage_en_nature_montant.map(
+                                    (a, j) => (j === advIndex ? updatedValue : a)
+                                  ),
+                                };
+                              }
+                              return item;
+                            })
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -809,6 +832,34 @@ export default function Page() {
           <p className="text-gray-700 text-lg">
             <strong>Montant : </strong> {severancePay}
           </p>
+        </div>
+      )}
+
+      {/* PDF Viewer */}
+      {isPdfModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 z-50"
+          style={{ margin: 0, padding: 0 }}
+        >
+          {/* A container that takes the full viewport */}
+          <div className="relative w-full h-full flex flex-col">
+            <button
+              onClick={() => setIsPdfModalOpen(false)}
+              style={{ zIndex: 10000 }}
+              className="absolute top-4 right-4 bg-black text-white px-4 py-2 rounded-md"
+            >
+              Fermer
+            </button>
+            <div className="flex-grow bg-white">
+              <div className="w-full h-full">
+                <PdfViewerIframe
+                  pdfFile={bpFiles[selectedBpIndex]}
+                  boundingBoxes={bpInfos[selectedBpIndex].boundingBoxes}
+                  pageNumber={1}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

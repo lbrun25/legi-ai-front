@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+        #pdf-canvas {
+            display: block;
+            margin: auto;
+            /* We'll set width/height to 100% via JS or the parent if needed */
+        }
+    </style>
+</head>
+<body>
+<canvas id="pdf-canvas"></canvas>
+
+<script>
+  window.addEventListener("message", async (event) => {
+    if (!event.data.pdfUrl) return;
+    const url = event.data.pdfUrl;
+    const pageNumber = event.data.pageNumber || 1;
+
+    // 1) Load the PDF
+    const loadingTask = pdfjsLib.getDocument(url);
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(pageNumber);
+
+    // 2) Render at higher scale (2 means double the resolution)
+    const scale = 2;
+    const viewport = page.getViewport({ scale });
+
+    // 3) Set canvas size to the scaled dimensions
+    const canvas = document.getElementById("pdf-canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    // 4) Optionally let CSS shrink it
+    canvas.style.width = "100%";  // or some dynamic approach
+    canvas.style.height = "100%";
+
+    // 5) Render
+    const renderContext = { canvasContext: context, viewport };
+    await page.render(renderContext).promise;
+
+    // 6) Send original page size (unscaled) to parent
+    //    so bounding boxes are calculated from the real PDF size
+    const unscaledViewport = page.getViewport({ scale: 1 });
+    window.parent.postMessage({
+      width: unscaledViewport.width,
+      height: unscaledViewport.height
+    }, "*");
+  });
+</script>
+</body>
+</html>

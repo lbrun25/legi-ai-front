@@ -42,12 +42,33 @@ export async function parseBpDocumentEntities(document: any): Promise<BpDocument
     primes_annuelles_regulieres: [],
     employee_qualification: null,
     employee_classification_level: null,
+    boundingBoxes: {},
   };
 
   if (document && document.entities) {
     document.entities.forEach((entity: any) => {
-      const { type: type_, mentionText, normalizedValue } = entity;
+      const { type: type_, mentionText, normalizedValue, pageAnchor } = entity;
       const normalizedText = normalizedValue?.text;
+
+      console.log('entity:', entity)
+
+      // Extract bounding box if available
+      if (pageAnchor?.pageRefs) {
+        pageAnchor.pageRefs.forEach((pageRef: any) => {
+          const pageNumber = parseInt(pageRef.page, 10); // Ensure it's a number
+          const boundingPoly = pageRef.boundingPoly;
+
+          if (boundingPoly?.normalizedVertices && boundingPoly.normalizedVertices.length > 0) {
+            if (!defaultFields.boundingBoxes[type_]) {
+              defaultFields.boundingBoxes[type_] = [];
+            }
+            defaultFields.boundingBoxes[type_].push({
+              page: pageNumber, // Store the page number for later use
+              normalizedVertices: boundingPoly.normalizedVertices,
+            });
+          }
+        });
+      }
 
       switch (type_) {
         case 'absences_maladie_montant':
