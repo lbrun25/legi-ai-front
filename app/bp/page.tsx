@@ -836,7 +836,7 @@ export default function Page() {
       )}
 
       {/* PDF Viewer */}
-      {isPdfModalOpen && (
+      {(isPdfModalOpen && selectedBpIndex) && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 z-50"
           style={{ margin: 0, padding: 0 }}
