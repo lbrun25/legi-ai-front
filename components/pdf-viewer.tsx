@@ -2,6 +2,36 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 
+const FIELD_LABELS: Record<string, string> = {
+  absences_maladie_montant: "Montant absence maladie",
+  absences_non_justifiees_montant: "Montant absence non justifiée",
+  absence_non_justifie_periode: "Période absence non justifiée",
+  avantage_en_nature_montant: "Avantage en nature",
+  conge_paye_montant: "Montant congé payé",
+  conge_paye_periode: "Période congé payé",
+  conge_sans_solde_montant: "Montant congé sans solde",
+  conge_sans_solde_nombre: "Nombre congé sans solde",
+  convention_collective: "Convention collective",
+  date_anciennete: "Date d'ancienneté",
+  date_entree_entreprise: "Date d'entrée",
+  debut_periode_paie_date: "Début période de paie",
+  fin_periode_paie_date: "Fin période de paie",
+  heures_supplementaires_montant: "Montant heures supplémentaires",
+  heures_travail: "Heures travaillées",
+  majoration_heures_montant: "Majoration heures",
+  mois_bulletin_de_paie: "Mois du bulletin",
+  nom_salarie: "Nom du salarié",
+  nombre_conge_paye: "Nombre de congés payés",
+  periode_arret_maladie: "Période arrêt maladie",
+  primes_montant_valeur: "Montant primes",
+  salaire_de_base_montant: "Salaire de base",
+  salaire_brut_montant: "Salaire brut",
+  salaire_de_base_avant_absences_montant: "Salaire de base avant absences",
+  primes_annuelles_regulieres: "Primes annuelles régulières",
+  employee_qualification: "Qualification",
+  employee_classification_level: "Classification",
+};
+
 interface BoundingBox {
   page: number;
   normalizedVertices: { x: number; y: number }[];
@@ -92,7 +122,7 @@ const BBox = ({
               whiteSpace: "nowrap",
             }}
           >
-            {field}
+            {FIELD_LABELS[field] || field}
           </div>
         </TooltipPortal>
       )}
