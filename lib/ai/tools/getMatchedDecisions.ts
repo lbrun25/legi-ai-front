@@ -1,15 +1,11 @@
 import {tool} from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import {z} from "zod";
-import {MatchedDecision, searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
-import * as cheerio from 'cheerio';
-import { CheerioAPI } from 'cheerio';
-import puppeteer from 'puppeteer';
-import { formatSection } from "./decisionPart";
+import {searchMatchedDecisions} from "@/lib/supabase/searchDecisions";
 import {ElasticsearchClient} from "@/lib/elasticsearch/client";
 import {rankFusion} from "@/lib/utils/rank-fusion";
-import { supabaseClient } from "@/lib/supabase/supabaseClient";
 import {rerankWithVoyageAI} from '../voyage/reRankers'
+import {sql} from "@/lib/sql/client";
 
 const NUM_RELEVANT_CHUNKS = 3500;
 
@@ -75,7 +71,8 @@ export async function getMatchedDecisions(input : any): Promise<bigint[]> {
   const semanticIds = semanticResponse.decisions.map((decision) => decision.id);
   if (semanticResponse.decisions.length === 0 || bm25Results.length === 0)
     return [];
-  //console.log('Nb bm25Results:', bm25Ids)
+  console.log('Nb bm25Results:', bm25Ids)
+  console.log('Nb semanticIds:', semanticIds)
   const rankFusionResult = rankFusion(semanticIds, bm25Ids, 15, 0.62, 0.38, ); // De base : 0.8 et 0.2 ; Anthropic encourage a tester avec plus // k =0,6 askip marche pas mal // le 18 c'est le nb de decisions a retourner
   const rankFusionIds = rankFusionResult.results.filter(result => result.score > 0).map(result => result.id); //result => result.score > 0.5
   //console.log("RANKFUSION : ", rankFusionIds)
@@ -106,13 +103,17 @@ export async function listDecisions(input: string, rankFusionIds: bigint[]) {
 
 export async function listDecisions(input: string, rankFusionIds: bigint[]) {
   console.log("Decisions FinalRankFusionList :", rankFusionIds);
-  let decisionsToRank = await getdecisionsToRank(rankFusionIds);
+  let decisionsToRank = await getDecisionsToRank(rankFusionIds);
+  console.log('decisionsToRank:', decisionsToRank)
   let combined: any = { data: [] }; // Déclaration de combined en dehors des blocs conditionnels
   const count = await estimateTokenCount(decisionsToRank);
+  console.log('count estimateTokenCount:', count)
+
 
   if (count !== -1) {
     const decisionsToRank2 = decisionsToRank.slice(count, decisionsToRank.length);
     //console.log("decisionsToRank2 :", decisionsToRank2)
+    console.log('input rerankWithVoyageAI:', input)
     const decisionsRanked2: any = await rerankWithVoyageAI(input, decisionsToRank2);
     //console.log("decisionsRanked2 :", decisionsRanked2)
     decisionsToRank = decisionsToRank.slice(0, count);
@@ -224,28 +225,20 @@ Avant de finaliser, vérifiez que :
   return llmResponse.content;
 }
 
-async function getDecisionDetailsById(id: number, maxRetries = 5, delayMs = 1000) {
+async function getDecisionDetailsById(id: number, maxRetries = 15, delayMs = 1000) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const { data, error } = await supabaseClient
-        .from('legaldecisions_test_old')
-        .select('juridiction, date, number, decisionContent')
-        .eq('id', id);
-
-      if (error) {
-        console.error(`[getDecisionDetailsById] Tentative ${attempt + 1}/${maxRetries + 1} - Erreur lors de la récupération:`, error);
-
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          continue;
-        }
-        return null;
-      }
-
+      const data = await sql.unsafe(
+        `
+          SELECT juridiction, date, number, "decisionContent"
+          FROM legaldecisions_test_old
+          WHERE id = $1
+        `,
+        [id]
+      );
       return data;
-    } catch (err) {
-      console.error(`Tentative ${attempt + 1}/${maxRetries + 1} - Erreur:`, err);
-
+    } catch (error) {
+      console.error(`[getDecisionDetailsById] Tentative ${attempt + 1}/${maxRetries + 1} - Erreur lors de la récupération:`, error);
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
         continue;
@@ -257,39 +250,32 @@ async function getDecisionDetailsById(id: number, maxRetries = 5, delayMs = 1000
 }
 
 //Ici ça récupere le contenu des décisions dans la db
-async function getdecisionsToRank(ids: bigint[]): Promise<string[]> {
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // délai de 1 seconde entre les tentatives
+async function getDecisionsToRank(ids: bigint[]): Promise<string[]> {
+  const MAX_RETRIES = 15;
+  const RETRY_DELAY = 1000;
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  console.log('ids:', ids)
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const { data, error } = await supabaseClient
-        .from('legaldecisions_test_old')
-        .select('id, decisionContent')
-        .in('id', ids);
+      const data = await sql.unsafe(
+        `
+            SELECT id, "decisionContent"
+            FROM legaldecisions_test_old
+            WHERE id = ANY($1::bigint[])
+        `,
+        // @ts-ignore
+        [ids]
+      );
 
-      if (error) {
-        console.log(`Tentative ${attempt}/${MAX_RETRIES} - Error fetching decisions:`, error);
-        if (attempt === MAX_RETRIES) {
-          return [];
-        }
-        await delay(RETRY_DELAY);
-        continue;
-      }
-
-      if (data) {
-        const decisionMap = new Map(data.map(item => [item.id, item.decisionContent]));
-        return ids.map(id => {
-          const content = decisionMap.get(id);
-          return content ? content.replace(/\n\s*/g, ' ').trim() : '';
-        });
+      if (data && Array.isArray(data)) {
+        return data.map(item => item.id);
       }
 
       return [];
     } catch (error) {
-      console.log(`Tentative ${attempt}/${MAX_RETRIES} - Error in fetching decisions:`, error);
+      console.error(`Attempt ${attempt}/${MAX_RETRIES} - Error fetching decisions:`, error);
       if (attempt === MAX_RETRIES) {
         return [];
       }

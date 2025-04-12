@@ -111,6 +111,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   const handleChatError = () => {
+    toast.error("Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer.");
     stopStreaming();
     setHasIncomplete(true);
     setIsGenerating(false);
@@ -201,6 +202,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
         insertMessage("user", text, threadId);
       } else {
         console.error("Streaming error:", error);
+        handleChatError();
       }
     } finally {
       setIsGenerating(false);
@@ -284,6 +286,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
     const threadId = threadIdState ? threadIdState : threadIdParams;
     if (!threadId) {
       console.error("Cannot retry because there is no threadId");
+      toast.error(`Impossible de régénérer la réponse.`);
       return;
     }
     setIsGenerating(true);
@@ -405,7 +408,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-[850px] pb-80 pt-40 mx-auto gap-8">
+    <div className="flex flex-col w-full max-w-[700px] pb-[600px] pt-40 mx-auto gap-8">
       {messages.map((message, index) => {
         const threadId = message.thread_id ?? threadIdState ?? threadIdParams;
         return (
@@ -471,7 +474,7 @@ export const Assistant = ({threadId: threadIdParams}: AssistantProps) => {
       <div
         className="fixed bottom-0 pb-8 left-0 right-0 mx-auto flex flex-col items-center justify-center bg-background">
         <div className="flex flex-row items-center justify-center w-full">
-          <div className="max-w-4xl w-full px-4 space-y-6">
+          <div className="max-w-[700px] w-full px-4 space-y-6">
             {(files.length > 0 && (selectedMode === "analysis" || selectedMode === "synthesis")) && (
               <UploadedFilesList
                 files={files}

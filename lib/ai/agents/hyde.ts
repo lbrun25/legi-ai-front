@@ -29,7 +29,6 @@ export const hydeNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call hydeAgent");
     //console.log('LES SUBQUESTIONS:', state.subQuestions)
     const systemMessage = await SystemMessagePromptTemplate
       .fromTemplate(HydeAgentPrompt)

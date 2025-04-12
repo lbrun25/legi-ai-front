@@ -145,7 +145,6 @@ const createGraph = async () => {
     // @ts-ignore
     .pipe(new JsonOutputToolsParser())
     .pipe((x) => {
-      console.timeEnd("call supervisor");
       console.log('Supervisor décision:', x[0].args);
       return (x[0].args);
     });
@@ -228,7 +227,6 @@ const createGraph = async () => {
     // @ts-ignore
     .pipe(new JsonOutputToolsParser())
     .pipe((output) => {
-      console.timeEnd("call output decisionsChain");
       console.log('[decisionsChain] Liste des requêtes:', JSON.stringify(output));
       return output[0].args; // Retourne les requêtes générées
     });

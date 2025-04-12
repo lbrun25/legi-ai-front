@@ -24,7 +24,6 @@ export const validationNode = async (
     state: typeof GraphAnnotation.State,
     config?: RunnableConfig,
   ) => {
-    console.timeEnd("call validationAgent");
 
     // Vérifier que toutes les réponses des agents sont présentes avant de lancer la validation
     const articlesThinkingAgentMessage = state.messages.find(
