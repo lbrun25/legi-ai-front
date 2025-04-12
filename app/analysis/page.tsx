@@ -5,8 +5,8 @@ import {AnalysisQuestion, AnalysisQuestionAnswerType} from "@/lib/types/analysis
 import {Calendar, CheckCircle, FileText, Hash} from "lucide-react";
 import {useAppState} from "@/lib/context/app-state";
 import {useEffect, useRef, useState} from "react";
-import {createChunksForFile, ingestChunks} from "@/lib/utils/documents";
 import {streamingFetch} from "@/lib/utils/fetch";
+import {fileToBase64} from "@/lib/utils/file";
 
 const answerTypeIcons: Record<AnalysisQuestionAnswerType, JSX.Element> = {
   number: <Hash className="w-4 h-4 inline mr-2 text-blue-500"/>,
@@ -41,28 +41,27 @@ export default function Page(
     hasExecuted.current = true;
     console.log('processDocuments');
     const processDocuments = async () => {
-      try {
-        await fetch('/api/assistant/files/checkTables', {
-          method: 'POST',
-        });
-      } catch (error) {
-        console.error("cannot check tables:", error);
-      }
-      try {
-        await fetch('/api/assistant/files/deleteAll', {
-          method: 'DELETE',
-        });
-      } catch (error) {
-        console.error("cannot delete user documents:", error);
-      }
       // Process all files in parallel
       const filePromises = analysisFiles.map(async (file, fileIndex) => {
         console.log('process file:', file.name);
-        const chunks = await createChunksForFile(file, chunkingMode);
-        await ingestChunks(chunks, file.name, (chunkIndex) => {});
+
+        const answerResponse = await fetch('/api/assistant/files/analysis/colpali', {
+          method: 'POST',
+          body: JSON.stringify({
+            filename: file.name,
+            fileBase64: await fileToBase64(file),
+            questions: parsedQuestions,
+          }),
+        });
+        if (!answerResponse.ok) {
+          console.error('Error processing file with colpali:', answerResponse.status);
+          return;
+        }
+        const { answers } = await answerResponse.json();
+
         const questionPromises = parsedQuestions.map(async (question: AnalysisQuestion) => {
           console.log('process question:', question);
-          analyseDocument(file, question, (result) => {
+          analyseDocument(question, answers[question.content], (result) => {
             updateCellResult(file.name, question.content, result);
           });
         });
@@ -83,18 +82,20 @@ export default function Page(
   };
 
 
-  const analyseDocument = async (file: File, question: AnalysisQuestion, setCellResult: (result: string) => void) => {
+  const analyseDocument = async (question: AnalysisQuestion, colpaliAnswer: string, setCellResult: (result: string) => void) => {
     const { signal } = new AbortController();
 
     let answer = "";
     let firstChunkReceived = false;
 
+    console.log('will analyse question:', question, "for colpali answer:", colpaliAnswer);
+
     try {
       const stream = streamingFetch('/api/assistant/files/analysis', {
         method: 'POST',
         body: JSON.stringify({
-          filename: file.name,
           question: question,
+          answer: colpaliAnswer,
         }),
         signal
       });

@@ -236,6 +236,33 @@ class ElasticsearchClientSingleton {
       console.error(`Error deleting all data from index ${index}:`, error);
     }
   }
+
+  public async searchTitleSuggestions(query: string, limit: number = 5): Promise<{ title: string; idcc: string }[]> {
+    try {
+      const result = await this.client.search<{ title: string; idcc: string }>({
+        index: 'conv_coll',
+        query: {
+          bool: {
+            should: [
+              { match: { title: query } },  // Search by title
+              { match: { idcc: query } }    // Search by idcc
+            ],
+            minimum_should_match: 1  // At least one condition must match
+          }
+        },
+        size: limit,
+        _source: ['title', 'idcc'], // Fetch only the required fields
+      });
+
+      return result.hits.hits.map((hit) => ({
+        title: hit._source?.title || "",
+        idcc: hit._source?.idcc || "",
+      }));
+    } catch (error) {
+      console.error("Error fetching suggestions from Elasticsearch:", error);
+      return [];
+    }
+  }
 }
 
 export const ElasticsearchClient = ElasticsearchClientSingleton.getInstance();

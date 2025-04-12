@@ -321,7 +321,7 @@ const formattingNode = async (
     .addNode("DecisionsInterpretHydeAgent", decisionsInterpretHydeNode)
 
     .addNode("ValidationAgent", validationNode)
-    .addNode("WebSearchAgent", webSearchNode)
+    // .addNode("WebSearchAgent", webSearchNode)
     .addNode("HydeAgent", hydeNode)
     .addNode("CriticalAgent", criticalNode)
     .addNode("FormattingAgent", formattingNode);
@@ -339,14 +339,14 @@ const formattingNode = async (
   // Boucle Supervisor aux agents
   workflow.addConditionalEdges(
     "Supervisor",
-    () => ["DecisionsAgent", "WebSearchAgent", "HydeAgent"]//, "WebSearchAgent", "HydeAgent", "DecisionsAgent"] // C'EST ICI QUE JE LANCE LES GRAPHS ? + GERER COMMENT LEUR FAIRE PUTAIN DE PASSER LES STATE POUR BIEN DERTERMINER
+    () => ["DecisionsAgent", "HydeAgent"]//, "WebSearchAgent", "HydeAgent", "DecisionsAgent"] // C'EST ICI QUE JE LANCE LES GRAPHS ? + GERER COMMENT LEUR FAIRE PUTAIN DE PASSER LES STATE POUR BIEN DERTERMINER
   );
 
   workflow.addEdge("HydeAgent", "DoctrinesInterpretHydeAgent");
   workflow.addEdge("DoctrinesInterpretHydeAgent", "ValidationAgent");
   workflow.addEdge("DecisionsAgent", "DecisionsThinkingAgent");
   workflow.addEdge("DecisionsThinkingAgent", "ValidationAgent");
-  workflow.addEdge("WebSearchAgent", "ValidationAgent");
+  // workflow.addEdge("WebSearchAgent", "ValidationAgent");
   workflow.addEdge("ValidationAgent", "FormattingAgent");
   //workflow.addEdge("CriticalAgent", "FormattingAgent");
   workflow.addEdge("FormattingAgent", END);
