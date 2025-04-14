@@ -69,6 +69,29 @@ export default function Page() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [selectedBpIndex, setSelectedBpIndex] = useState<number | null>(null);
 
+  const [panelWidth, setPanelWidth] = useState(900);
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - e.clientX;
+      setPanelWidth(Math.max(300, Math.min(newWidth, 1000)));
+    };
+
+    const handleMouseUp = () => setIsResizing(false);
+
+    if (isResizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
   const handleIclForm = (field: string, value: number) => {
     setIclFormData((prev) => {
       if (!prev) return prev;
@@ -394,471 +417,477 @@ export default function Page() {
   }
 
   return (
-    <div className="flex flex-col w-full max-w-prose py-24 mx-auto space-y-6">
-      {/* Pay Slips Drag Zone */}
-      <DragZoneFiles
-        onDrop={onDropBps}
-        dragActiveLabel="Déposez vos bulletins de salaire ici..."
-        label={(
-          <p className="text-gray-600">
-            {"Glisser-déposer de 1 à 12 fiches de paie ici, ou "}
-            <span className="text-blue-500 font-medium underline">{"cliquez"}</span>{" "}
-            {"pour sélectionner les fichiers."}
-          </p>
-        )}
-      />
-
-      {/* List of Uploaded Files */}
-      <UploadedFilesList
-        files={[...bpFiles]}
-        onDeleteFile={handleDeleteFile}
-        uploading={false}
-        progress={{}}
-      />
-
-      {isEditableInfoVisible && (
-        <div
-          className="flex flex-col w-full max-w-prose py-8 mx-auto space-y-6 rounded-3xl bg-gray-50 dark:bg-gray-900 px-8">
-          <h2 className="text-lg font-medium">{"🔍 Rechercher une Convention Collective"}</h2>
-          <SearchBarAgreements onSelect={handleSuggestionSelect}/>
-          {selectedAgreementSuggestion && (
-            <div
-              className="text-sm mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
-              <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-1">
-                {"Convention collective sélectionnée:"}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                <strong>IDCC:</strong> {selectedAgreementSuggestion.idcc}
-              </p>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                <strong>Titre:</strong> {selectedAgreementSuggestion.title}
-              </p>
-            </div>
+    <div className="flex flex-row w-full h-full space-x-8 px-[300px] py-24">
+      <div
+        className={`flex-1 overflow-auto space-y-6 ${isPdfModalOpen ? 'mr-1' : 'mx-auto max-w-prose'}`}>
+        {/* Pay Slips Drag Zone */}
+        <DragZoneFiles
+          onDrop={onDropBps}
+          dragActiveLabel="Déposez vos bulletins de salaire ici..."
+          label={(
+            <p className="text-gray-600">
+              {"Glisser-déposer de 1 à 12 fiches de paie ici, ou "}
+              <span className="text-blue-500 font-medium underline">{"cliquez"}</span>{" "}
+              {"pour sélectionner les fichiers."}
+            </p>
           )}
-        </div>
-      )}
+        />
 
-      {/* Employee Information Section */}
-      {isEditableInfoVisible && (
-        <div className="border p-4 rounded-md shadow-md bg-gray-50 space-y-4 mt-4">
-          <h3 className="font-medium text-lg text-gray-800 mb-2">{"👤 Informations salarié"}</h3>
+        {/* List of Uploaded Files */}
+        <UploadedFilesList
+          files={[...bpFiles]}
+          onDeleteFile={handleDeleteFile}
+          uploading={false}
+          progress={{}}
+        />
 
-          {/* Employee Name Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Nom</label>
-            <Input
-              type="text"
-              name="employeeName"
-              placeholder="Nom"
-              value={employeeName}
-              onChange={(e) => setEmployeeName(e.target.value)}
-              className="pr-14 h-12"
-            />
-          </div>
-
-          {/* Entry Date Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Date d'entrée
-            </label>
-            <DatePicker
-              selected={entryDate}
-              onChange={(date: Date | null) => setEntryDate(date)}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Sélectionnez une date"
-              className="pl-4 pr-14 h-12 border border-gray-300 rounded-md"
-            />
-          </div>
-
-          {/* Earned Paid Leave Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">{"Congés payés acquis à date"}</label>
-            <Input
-              type="number"
-              name="earnedPaidLeave"
-              placeholder=""
-              value={earnedPaidLeave ?? 0}
-              onChange={(e) => setEarnedPaidLeave(Number(e.target.value))}
-              className="pr-14 h-12"
-            />
-          </div>
-
-          {/* Date de notification */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Date de notification
-            </label>
-            <DatePicker
-              selected={notificationDate}
-              onChange={(date: Date | null) => setNotificationDate(date)}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Date de notification"
-              className="pl-4 pr-14 h-12 border border-gray-300 rounded-md"
-              required
-            />
-          </div>
-
-          {/* Arrêt après le dernier bulletin de paie */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {"Le salarié a-t-il été en arrêt après le dernier bulletin de paie ?"}
-            </label>
-            <select
-              name="arreteApresBulletin"
-              value={isSickAfterLastBp}
-              onChange={(e) => setIsSickAfterLastBp(e.target.value)}
-              className="mt-1 block w-full p-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            >
-              <option value="">Sélectionnez</option>
-              <option value="OUI">OUI</option>
-              <option value="NON">NON</option>
-            </select>
-          </div>
-
-          {/* Catégorie de l'employée */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {"Catégorie de l'employée"}
-            </label>
-            <Input
-              type="text"
-              name="employeeClassification"
-              placeholder="Cadre, salarié, stagiaire..."
-              value={employeeQualification || ""}
-              onChange={(e) => setEmployeeQualification(e.target.value)}
-              className="pr-14 h-12"
-            />
-          </div>
-
-          {/* Classification de l'employée */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {"Classification de l'employée"}
-            </label>
-            <Input
-              type="text"
-              name="employeeClassificationLevel"
-              placeholder="Niveau 2, Échelon 3..."
-              value={employeeClassificationLevel || ""}
-              onChange={(e) => setEmployeeClassificationLevel(e.target.value)}
-              className="pr-14 h-12"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Section pour les messages d'éligibilité */}
-      {/*{isSimulationFinished && (*/}
-      {/*  <div className="space-y-4 mt-4 border p-4 rounded-md shadow-md bg-gray-50">*/}
-      {/*    <h3 className="font-medium text-lg text-gray-800 mb-2">⚖️ Éligibilité à l'Indemnité</h3>*/}
-
-      {/*    /!* Toggle pour le message légal *!/*/}
-      {/*    <div>*/}
-      {/*      <div className="flex justify-between items-center cursor-pointer"*/}
-      {/*           onClick={() => setIsLegalSeveranceEligibilityMessageVisible(!isLegalSeveranceEligibilityMessageVisible)}>*/}
-      {/*        <h4 className="font-medium text-md text-gray-700">Éligibilité Légale</h4>*/}
-      {/*        <span>{isLegalSeveranceEligibilityMessageVisible ? "▲" : "▼"}</span>*/}
-      {/*      </div>*/}
-      {/*      {isLegalSeveranceEligibilityMessageVisible && (*/}
-      {/*        <p*/}
-      {/*          className="mt-2 text-gray-600 text-sm border-t pt-2">{legalSeveranceEligibilityMessage || "Aucune donnée disponible."}</p>*/}
-      {/*      )}*/}
-      {/*    </div>*/}
-
-      {/*    /!* Toggle pour le message conventionnel *!/*/}
-      {/*    <div>*/}
-      {/*      <div className="flex justify-between items-center cursor-pointer"*/}
-      {/*           onClick={() => setIsConventionSeveranceEligibilityMessageVisible(!isConventionSeveranceEligibilityMessageVisible)}>*/}
-      {/*        <h4 className="font-medium text-md text-gray-700">Éligibilité Conventionnelle</h4>*/}
-      {/*        <span>{isConventionSeveranceEligibilityMessageVisible ? "▲" : "▼"}</span>*/}
-      {/*      </div>*/}
-      {/*      {isConventionSeveranceEligibilityMessageVisible && (*/}
-      {/*        <p*/}
-      {/*          className="mt-2 text-gray-600 text-sm border-t pt-2">{conventionSeveranceEligibilityMessage || "Aucune donnée disponible."}</p>*/}
-      {/*      )}*/}
-      {/*    </div>*/}
-      {/*  </div>*/}
-      {/*)}*/}
-
-      {/* Display Extracted Fields for Each Pay Slip */}
-      {isEditableInfoVisible && (
-        <div className="space-y-4 mt-4">
-          {bpInfos.map((bp, index) => (
-            <div key={index} className="border p-4 rounded-md shadow-md bg-gray-50">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
-                {/* PDF Preview Component next to the title */}
-                <Button
-                  onClick={() => {
-                    setSelectedBpIndex(index);
-                    setIsPdfModalOpen(true);
-                  }}
-                  variant="ghost"
-                  className="ml-4"
-                >
-                  {"Voir PDF"}
-                </Button>
+        {isEditableInfoVisible && (
+          <div
+            className="flex flex-col w-full max-w-prose py-8 mx-auto space-y-6 rounded-3xl bg-gray-50 dark:bg-gray-900 px-8">
+            <h2 className="text-lg font-medium">{"🔍 Rechercher une Convention Collective"}</h2>
+            <SearchBarAgreements onSelect={handleSuggestionSelect}/>
+            {selectedAgreementSuggestion && (
+              <div
+                className="text-sm mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                  {"Convention collective sélectionnée:"}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <strong>IDCC:</strong> {selectedAgreementSuggestion.idcc}
+                </p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <strong>Titre:</strong> {selectedAgreementSuggestion.title}
+                </p>
               </div>
-              {/* Other BP fields can be rendered below */}
-              <div className="mt-4">
-                {/* Gross Salary Field */}
-                <div className="mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Salaire brut
-                  </label>
-                  <Input
-                    type="text"
-                    name="grossSalary"
-                    placeholder="Salaire brut"
-                    value={bp.salaire_brut_montant || ""}
-                    className="pr-14 h-12"
-                    onChange={(e) => {
-                      const updatedValue = parseFloat(e.target.value || "0");
-                      setBpInfos((prevBpInfos) =>
-                        prevBpInfos.map((item, i) =>
-                          i === index
-                            ? {...item, salaire_brut_montant: updatedValue}
-                            : item
-                        )
-                      );
-                    }}
-                  />
-                </div>
+            )}
+          </div>
+        )}
 
-                {/* Sick Leave Field */}
-                <div className="mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Nombre d'arrêts maladie
-                  </label>
-                  <Input
-                    type="number"
-                    name="sickLeaveWorkingDays"
-                    placeholder="0"
-                    value={bp.sickLeaveWorkingDays || 0}
-                    className="pr-14 h-12"
-                    onChange={(e) => {
-                      const updatedValue = parseFloat(e.target.value);
-                      if (isNaN(updatedValue)) {
-                        console.warn("Invalid number entered");
-                        return;
-                      }
-                      setBpInfos((prevBpInfos) =>
-                        prevBpInfos.map((item, i) =>
-                          i === index
-                            ? {...item, sickLeaveWorkingDays: updatedValue}
-                            : item
-                        )
-                      );
-                    }}
-                  />
-                </div>
+        {/* Employee Information Section */}
+        {isEditableInfoVisible && (
+          <div className="border p-4 rounded-md shadow-md bg-gray-50 space-y-4 mt-4">
+            <h3 className="font-medium text-lg text-gray-800 mb-2">{"👤 Informations salarié"}</h3>
 
-                {/* Primes Field */}
-                {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Primes
-                    </label>
-                    {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
-                      <Input
-                        key={primeIndex}
-                        type="number"
-                        name={`premium-${primeIndex}`}
-                        placeholder="0"
-                        value={prime || ""}
-                        className="pr-14 h-12"
-                        onChange={(e) => {
-                          const updatedValue = parseFloat(e.target.value || "0");
-                          setBpInfos((prevBpInfos) =>
-                            prevBpInfos.map((item, i) => {
-                              if (i === index) {
-                                return {
-                                  ...item,
-                                  primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
-                                    j === primeIndex ? updatedValue : p
-                                  ),
-                                };
-                              }
-                              return item;
-                            })
-                          );
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-                {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Avantage en nature
-                    </label>
-                    {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
-                      <Input
-                        key={advIndex}
-                        type="number"
-                        name={`natureAdvantage-${advIndex}`}
-                        placeholder="0"
-                        value={advantage || ""}
-                        className="pr-14 h-12"
-                        onChange={(e) => {
-                          const updatedValue = parseFloat(e.target.value || "0");
-                          setBpInfos((prevBpInfos) =>
-                            prevBpInfos.map((item, i) => {
-                              if (i === index) {
-                                return {
-                                  ...item,
-                                  avantage_en_nature_montant: item.avantage_en_nature_montant.map(
-                                    (a, j) => (j === advIndex ? updatedValue : a)
-                                  ),
-                                };
-                              }
-                              return item;
-                            })
-                          );
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+            {/* Employee Name Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Nom</label>
+              <Input
+                type="text"
+                name="employeeName"
+                placeholder="Nom"
+                value={employeeName}
+                onChange={(e) => setEmployeeName(e.target.value)}
+                className="pr-14 h-12"
+              />
             </div>
-          ))}
-        </div>
-      )}
 
-      {isSeveranceEligible === false && (
-        <div className="border p-4 rounded-md shadow-md bg-red-50 text-red-800 space-y-2 mt-4">
-          <h3 className="font-medium text-lg">{"❌ Non Éligible"}</h3>
-          <p>{"Le salarié n'est pas éligible à une indemnité de licenciement."}</p>
-        </div>
-      )}
+            {/* Entry Date Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Date d'entrée
+              </label>
+              <DatePicker
+                selected={entryDate}
+                onChange={(date: Date | null) => setEntryDate(date)}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Sélectionnez une date"
+                className="pl-4 pr-14 h-12 border border-gray-300 rounded-md"
+              />
+            </div>
 
-      {/* Start Simulation Button */}
-      {!isSimulationFinished && (
-        <Button
-          variant="default"
-          onClick={onButtonClicked}
-          disabled={isProcessing || bpFiles.length === 0 || isSeveranceEligible === false}
-        >
-          {isProcessing
-            ? currentStep === "extract"
-              ? "Extraction en cours..."
-              : "Simulation en cours..."
-            : currentStep === "extract"
-              ? "Suivant"
-              : "Calculer"}
-        </Button>
-      )}
-      {/* Accordéon pour afficher les détails de vérification */}
-      {isSimulationFinished && (
-        <Accordion.Root type="single" collapsible>
-          <Accordion.Item value="checkedDataDetails">
-            <Accordion.Header>
-              <Accordion.Trigger
-                className="flex justify-between items-center w-full py-2 px-4 border rounded-md bg-gray-50 hover:bg-gray-100"
+            {/* Earned Paid Leave Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">{"Congés payés acquis à date"}</label>
+              <Input
+                type="number"
+                name="earnedPaidLeave"
+                placeholder=""
+                value={earnedPaidLeave ?? 0}
+                onChange={(e) => setEarnedPaidLeave(Number(e.target.value))}
+                className="pr-14 h-12"
+              />
+            </div>
+
+            {/* Date de notification */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Date de notification
+              </label>
+              <DatePicker
+                selected={notificationDate}
+                onChange={(date: Date | null) => setNotificationDate(date)}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="Date de notification"
+                className="pl-4 pr-14 h-12 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+
+            {/* Arrêt après le dernier bulletin de paie */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                {"Le salarié a-t-il été en arrêt après le dernier bulletin de paie ?"}
+              </label>
+              <select
+                name="arreteApresBulletin"
+                value={isSickAfterLastBp}
+                onChange={(e) => setIsSickAfterLastBp(e.target.value)}
+                className="mt-1 block w-full p-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
-                📝 Afficher les détails
-                <span>▼</span>
-              </Accordion.Trigger>
-            </Accordion.Header>
-            <Accordion.Content>
-              <div className="mt-2 p-4 border rounded-md bg-gray-100">
-                {/* Title with Edit Icon */}
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-md font-medium">📝 Détails</h4>
-                  <button
-                    className="text-gray-500 hover:text-gray-800 transition"
-                    aria-label="Toggle edit mode"
-                    onClick={() => setIsEditMode(!isEditMode)}
-                  >
-                    <Pencil size={18}/>
-                  </button>
-                </div>
+                <option value="">Sélectionnez</option>
+                <option value="OUI">OUI</option>
+                <option value="NON">NON</option>
+              </select>
+            </div>
 
-                <div className="prose prose-sm max-w-none text-gray-800 overflow-auto p-4 bg-white rounded shadow">
-                  {isSimulationLoading ? (
-                    // Loader Spinner
-                    <div className="flex justify-center items-center py-10">
-                      <div
-                        className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                    </div>
-                  ) : (
-                    <>
-                      {isEditMode ? (
-                        <div>
-                          <EditIclDialogContent
-                            referenceSalary={iclFormData?.referenceSalary || 0}
-                            legalSeniority={iclFormData?.legalSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
-                            conventionSeniority={iclFormData?.conventionSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
-                            legalAdvanceNotice={iclFormData?.legalAdvanceNotice || 0}
-                            conventionAdvanceNotice={iclFormData?.conventionAdvanceNotice || 0}
-                            onChange={handleIclForm}
-                          />
-                          <Button
-                            variant="default"
-                            className="mt-2"
-                            onClick={async () => {
-                              setIsSimulationLoading(true);
-                              setIsEditMode(false);
-                              await startSimulation();
-                              setIsSimulationLoading(false);
-                            }}
-                          >
-                            {"Sauvegarder"}
-                          </Button>
-                        </div>
-                      ) : (
-                        <ReactMarkdown
-                          rehypePlugins={[rehypeRaw]}
-                          components={{
-                            mark: ({node, ...props}) => renderConventionArticles(node, props),
+            {/* Catégorie de l'employée */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                {"Catégorie de l'employée"}
+              </label>
+              <Input
+                type="text"
+                name="employeeClassification"
+                placeholder="Cadre, salarié, stagiaire..."
+                value={employeeQualification || ""}
+                onChange={(e) => setEmployeeQualification(e.target.value)}
+                className="pr-14 h-12"
+              />
+            </div>
+
+            {/* Classification de l'employée */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                {"Classification de l'employée"}
+              </label>
+              <Input
+                type="text"
+                name="employeeClassificationLevel"
+                placeholder="Niveau 2, Échelon 3..."
+                value={employeeClassificationLevel || ""}
+                onChange={(e) => setEmployeeClassificationLevel(e.target.value)}
+                className="pr-14 h-12"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Section pour les messages d'éligibilité */}
+        {/*{isSimulationFinished && (*/}
+        {/*  <div className="space-y-4 mt-4 border p-4 rounded-md shadow-md bg-gray-50">*/}
+        {/*    <h3 className="font-medium text-lg text-gray-800 mb-2">⚖️ Éligibilité à l'Indemnité</h3>*/}
+
+        {/*    /!* Toggle pour le message légal *!/*/}
+        {/*    <div>*/}
+        {/*      <div className="flex justify-between items-center cursor-pointer"*/}
+        {/*           onClick={() => setIsLegalSeveranceEligibilityMessageVisible(!isLegalSeveranceEligibilityMessageVisible)}>*/}
+        {/*        <h4 className="font-medium text-md text-gray-700">Éligibilité Légale</h4>*/}
+        {/*        <span>{isLegalSeveranceEligibilityMessageVisible ? "▲" : "▼"}</span>*/}
+        {/*      </div>*/}
+        {/*      {isLegalSeveranceEligibilityMessageVisible && (*/}
+        {/*        <p*/}
+        {/*          className="mt-2 text-gray-600 text-sm border-t pt-2">{legalSeveranceEligibilityMessage || "Aucune donnée disponible."}</p>*/}
+        {/*      )}*/}
+        {/*    </div>*/}
+
+        {/*    /!* Toggle pour le message conventionnel *!/*/}
+        {/*    <div>*/}
+        {/*      <div className="flex justify-between items-center cursor-pointer"*/}
+        {/*           onClick={() => setIsConventionSeveranceEligibilityMessageVisible(!isConventionSeveranceEligibilityMessageVisible)}>*/}
+        {/*        <h4 className="font-medium text-md text-gray-700">Éligibilité Conventionnelle</h4>*/}
+        {/*        <span>{isConventionSeveranceEligibilityMessageVisible ? "▲" : "▼"}</span>*/}
+        {/*      </div>*/}
+        {/*      {isConventionSeveranceEligibilityMessageVisible && (*/}
+        {/*        <p*/}
+        {/*          className="mt-2 text-gray-600 text-sm border-t pt-2">{conventionSeveranceEligibilityMessage || "Aucune donnée disponible."}</p>*/}
+        {/*      )}*/}
+        {/*    </div>*/}
+        {/*  </div>*/}
+        {/*)}*/}
+
+        {/* Display Extracted Fields for Each Pay Slip */}
+        {isEditableInfoVisible && (
+          <div className="space-y-4 mt-4">
+            {bpInfos.map((bp, index) => (
+              <div key={index} className="border p-4 rounded-md shadow-md bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
+                  {/* PDF Preview Component next to the title */}
+                  <Button
+                    onClick={() => {
+                      setSelectedBpIndex(index);
+                      setIsPdfModalOpen(true);
+                    }}
+                    variant="ghost"
+                    className="ml-4"
+                  >
+                    {"Voir PDF"}
+                  </Button>
+                </div>
+                {/* Other BP fields can be rendered below */}
+                <div className="mt-4">
+                  {/* Gross Salary Field */}
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Salaire brut
+                    </label>
+                    <Input
+                      type="text"
+                      name="grossSalary"
+                      placeholder="Salaire brut"
+                      value={bp.salaire_brut_montant || ""}
+                      className="pr-14 h-12"
+                      onChange={(e) => {
+                        const updatedValue = parseFloat(e.target.value || "0");
+                        setBpInfos((prevBpInfos) =>
+                          prevBpInfos.map((item, i) =>
+                            i === index
+                              ? {...item, salaire_brut_montant: updatedValue}
+                              : item
+                          )
+                        );
+                      }}
+                    />
+                  </div>
+
+                  {/* Sick Leave Field */}
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Nombre d'arrêts maladie
+                    </label>
+                    <Input
+                      type="number"
+                      name="sickLeaveWorkingDays"
+                      placeholder="0"
+                      value={bp.sickLeaveWorkingDays || 0}
+                      className="pr-14 h-12"
+                      onChange={(e) => {
+                        const updatedValue = parseFloat(e.target.value);
+                        if (isNaN(updatedValue)) {
+                          console.warn("Invalid number entered");
+                          return;
+                        }
+                        setBpInfos((prevBpInfos) =>
+                          prevBpInfos.map((item, i) =>
+                            i === index
+                              ? {...item, sickLeaveWorkingDays: updatedValue}
+                              : item
+                          )
+                        );
+                      }}
+                    />
+                  </div>
+
+                  {/* Primes Field */}
+                  {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Primes
+                      </label>
+                      {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
+                        <Input
+                          key={primeIndex}
+                          type="number"
+                          name={`premium-${primeIndex}`}
+                          placeholder="0"
+                          value={prime || ""}
+                          className="pr-14 h-12"
+                          onChange={(e) => {
+                            const updatedValue = parseFloat(e.target.value || "0");
+                            setBpInfos((prevBpInfos) =>
+                              prevBpInfos.map((item, i) => {
+                                if (i === index) {
+                                  return {
+                                    ...item,
+                                    primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
+                                      j === primeIndex ? updatedValue : p
+                                    ),
+                                  };
+                                }
+                                return item;
+                              })
+                            );
                           }}
-                        >
-                          {detailsIcl}
-                        </ReactMarkdown>
-                      )}
-                    </>
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Avantage en nature
+                      </label>
+                      {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
+                        <Input
+                          key={advIndex}
+                          type="number"
+                          name={`natureAdvantage-${advIndex}`}
+                          placeholder="0"
+                          value={advantage || ""}
+                          className="pr-14 h-12"
+                          onChange={(e) => {
+                            const updatedValue = parseFloat(e.target.value || "0");
+                            setBpInfos((prevBpInfos) =>
+                              prevBpInfos.map((item, i) => {
+                                if (i === index) {
+                                  return {
+                                    ...item,
+                                    avantage_en_nature_montant: item.avantage_en_nature_montant.map(
+                                      (a, j) => (j === advIndex ? updatedValue : a)
+                                    ),
+                                  };
+                                }
+                                return item;
+                              })
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
-            </Accordion.Content>
-          </Accordion.Item>
-        </Accordion.Root>
-      )}
-      {/* Severance Pay Section */}
-      {(severancePay && !isSimulationLoading) && (
-        <div className="border p-4 rounded-md shadow-md bg-green-50 space-y-4 mt-4">
-          <h3 className="font-medium text-lg text-green-800 mb-2">{"💼 ICL"}</h3>
-          <p className="text-gray-700 text-lg">
-            <strong>Montant : </strong> {severancePay}
-          </p>
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+
+        {isSeveranceEligible === false && (
+          <div className="border p-4 rounded-md shadow-md bg-red-50 text-red-800 space-y-2 mt-4">
+            <h3 className="font-medium text-lg">{"❌ Non Éligible"}</h3>
+            <p>{"Le salarié n'est pas éligible à une indemnité de licenciement."}</p>
+          </div>
+        )}
+
+        {/* Start Simulation Button */}
+        {!isSimulationFinished && (
+          <Button
+            variant="default"
+            onClick={onButtonClicked}
+            disabled={isProcessing || bpFiles.length === 0 || isSeveranceEligible === false}
+          >
+            {isProcessing
+              ? currentStep === "extract"
+                ? "Extraction en cours..."
+                : "Simulation en cours..."
+              : currentStep === "extract"
+                ? "Suivant"
+                : "Calculer"}
+          </Button>
+        )}
+        {/* Accordéon pour afficher les détails de vérification */}
+        {isSimulationFinished && (
+          <Accordion.Root type="single" collapsible>
+            <Accordion.Item value="checkedDataDetails">
+              <Accordion.Header>
+                <Accordion.Trigger
+                  className="flex justify-between items-center w-full py-2 px-4 border rounded-md bg-gray-50 hover:bg-gray-100"
+                >
+                  📝 Afficher les détails
+                  <span>▼</span>
+                </Accordion.Trigger>
+              </Accordion.Header>
+              <Accordion.Content>
+                <div className="mt-2 p-4 border rounded-md bg-gray-100">
+                  {/* Title with Edit Icon */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-md font-medium">📝 Détails</h4>
+                    <button
+                      className="text-gray-500 hover:text-gray-800 transition"
+                      aria-label="Toggle edit mode"
+                      onClick={() => setIsEditMode(!isEditMode)}
+                    >
+                      <Pencil size={18}/>
+                    </button>
+                  </div>
+
+                  <div className="prose prose-sm max-w-none text-gray-800 overflow-auto p-4 bg-white rounded shadow">
+                    {isSimulationLoading ? (
+                      // Loader Spinner
+                      <div className="flex justify-center items-center py-10">
+                        <div
+                          className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                      </div>
+                    ) : (
+                      <>
+                        {isEditMode ? (
+                          <div>
+                            <EditIclDialogContent
+                              referenceSalary={iclFormData?.referenceSalary || 0}
+                              legalSeniority={iclFormData?.legalSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
+                              conventionSeniority={iclFormData?.conventionSeniority as Omit<SeniorityValueResponse, "formatted_duration">}
+                              legalAdvanceNotice={iclFormData?.legalAdvanceNotice || 0}
+                              conventionAdvanceNotice={iclFormData?.conventionAdvanceNotice || 0}
+                              onChange={handleIclForm}
+                            />
+                            <Button
+                              variant="default"
+                              className="mt-2"
+                              onClick={async () => {
+                                setIsSimulationLoading(true);
+                                setIsEditMode(false);
+                                await startSimulation();
+                                setIsSimulationLoading(false);
+                              }}
+                            >
+                              {"Sauvegarder"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <ReactMarkdown
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                              mark: ({node, ...props}) => renderConventionArticles(node, props),
+                            }}
+                          >
+                            {detailsIcl}
+                          </ReactMarkdown>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Accordion.Content>
+            </Accordion.Item>
+          </Accordion.Root>
+        )}
+        {/* Severance Pay Section */}
+        {(severancePay && !isSimulationLoading) && (
+          <div className="border p-4 rounded-md shadow-md bg-green-50 space-y-4 mt-4">
+            <h3 className="font-medium text-lg text-green-800 mb-2">{"💼 ICL"}</h3>
+            <p className="text-gray-700 text-lg">
+              <strong>Montant : </strong> {severancePay}
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* PDF Viewer */}
       {isPdfModalOpen && selectedBpIndex !== null && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 z-50"
-          style={{ margin: 0, padding: 0 }}
+          className="relative border-l shadow-lg h-screen overflow-auto bg-white py-auto items-center"
+          style={{width: `${panelWidth}px`}}
         >
-          {/* A container that takes the full viewport */}
-          <div className="relative w-full h-full flex flex-col">
-            <button
-              onClick={() => setIsPdfModalOpen(false)}
-              style={{ zIndex: 10000 }}
-              className="absolute top-4 right-4 bg-black text-white px-4 py-2 rounded-md"
-            >
-              Fermer
-            </button>
-            <div className="flex-grow bg-white">
-              <div className="w-full h-full">
-                <PdfViewerIframe
-                  pdfFile={bpFiles[selectedBpIndex]}
-                  boundingBoxes={bpInfos[selectedBpIndex].boundingBoxes}
-                  pageNumber={1}
-                />
-              </div>
-            </div>
+          {/* Handle resize */}
+          <div
+            className="absolute left-0 top-0 h-full w-2 cursor-col-resize z-10"
+            onMouseDown={() => setIsResizing(true)}
+          />
+
+          {/* Bouton Fermer */}
+          <button
+            onClick={() => setIsPdfModalOpen(false)}
+            className="absolute top-4 right-4 text-gray-600 hover:text-black z-20"
+          >
+            Fermer ✖
+          </button>
+
+          {/* Viewer */}
+          <div className="h-full pt-12">
+            <PdfViewerIframe
+              pdfFile={bpFiles[selectedBpIndex]}
+              boundingBoxes={bpInfos[selectedBpIndex]?.boundingBoxes || []}
+              pageNumber={1}
+            />
           </div>
         </div>
       )}
