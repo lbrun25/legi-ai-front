@@ -38,6 +38,7 @@ import {MatchedCollectiveAgreementDocument} from "@/lib/supabase/agreements";
 import {Pencil} from "lucide-react";
 import {EditIclDialogContent} from "@/components/edit-icl-dialog-content";
 import PdfViewerIframe from "@/components/pdf-viewer";
+import {ContractTimeline} from "@/components/contract-timeline";
 
 export default function Page() {
   const [bpFiles, setBpFiles] = useState<File[]>([]);
@@ -858,6 +859,17 @@ export default function Page() {
               <strong>Montant : </strong> {severancePay}
             </p>
           </div>
+        )}
+        {notificationDate && iclFormData?.legalAdvanceNotice !== undefined && (
+          <ContractTimeline
+            notificationDate={notificationDate}
+            advanceNoticeInMonths={max(iclFormData.legalAdvanceNotice, iclFormData.conventionAdvanceNotice)}
+            contractEndDate={new Date(
+              notificationDate.getFullYear(),
+              notificationDate.getMonth() + max(iclFormData.legalAdvanceNotice, iclFormData.conventionAdvanceNotice),
+              notificationDate.getDate()
+            )}
+          />
         )}
       </div>
 
