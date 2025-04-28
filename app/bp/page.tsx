@@ -67,7 +67,6 @@ export default function Page() {
 
   const [iclFormData, setIclFormData] = useState<IclFormData | null>(null);
 
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [selectedBpIndex, setSelectedBpIndex] = useState<number | null>(null);
 
   const [panelWidth, setPanelWidth] = useState(900);
@@ -418,9 +417,8 @@ export default function Page() {
   }
 
   return (
-    <div className="flex flex-row w-full h-full space-x-8 px-[300px] py-24">
-      <div
-        className={`flex-1 overflow-auto space-y-6 ${isPdfModalOpen ? 'mr-1' : 'mx-auto max-w-prose'}`}>
+    <div className="w-full h-full pl-[300px] pr-16 py-24">
+      <div className="space-y-6 w-full flex flex-col items-center">
         {/* Pay Slips Drag Zone */}
         <DragZoneFiles
           onDrop={onDropBps}
@@ -608,147 +606,165 @@ export default function Page() {
 
         {/* Display Extracted Fields for Each Pay Slip */}
         {isEditableInfoVisible && (
-          <div className="space-y-4 mt-4">
-            {bpInfos.map((bp, index) => (
-              <div key={index} className="border p-4 rounded-md shadow-md bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
-                  {/* PDF Preview Component next to the title */}
-                  <Button
-                    onClick={() => {
-                      setSelectedBpIndex(index);
-                      setIsPdfModalOpen(true);
-                    }}
-                    variant="ghost"
-                    className="ml-4"
-                  >
-                    {"Voir PDF"}
-                  </Button>
-                </div>
-                {/* Other BP fields can be rendered below */}
-                <div className="mt-4">
-                  {/* Gross Salary Field */}
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Salaire brut
-                    </label>
-                    <Input
-                      type="text"
-                      name="grossSalary"
-                      placeholder="Salaire brut"
-                      value={bp.salaire_brut_montant || ""}
-                      className="pr-14 h-12"
-                      onChange={(e) => {
-                        const updatedValue = parseFloat(e.target.value || "0");
-                        setBpInfos((prevBpInfos) =>
-                          prevBpInfos.map((item, i) =>
-                            i === index
-                              ? {...item, salaire_brut_montant: updatedValue}
-                              : item
-                          )
-                        );
-                      }}
-                    />
-                  </div>
-
-                  {/* Sick Leave Field */}
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Nombre d'arrêts maladie
-                    </label>
-                    <Input
-                      type="number"
-                      name="sickLeaveWorkingDays"
-                      placeholder="0"
-                      value={bp.sickLeaveWorkingDays || 0}
-                      className="pr-14 h-12"
-                      onChange={(e) => {
-                        const updatedValue = parseFloat(e.target.value);
-                        if (isNaN(updatedValue)) {
-                          console.warn("Invalid number entered");
-                          return;
-                        }
-                        setBpInfos((prevBpInfos) =>
-                          prevBpInfos.map((item, i) =>
-                            i === index
-                              ? {...item, sickLeaveWorkingDays: updatedValue}
-                              : item
-                          )
-                        );
-                      }}
-                    />
-                  </div>
-
-                  {/* Primes Field */}
-                  {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
-                    <div className="mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Primes
-                      </label>
-                      {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
+          <div className="space-y-4 mt-4 w-full">
+            {bpInfos.map((bp, index) => {
+              return (
+                <div
+                  key={index}
+                  className={`flex flex-row space-x-4 border p-4 rounded-md shadow-md bg-gray-50 ${
+                    selectedBpIndex === index ? 'w-full' : 'max-w-prose'
+                  }`}
+                >
+                  {/* Left side: editable fields */}
+                  <div className="w-1/2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-lg text-gray-800 mb-2">{getBpName(bp)}</h3>
+                      {/* PDF Preview Component next to the title */}
+                      <Button
+                        onClick={() => {
+                          setSelectedBpIndex(index === selectedBpIndex ? null : index); // Toggle
+                        }}
+                      >
+                        {selectedBpIndex === index ? "Masquer PDF" : "Voir PDF"}
+                      </Button>
+                    </div>
+                    {/* Other BP fields can be rendered below */}
+                    <div className="mt-4">
+                      {/* Gross Salary Field */}
+                      <div className="mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Salaire brut
+                        </label>
                         <Input
-                          key={primeIndex}
-                          type="number"
-                          name={`premium-${primeIndex}`}
-                          placeholder="0"
-                          value={prime || ""}
+                          type="text"
+                          name="grossSalary"
+                          placeholder="Salaire brut"
+                          value={bp.salaire_brut_montant || ""}
                           className="pr-14 h-12"
                           onChange={(e) => {
                             const updatedValue = parseFloat(e.target.value || "0");
                             setBpInfos((prevBpInfos) =>
-                              prevBpInfos.map((item, i) => {
-                                if (i === index) {
-                                  return {
-                                    ...item,
-                                    primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
-                                      j === primeIndex ? updatedValue : p
-                                    ),
-                                  };
-                                }
-                                return item;
-                              })
+                              prevBpInfos.map((item, i) =>
+                                i === index
+                                  ? {...item, salaire_brut_montant: updatedValue}
+                                  : item
+                              )
                             );
                           }}
                         />
-                      ))}
-                    </div>
-                  )}
-                  {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
-                    <div className="mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Avantage en nature
-                      </label>
-                      {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
+                      </div>
+
+                      {/* Sick Leave Field */}
+                      <div className="mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Nombre d'arrêts maladie
+                        </label>
                         <Input
-                          key={advIndex}
                           type="number"
-                          name={`natureAdvantage-${advIndex}`}
+                          name="sickLeaveWorkingDays"
                           placeholder="0"
-                          value={advantage || ""}
+                          value={bp.sickLeaveWorkingDays || 0}
                           className="pr-14 h-12"
                           onChange={(e) => {
-                            const updatedValue = parseFloat(e.target.value || "0");
+                            const updatedValue = parseFloat(e.target.value);
+                            if (isNaN(updatedValue)) {
+                              console.warn("Invalid number entered");
+                              return;
+                            }
                             setBpInfos((prevBpInfos) =>
-                              prevBpInfos.map((item, i) => {
-                                if (i === index) {
-                                  return {
-                                    ...item,
-                                    avantage_en_nature_montant: item.avantage_en_nature_montant.map(
-                                      (a, j) => (j === advIndex ? updatedValue : a)
-                                    ),
-                                  };
-                                }
-                                return item;
-                              })
+                              prevBpInfos.map((item, i) =>
+                                i === index
+                                  ? {...item, sickLeaveWorkingDays: updatedValue}
+                                  : item
+                              )
                             );
                           }}
                         />
-                      ))}
+                      </div>
+
+                      {/* Primes Field */}
+                      {bp.primes_annuelles_regulieres && bp.primes_annuelles_regulieres.length > 0 && (
+                        <div className="mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Primes
+                          </label>
+                          {bp.primes_annuelles_regulieres.map((prime, primeIndex) => (
+                            <Input
+                              key={primeIndex}
+                              type="number"
+                              name={`premium-${primeIndex}`}
+                              placeholder="0"
+                              value={prime || ""}
+                              className="pr-14 h-12"
+                              onChange={(e) => {
+                                const updatedValue = parseFloat(e.target.value || "0");
+                                setBpInfos((prevBpInfos) =>
+                                  prevBpInfos.map((item, i) => {
+                                    if (i === index) {
+                                      return {
+                                        ...item,
+                                        primes_annuelles_regulieres: item.primes_annuelles_regulieres.map((p, j) =>
+                                          j === primeIndex ? updatedValue : p
+                                        ),
+                                      };
+                                    }
+                                    return item;
+                                  })
+                                );
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {bp.avantage_en_nature_montant && bp.avantage_en_nature_montant.length > 0 && (
+                        <div className="mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Avantage en nature
+                          </label>
+                          {bp.avantage_en_nature_montant.map((advantage, advIndex) => (
+                            <Input
+                              key={advIndex}
+                              type="number"
+                              name={`natureAdvantage-${advIndex}`}
+                              placeholder="0"
+                              value={advantage || ""}
+                              className="pr-14 h-12"
+                              onChange={(e) => {
+                                const updatedValue = parseFloat(e.target.value || "0");
+                                setBpInfos((prevBpInfos) =>
+                                  prevBpInfos.map((item, i) => {
+                                    if (i === index) {
+                                      return {
+                                        ...item,
+                                        avantage_en_nature_montant: item.avantage_en_nature_montant.map(
+                                          (a, j) => (j === advIndex ? updatedValue : a)
+                                        ),
+                                      };
+                                    }
+                                    return item;
+                                  })
+                                );
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* PDF Viewer */}
+                  {/* Right side: PDF viewer */}
+                  {selectedBpIndex === index && (
+                    <div className="w-1/2 border-l pl-4 h-screen">
+                      <PdfViewerIframe
+                        pdfFile={bpFiles[index]}
+                        boundingBoxes={bpInfos[index]?.boundingBoxes || []}
+                        pageNumber={1}
+                      />
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -872,37 +888,6 @@ export default function Page() {
           />
         )}
       </div>
-
-      {/* PDF Viewer */}
-      {isPdfModalOpen && selectedBpIndex !== null && (
-        <div
-          className="relative border-l shadow-lg h-screen overflow-auto bg-white py-auto items-center"
-          style={{width: `${panelWidth}px`}}
-        >
-          {/* Handle resize */}
-          <div
-            className="absolute left-0 top-0 h-full w-2 cursor-col-resize z-10"
-            onMouseDown={() => setIsResizing(true)}
-          />
-
-          {/* Bouton Fermer */}
-          <button
-            onClick={() => setIsPdfModalOpen(false)}
-            className="absolute top-4 right-4 text-gray-600 hover:text-black z-20"
-          >
-            Fermer ✖
-          </button>
-
-          {/* Viewer */}
-          <div className="h-full pt-12">
-            <PdfViewerIframe
-              pdfFile={bpFiles[selectedBpIndex]}
-              boundingBoxes={bpInfos[selectedBpIndex]?.boundingBoxes || []}
-              pageNumber={1}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,19 +1,18 @@
 "use server"
 import React from 'react'
-import { ModeToggle } from './mode-toggle'
-import {SettingsButton} from "@/components/settings-button";
 import {createClient} from "@/lib/supabase/client/server";
 import HistoryContainer from "@/components/history-container";
 import {NewThreadSidebarButton} from "@/components/new-thread-sidebar-button";
 import {VideoMike} from "@/components/video-mike";
-import {TimeSaved} from "@/components/time-saved";
 import {HelpSidebarButton} from "@/components/help-sidebar-button";
 import {BpAnalyzerSidebarButton} from "@/components/bp-analyzer-sidebar-button";
+import {RightSidebar} from "@/components/right-sidebar";
 
 export const Header: React.FC = async () => {
   const supabase = createClient()
 
   const { data, error } = await supabase.auth.getUser()
+  const isSuperAdmin = !error && data?.user?.app_metadata?.role === "super-admin";
 
   return (
     <>
@@ -36,18 +35,7 @@ export const Header: React.FC = async () => {
             <BpAnalyzerSidebarButton />
           </div>
         </div>
-        <div
-          className="fixed right-0 top-0 h-screen bg-blue-500 bg-gradient-to-b from-pink-50 via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950 w-60">
-          <div className="mt-2 gap-2 px-8 flex flex-col items-center">
-            <ModeToggle/>
-            {(!error && data?.user?.app_metadata?.role === "super-admin") && (
-              <SettingsButton/>
-            )}
-            <div className="mt-8">
-              <TimeSaved />
-            </div>
-          </div>
-        </div>
+        <RightSidebar isSuperAdmin={isSuperAdmin} />
       </header>
     </>
   );
